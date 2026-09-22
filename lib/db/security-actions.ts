@@ -630,7 +630,7 @@ export async function deleteIndex(connectionString: string, schema: string, name
   });
 }
 
-async function createIndex(
+export async function createIndex(
   connectionString: string,
   schema: string,
   table: string,
@@ -725,7 +725,7 @@ export async function fetchLocks(connectionString: string) {
   });
 }
 
-async function createTrigger(
+export async function createTrigger(
   connectionString: string,
   schema: string,
   table: string,

@@ -248,7 +248,7 @@ function extractComparableStatements(schemaSql: string) {
     .filter((stmt) => stmt.normalized.length > 0);
 }
 
-async function comparePostgresSchemas(
+export async function comparePostgresSchemas(
   sourceConnectionString: string,
   targetConnectionString: string,
 ) {
@@ -297,7 +297,7 @@ async function comparePostgresSchemas(
   }
 }
 
-async function applyPostgresSchemaToTarget(
+export async function applyPostgresSchemaToTarget(
   sourceConnectionString: string,
   targetConnectionString: string,
 ) {

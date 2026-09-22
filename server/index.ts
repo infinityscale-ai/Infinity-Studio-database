@@ -3,6 +3,7 @@ import cors from "cors";
 import path from "path";
 import fs from "fs";
 import os from "os";
+import crypto from "crypto";
 import "pg";
 import "redis";
 import "drizzle-orm";
@@ -12,6 +13,10 @@ import { extractIndexColumns } from "../lib/db/pg-utils";
 import { createInfinityStudioPiSession, streamPiResponse, type PiAgentInput, type PiSseEvent } from "../lib/ai/pi-agent";
 import { getAgentSandboxCwd } from "../lib/agents/sandbox-cwd";
 import { ensureEnrichedPath } from "../lib/system/shell-path";
+import { isLoopback, readServerConfig, validateServerConfig } from "./web/config";
+import { isStaticPageRequest, mountStatic } from "./web/static";
+import { lookupAction } from "./api-actions";
+import { clearSearchIndex, getSearchIndexStatus, saveSearchResultsToIndex, searchLocalIndex } from "../lib/db/search-index-actions";
 
 // Packaged/prod desktop builds are launched by the OS, not a terminal, so
 // process.env.PATH is missing Homebrew/nvm/npm-global dirs — enrich it
@@ -35,16 +40,22 @@ function log(...args: any[]) {
   process.stderr.write(parts.join(' ') + '\n');
 }
 
-const PORT = parseInt(process.env.INFSTUDIO_SERVER_PORT || "3867", 10);
+const cfg = readServerConfig();
+const PORT = cfg.port;
 
-// In dev mode, default DB to project root (matching Electron main.js behavior)
-if (!process.env.INFSTUDIO_USER_DATA_DIR) {
-  process.env.INFSTUDIO_USER_DATA_DIR = process.cwd();
+// Shared modules read the data dir from the env, so the resolved default is written back.
+process.env.INFSTUDIO_USER_DATA_DIR = cfg.dataDir;
+
+const configProblems = validateServerConfig(cfg);
+if (configProblems.length > 0) {
+  for (const problem of configProblems) process.stderr.write(`[infinity-studio-server] fatal: ${problem.message}\n`);
+  process.exit(1);
 }
 
-// Log to a known-writable location so we can always find it
-const LOG_FILE = path.join(os.tmpdir(), "infinity-studio-server.log");
+// Log to a known-writable location so we can always find it; embed mode keeps no file log.
+const LOG_FILE = cfg.embedMode ? null : path.join(os.tmpdir(), "infinity-studio-server.log");
 function logToFile(...args: unknown[]) {
+  if (!LOG_FILE) return;
   try {
     const line = `[${new Date().toISOString()}] ${args.map(a => String(a)).join(" ")}\n`;
     fs.appendFileSync(LOG_FILE, line);
@@ -72,7 +83,8 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:3000',
   'tauri://localhost',
   'http://tauri.localhost',
-  ...(process.env.INFSTUDIO_CORS_ORIGINS ? process.env.INFSTUDIO_CORS_ORIGINS.split(',').map(s => s.trim()) : []),
+  ...cfg.corsOrigins,
+  ...(cfg.consoleOrigin ? [cfg.consoleOrigin] : []),
 ];
 
 const corsMiddleware = cors({
@@ -109,24 +121,29 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Simple API key authentication (allows unauthenticated health checks)
-const API_KEY = process.env.INFSTUDIO_API_KEY || '';
+// Reports whether a request needs no API key: health, MCP (own bearer), the embed claim, and SPA pages/assets.
+function isPublicRequest(req: express.Request): boolean {
+  if (req.path === '/health' || req.path === '/mcp') return true;
+  if (req.method === 'POST' && req.path === '/api/embed/claim') return true;
+  return Boolean(cfg.staticDir) && isStaticPageRequest(req.method, req.path);
+}
 
+// Reports whether the Authorization header carries the configured API key (constant-time).
+function bearerMatchesApiKey(authHeader: string | undefined): boolean {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  const presented = Buffer.from(authHeader.slice(7));
+  const expected = Buffer.from(cfg.apiKey);
+  return presented.length === expected.length && crypto.timingSafeEqual(presented, expected);
+}
+
+// API key authentication; without a key, only loopback or INFSTUDIO_ALLOW_UNAUTHENTICATED lets requests through.
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  // Health endpoint is public
-  if (req.path === '/health') return next();
-  
-  // Skip auth for static/studio paths
-  if (req.path.startsWith('/studio/')) return next();
-
-  // The MCP endpoint has its own Bearer-token auth (Settings → MCP Server)
-  if (req.path === '/mcp') return next();
-  
-  // If no API key is configured, skip auth (dev mode)
-  if (!API_KEY) return next();
-  
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.slice(7) !== API_KEY) {
+  if (isPublicRequest(req)) return next();
+  if (!cfg.apiKey) {
+    if (cfg.allowUnauthenticated || isLoopback(cfg.bind)) return next();
+    return res.status(401).json({ success: false, error: 'Unauthorized. This server accepts no unauthenticated requests.' });
+  }
+  if (!bearerMatchesApiKey(req.headers.authorization)) {
     return res.status(401).json({ success: false, error: 'Unauthorized. Provide Authorization: Bearer <token> header.' });
   }
   next();
@@ -137,6 +154,11 @@ app.use(authMiddleware);
 // Health check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", port: PORT });
+});
+
+// Authenticated no-op; the web client probes it to learn whether it needs an access key.
+app.get("/api/auth/probe", (_req, res) => {
+  res.json({ success: true });
 });
 
 // Supabase Management API proxy (avoids CORS in the browser)
@@ -260,8 +282,7 @@ app.delete("/api/connections/:id", async (req, res) => {
 app.post("/api/connections/test", async (req, res) => {
   try {
     const { connectionString, connectionType } = req.body;
-    logToFile("POST /api/connections/test body keys:", Object.keys(req.body).join(","));
-    logToFile("POST /api/connections/test connectionType:", connectionType, "connectionString:", String(connectionString).slice(0, 100));
+    logToFile("POST /api/connections/test connectionType:", connectionType);
     const result = await mod.testConnection(connectionString, connectionType);
     logToFile("POST /api/connections/test result success:", result.success, "error:", result.error);
     res.json(result);
@@ -450,7 +471,8 @@ app.delete("/api/mcp/modes/:id", async (req, res) => {
 
 // Streamable-HTTP MCP endpoint (stateless). Bearer-authenticated with the MCP
 // token from Settings → MCP Server; independent from INFSTUDIO_API_KEY.
-app.all("/mcp", async (req, res) => {
+// Not registered at all when INFSTUDIO_MCP_DISABLED is set (containers).
+const mcpHttpHandler: express.RequestHandler = async (req, res) => {
   try {
     const { loadMcpExternalConfig } = await import("../lib/agents/mcp/external-config");
     const { handleMcpHttpRequest, isMcpBearerAuthorized } = await import("../lib/agents/mcp/http");
@@ -467,7 +489,8 @@ app.all("/mcp", async (req, res) => {
   } catch (e: any) {
     if (!res.headersSent) res.status(500).json({ success: false, error: e.message });
   }
-});
+};
+if (!cfg.mcpDisabled) app.all("/mcp", mcpHttpHandler);
 
 // SQL query execution
 app.post("/api/sql/run", async (req, res) => {
@@ -533,13 +556,13 @@ app.post("/api/tables/search-all", async (req, res) => {
 });
 
 // Search index routes (local SQLite cache for universal search)
-app.post("/api/search-index/query", dynamicPostRoute("../lib/db/search-index-actions", (body, m) => m.searchLocalIndex(body.connectionString, body.term)));
+app.post("/api/search-index/query", simplePostRoute(async body => searchLocalIndex(body.connectionString, body.term)));
 
-app.post("/api/search-index/save", dynamicPostRoute("../lib/db/search-index-actions", (body, m) => m.saveSearchResultsToIndex(body.connectionString, body.results)));
+app.post("/api/search-index/save", simplePostRoute(async body => saveSearchResultsToIndex(body.connectionString, body.results)));
 
-app.post("/api/search-index/clear", dynamicPostRoute("../lib/db/search-index-actions", (body, m) => m.clearSearchIndex(body.connectionString)));
+app.post("/api/search-index/clear", simplePostRoute(async body => clearSearchIndex(body.connectionString)));
 
-app.post("/api/search-index/status", dynamicPostRoute("../lib/db/search-index-actions", (body, m) => m.getSearchIndexStatus(body.connectionString)));
+app.post("/api/search-index/status", simplePostRoute(async body => getSearchIndexStatus(body.connectionString)));
 
 app.post("/api/table-structure", proxyThreeArgRoute(mod.fetchTableStructure));
 
@@ -770,18 +793,16 @@ app.post("/api/snapshots/create-stream", async (req, res) => {
   await handleSnapshotCreateStream(req, res);
 });
 
-// Generic actions dispatch (for all the misc actions)
+// Actions dispatch over the explicit table in server/api-actions.ts (no reflection over module exports)
 app.post("/api/actions/:action", async (req, res) => {
+  const { action } = req.params;
+  const rule = lookupAction(action);
+  if (!rule) {
+    return res.status(404).json({ success: false, error: `Unknown action: ${action}` });
+  }
+  const args: unknown[] = Array.isArray(req.body?.args) ? req.body.args : [];
   try {
-    const { action } = req.params;
-    const { args } = req.body || {};
-
-    const func = (mod as any)[action];
-    if (typeof func !== "function") {
-      return res.json({ success: false, error: `Unknown action: ${action}` });
-    }
-
-    const result = await func(...(Array.isArray(args) ? args : []));
+    const result = await rule.fn(...args);
     res.json(result || { success: true });
   } catch (e: any) {
     res.json({ success: false, error: e.message });
@@ -1026,16 +1047,6 @@ function simplePostRoute(fn: (body: any) => Promise<any>): Handler {
   return async (req, res) => {
     try {
       res.json(await fn(req.body));
-    } catch (e: any) { res.json({ success: false, error: e.message }); }
-  };
-}
-
-/** POST /api/X — dynamic import, then call fn(body, importedModule) */
-function dynamicPostRoute(importPath: string, fn: (body: any, mod: any) => Promise<any>): Handler {
-  return async (req, res) => {
-    try {
-      const m = await import(importPath);
-      res.json(await fn(req.body, m));
     } catch (e: any) { res.json({ success: false, error: e.message }); }
   };
 }
@@ -2228,18 +2239,21 @@ app.post("/api/agents/chat/stream", async (req, res) => {
   }
 });
 
+// The SPA catch-all goes last so every API route above wins; a no-op without INFSTUDIO_STATIC_DIR.
+mountStatic(app, cfg);
+
+// Listens on the configured bind; the port auto-increments only when neither bind nor port was pinned.
 function startServer(port: number, maxPort: number = 3900) {
-  const server = app.listen(port, "127.0.0.1", () => {
-    log(`[infinity-studio-server] listening on port ${port}`);
-    logToFile(`listening on port ${port}`);
+  const server = app.listen(port, cfg.bind, () => {
+    log(`[infinity-studio-server] listening on ${cfg.bind}:${port}`);
+    logToFile(`listening on ${cfg.bind}:${port}`);
     // Warm provider cache in background so first /api/agents/detect is instant (t3 pattern)
     setTimeout(() => {
       void refreshProvidersCacheInBackground().catch(() => {});
     }, 500);
     // Write port file for frontend discovery
-    const dataDir = process.env.INFSTUDIO_USER_DATA_DIR || "/tmp";
     try {
-      fs.writeFileSync(path.join(dataDir, "port.json"), JSON.stringify({ port }));
+      fs.writeFileSync(path.join(cfg.dataDir, "port.json"), JSON.stringify({ port }));
     } catch {}
     // Signal readiness to parent process
     if (process.send) {
@@ -2247,14 +2261,14 @@ function startServer(port: number, maxPort: number = 3900) {
     }
   });
   server.on("error", (err: any) => {
-    if (err.code === "EADDRINUSE" && port < maxPort) {
+    if (err.code === "EADDRINUSE" && !cfg.strictPort && port < maxPort) {
       const nextPort = port + 1;
       log(`[infinity-studio-server] port ${port} in use, trying ${nextPort}`);
       logToFile(`port ${port} in use, trying ${nextPort}`);
       startServer(nextPort, maxPort);
     } else {
-      log(`[infinity-studio-server] failed to start on port ${port}: ${err.message}`);
-      logToFile(`failed to start on port ${port}: ${err.message}`);
+      log(`[infinity-studio-server] failed to start on ${cfg.bind}:${port}: ${err.message}`);
+      logToFile(`failed to start on ${cfg.bind}:${port}: ${err.message}`);
       process.exit(1);
     }
   });
