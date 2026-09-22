@@ -1036,11 +1036,12 @@ export async function getConnections(workspaceUrl?: string) {
     let conns;
     if (workspaceUrl) {
       conns = await client.connections.findMany({
-        where: sql`connection_string LIKE 'workspace:%'`,
+        where: sql`connection_string LIKE 'workspace:%' AND COALESCE(managed, 0) = 0`,
         orderBy: [{ sortOrder: "desc" }, { createdAt: "desc" }],
       });
     } else {
       conns = await client.connections.findMany({
+        where: sql`COALESCE(managed, 0) = 0`,
         orderBy: [{ sortOrder: "desc" }, { createdAt: "desc" }],
       });
     }
@@ -1281,17 +1282,18 @@ async function withCachedFetchIgnoringCacheError(
 export async function fetchTables(
   connectionString: string,
   schema: string,
-  options?: { forceRefresh?: boolean; cacheMaxAgeMs?: number },
+  options?: { forceRefresh?: boolean; cacheMaxAgeMs?: number; cacheKey?: string },
 ) {
   const dbType = detectConnectionDbType(connectionString);
   const {
     forceRefresh = false,
     cacheMaxAgeMs = DEFAULT_SCHEMA_CACHE_MAX_AGE_MS,
+    cacheKey = connectionString,
   } = options || {};
 
   if (!forceRefresh) {
     const cached = await readCachedTables(
-      connectionString,
+      cacheKey,
       schema,
       cacheMaxAgeMs,
     );
@@ -1309,7 +1311,7 @@ export async function fetchTables(
         const { getMongoCollections } = await import("./mongo-client");
         return getMongoCollections(connectionString, resolvedSchema);
       },
-      (d) => writeCachedTables(connectionString, resolvedSchema, d),
+      (d) => writeCachedTables(cacheKey, resolvedSchema, d),
     );
   }
 
@@ -1321,7 +1323,7 @@ export async function fetchTables(
         const { getSqlEngineTables } = await import("./sql-engine");
         return getSqlEngineTables(connectionString, resolvedSchema);
       },
-      (d) => writeCachedTables(connectionString, resolvedSchema, d),
+      (d) => writeCachedTables(cacheKey, resolvedSchema, d),
     );
   }
 
@@ -1332,7 +1334,7 @@ export async function fetchTables(
         const { getSqlEngineTables } = await import("./sql-engine");
         return getSqlEngineTables(connectionString, schema);
       },
-      (d) => writeCachedTables(connectionString, schema, d),
+      (d) => writeCachedTables(cacheKey, schema, d),
     );
   }
 
@@ -1343,7 +1345,7 @@ export async function fetchTables(
         const { getDbTables } = await import("./db-engine");
         return getDbTables(connectionString, schema);
       },
-      (d) => writeCachedTables(connectionString, schema, d),
+      (d) => writeCachedTables(cacheKey, schema, d),
     );
   }
 
@@ -1353,7 +1355,7 @@ export async function fetchTables(
       const { getDbTables } = await import("./db-engine");
       return getDbTables(connectionString, schema);
     },
-    (d) => writeCachedTables(connectionString, schema, d),
+    (d) => writeCachedTables(cacheKey, schema, d),
   );
 }
 
@@ -1363,6 +1365,7 @@ export async function fetchSchemas(
     forceRefresh?: boolean;
     cacheMaxAgeMs?: number;
     connectionType?: string;
+    cacheKey?: string;
   },
 ) {
   const dbType = detectConnectionDbType(
@@ -1372,10 +1375,11 @@ export async function fetchSchemas(
   const {
     forceRefresh = false,
     cacheMaxAgeMs = DEFAULT_SCHEMA_CACHE_MAX_AGE_MS,
+    cacheKey = connectionString,
   } = options || {};
 
   if (!forceRefresh) {
-    const cached = await readCachedSchemas(connectionString, cacheMaxAgeMs);
+    const cached = await readCachedSchemas(cacheKey, cacheMaxAgeMs);
     if (cached) {
       return { success: true, data: cached };
     }
@@ -1385,7 +1389,7 @@ export async function fetchSchemas(
     const schemas = [
       getMongoDatabaseFromConnectionString(connectionString),
     ].filter(Boolean) as string[];
-    await writeCachedSchemas(connectionString, schemas);
+    await writeCachedSchemas(cacheKey, schemas);
     return { success: true, data: schemas };
   }
 
@@ -1396,7 +1400,7 @@ export async function fetchSchemas(
         const { getSqlEngineSchemas } = await import("./sql-engine");
         return getSqlEngineSchemas(connectionString);
       },
-      (d) => writeCachedSchemas(connectionString, d),
+      (d) => writeCachedSchemas(cacheKey, d),
     );
   }
 
@@ -1407,7 +1411,7 @@ export async function fetchSchemas(
         const { getSqlEngineSchemas } = await import("./sql-engine");
         return getSqlEngineSchemas(connectionString);
       },
-      (d) => writeCachedSchemas(connectionString, d),
+      (d) => writeCachedSchemas(cacheKey, d),
     );
   }
 
@@ -1418,7 +1422,7 @@ export async function fetchSchemas(
         const { getDbSchemas } = await import("./db-engine");
         return getDbSchemas(connectionString);
       },
-      (d) => writeCachedSchemas(connectionString, d),
+      (d) => writeCachedSchemas(cacheKey, d),
     );
   }
 
@@ -1428,7 +1432,7 @@ export async function fetchSchemas(
       const { getDbSchemas } = await import("./db-engine");
       return getDbSchemas(connectionString);
     },
-    (d) => writeCachedSchemas(connectionString, d),
+    (d) => writeCachedSchemas(cacheKey, d),
   );
 }
 
@@ -1457,18 +1461,19 @@ export async function fetchDatabases(connectionString: string) {
 
 export async function fetchAllTablesWithColumns(
   connectionString: string,
-  options?: { forceRefresh?: boolean; cacheMaxAgeMs?: number; schema?: string },
+  options?: { forceRefresh?: boolean; cacheMaxAgeMs?: number; schema?: string; cacheKey?: string },
 ) {
   const dbType = detectConnectionDbType(connectionString);
   const {
     forceRefresh = false,
     cacheMaxAgeMs = DEFAULT_SCHEMA_CACHE_MAX_AGE_MS,
     schema,
+    cacheKey = connectionString,
   } = options || {};
 
   if (!forceRefresh) {
     const cached = await readCachedColumns(
-      connectionString,
+      cacheKey,
       cacheMaxAgeMs,
       schema,
     );
@@ -1490,7 +1495,7 @@ export async function fetchAllTablesWithColumns(
         return getSqlEngineAllTablesWithColumns(connectionString, schema);
       },
       (d) =>
-        writeCachedColumns(connectionString, d as CachedColumnRow[], schema),
+        writeCachedColumns(cacheKey, d as CachedColumnRow[], schema),
     );
   }
 
@@ -1503,7 +1508,7 @@ export async function fetchAllTablesWithColumns(
         return getSqlEngineAllTablesWithColumns(connectionString, schema);
       },
       (d) =>
-        writeCachedColumns(connectionString, d as CachedColumnRow[], schema),
+        writeCachedColumns(cacheKey, d as CachedColumnRow[], schema),
     );
   }
 
@@ -1514,7 +1519,7 @@ export async function fetchAllTablesWithColumns(
         const { getDbAllTablesWithColumns } = await import("./db-engine");
         return getDbAllTablesWithColumns(connectionString);
       },
-      (d) => writeCachedColumns(connectionString, d as CachedColumnRow[]),
+      (d) => writeCachedColumns(cacheKey, d as CachedColumnRow[]),
     );
   }
 
@@ -1524,7 +1529,7 @@ export async function fetchAllTablesWithColumns(
       const { getDbAllTablesWithColumns } = await import("./db-engine");
       return getDbAllTablesWithColumns(connectionString);
     },
-    (d) => writeCachedColumns(connectionString, d as CachedColumnRow[]),
+    (d) => writeCachedColumns(cacheKey, d as CachedColumnRow[]),
   );
 }
 

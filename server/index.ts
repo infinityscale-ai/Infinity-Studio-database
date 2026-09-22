@@ -16,6 +16,7 @@ import { ensureEnrichedPath } from "../lib/system/shell-path";
 import { isLoopback, readServerConfig, validateServerConfig } from "./web/config";
 import { isStaticPageRequest, mountStatic } from "./web/static";
 import { lookupAction } from "./api-actions";
+import { assertEmbedRequest, cacheOptionsFor, mountEmbedClaim, mountEmbedSession, respondEmbedFailure, startEmbedAdmin } from "./embed/mount";
 import { clearSearchIndex, getSearchIndexStatus, saveSearchResultsToIndex, searchLocalIndex } from "../lib/db/search-index-actions";
 
 // Packaged/prod desktop builds are launched by the OS, not a terminal, so
@@ -96,7 +97,7 @@ const corsMiddleware = cors({
     callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'User-Agent'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'User-Agent', 'X-Supabase-Authorization'],
 });
 
 app.use(corsMiddleware);
@@ -110,6 +111,9 @@ app.use(
   express.raw({ type: "multipart/*", limit: "20mb" }),
 );
 
+// Embed mode: the claim router parses its own body, so it sits ahead of the global JSON parser.
+const embed = mountEmbedClaim(app, cfg);
+
 // Limit JSON body to 1MB (reduced from 50MB to prevent memory exhaustion)
 app.use(express.json({ limit: "1mb" }));
 // Strip trailing slashes so /api/agents and /api/agents/ both work
@@ -120,6 +124,9 @@ app.use((req, _res, next) => {
   }
   next();
 });
+
+// Embed mode: bearer sessions are resolved and policed here; other requests pass through untouched.
+mountEmbedSession(app, embed);
 
 // Reports whether a request needs no API key: health, MCP (own bearer), the embed claim, and SPA pages/assets.
 function isPublicRequest(req: express.Request): boolean {
@@ -138,7 +145,7 @@ function bearerMatchesApiKey(authHeader: string | undefined): boolean {
 
 // API key authentication; without a key, only loopback or INFSTUDIO_ALLOW_UNAUTHENTICATED lets requests through.
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  if (isPublicRequest(req)) return next();
+  if (req.embed || isPublicRequest(req)) return next();
   if (!cfg.apiKey) {
     if (cfg.allowUnauthenticated || isLoopback(cfg.bind)) return next();
     return res.status(401).json({ success: false, error: 'Unauthorized. This server accepts no unauthenticated requests.' });
@@ -172,7 +179,9 @@ app.all("/api/supabase-mgmt/proxy/*", async (req, res) => {
     const headers: Record<string, string> = {
       "User-Agent": "supabase-cli",
     };
-    if (req.headers.authorization) headers.Authorization = req.headers.authorization;
+    // The studio's own bearer rides in Authorization; the Supabase token comes in X-Supabase-Authorization.
+    const upstreamAuth = req.headers["x-supabase-authorization"] ?? req.headers.authorization;
+    if (typeof upstreamAuth === "string" && upstreamAuth) headers.Authorization = upstreamAuth;
     if (req.headers["user-agent"]) headers["User-Agent"] = req.headers["user-agent"];
     const fetchInit: RequestInit = {
       method: req.method,
@@ -495,10 +504,12 @@ if (!cfg.mcpDisabled) app.all("/mcp", mcpHttpHandler);
 // SQL query execution
 app.post("/api/sql/run", async (req, res) => {
   try {
+    assertEmbedRequest(req);
     const { connectionString, query, params, options } = req.body;
     const result = await mod.runQuery(connectionString, query, params || [], options || {});
     res.json(result);
   } catch (e: any) {
+    if (respondEmbedFailure(embed, req, res, e)) return;
     res.json({ success: false, error: e.message });
   }
 });
@@ -516,41 +527,49 @@ app.post("/api/sql/cancel", async (req, res) => {
 // Schema & tables
 app.post("/api/schema", async (req, res) => {
   try {
+    assertEmbedRequest(req);
     const { connectionString, options } = req.body;
-    const result = await mod.fetchSchemas(connectionString, options);
+    const result = await mod.fetchSchemas(connectionString, cacheOptionsFor(req, options));
     res.json(result);
   } catch (e: any) {
+    if (respondEmbedFailure(embed, req, res, e)) return;
     res.json({ success: false, error: e.message });
   }
 });
 
 app.post("/api/tables", async (req, res) => {
   try {
+    assertEmbedRequest(req);
     const { connectionString, schema, options } = req.body;
-    const result = await mod.fetchTables(connectionString, schema, options);
+    const result = await mod.fetchTables(connectionString, schema, cacheOptionsFor(req, options));
     res.json(result);
   } catch (e: any) {
+    if (respondEmbedFailure(embed, req, res, e)) return;
     res.json({ success: false, error: e.message });
   }
 });
 
 app.post("/api/tables-with-columns", async (req, res) => {
   try {
+    assertEmbedRequest(req);
     const { connectionString, options } = req.body;
-    const result = await mod.fetchAllTablesWithColumns(connectionString, options);
+    const result = await mod.fetchAllTablesWithColumns(connectionString, cacheOptionsFor(req, options));
     res.json(result);
   } catch (e: any) {
+    if (respondEmbedFailure(embed, req, res, e)) return;
     res.json({ success: false, error: e.message });
   }
 });
 
 app.post("/api/tables/search-all", async (req, res) => {
   try {
+    assertEmbedRequest(req);
     const { searchAllTables } = await import("../lib/db/actions");
     const { connectionString, searchTerm, schema, connectionType } = req.body;
     const result = await searchAllTables(connectionString, searchTerm, { schema, connectionType });
     res.json(result);
   } catch (e: any) {
+    if (respondEmbedFailure(embed, req, res, e)) return;
     res.json({ success: false, error: e.message });
   }
 });
@@ -2247,6 +2266,10 @@ function startServer(port: number, maxPort: number = 3900) {
   const server = app.listen(port, cfg.bind, () => {
     log(`[infinity-studio-server] listening on ${cfg.bind}:${port}`);
     logToFile(`listening on ${cfg.bind}:${port}`);
+    // Embed mode: the admin API (session minting and revocation) listens on its own loopback port; the key is never logged.
+    startEmbedAdmin(cfg, embed)
+      .then((address) => { if (address) log(`[infinity-studio-server] admin API listening on ${address}`); })
+      .catch((err: Error) => { log(`[infinity-studio-server] failed to start the admin API: ${err.message}`); process.exit(1); });
     // Warm provider cache in background so first /api/agents/detect is instant (t3 pattern)
     setTimeout(() => {
       void refreshProvidersCacheInBackground().catch(() => {});

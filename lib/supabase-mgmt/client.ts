@@ -1,5 +1,5 @@
 import type { Project, Organization } from "supabase-client-sdk";
-import { API_BASE } from "@/lib/api-base";
+import { API_BASE, apiFetch } from "@/lib/api-base";
 
 // Route through the sidecar proxy: the Management API does not send
 // `Access-Control-Allow-Origin`, so direct browser/webview fetches are
@@ -13,10 +13,10 @@ async function mgmt<T>(
   path: string,
   opts?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(`${mgmtBase()}${path}`, {
+  const res = await apiFetch(`${mgmtBase()}${path}`, {
     ...opts,
     headers: {
-      Authorization: `Bearer ${token}`,
+      "X-Supabase-Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
       ...(opts?.headers ?? {}),
     },
@@ -72,8 +72,8 @@ export async function getMgmtUser(token: string): Promise<SupabaseMgmtUser> {
 
 export async function validateToken(token: string): Promise<boolean> {
   try {
-    const res = await fetch(`${mgmtBase()}/projects`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await apiFetch(`${mgmtBase()}/projects`, {
+      headers: { "X-Supabase-Authorization": `Bearer ${token}` },
     });
     return res.ok;
   } catch {

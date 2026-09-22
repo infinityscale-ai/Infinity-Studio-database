@@ -27,6 +27,8 @@ export const connections = sqliteTable("connections", {
   group: text("group"),
   isFavorite: integer("is_favorite", { mode: "boolean" }).default(false),
   lastActive: integer("last_active", { mode: "timestamp" }),
+  externalId: text("external_id"),
+  managed: integer("managed").default(0),
 });
 
 export const folders = sqliteTable("folders", {

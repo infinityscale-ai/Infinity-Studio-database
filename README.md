@@ -52,6 +52,104 @@ bun run server:build   # compile the sidecar binary for the desktop bundle
 Data lives under `~/.infinity-studio/` (connections, settings, query history) and is
 never sent anywhere. AI features call the provider you configure with your own key.
 
+### Local development outside the desktop shell
+
+`next dev` serves the SPA on port 3000 while the sidecar listens on 3867, so the
+browser build must be told where the API is:
+
+```bash
+cp .env.development.example .env.development   # NEXT_PUBLIC_INFSTUDIO_API_BASE=http://127.0.0.1:3867
+bun run server:dev                              # terminal 1
+bun run dev                                     # terminal 2
+```
+
+Inside Tauri the port is discovered at runtime and the variable is ignored.
+
+## Embedding in a hosting console
+
+Embed mode turns the sidecar into a single-database studio that a console mounts in an
+iframe. The console never hands the browser a database password: it mints a *session*
+through a loopback admin API, the browser claims it once, and every query the studio
+sends is pinned server-side to that one connection.
+
+### Environment
+
+| Variable | Meaning |
+|---|---|
+| `INFSTUDIO_EMBED_MODE=1` | Serve only `/embed` (plus `/_next/*`), enable sessions and the request policy, keep no file log. |
+| `INFSTUDIO_ADMIN_PORT`, `INFSTUDIO_ADMIN_BIND` | The admin listener. Bind it to a loopback or pod-local address; it must never be routed. |
+| `INFSTUDIO_ADMIN_KEY` | Shared secret (≥ 32 chars) the console presents as `Authorization: Bearer`. Required with the admin port. |
+| `INFSTUDIO_CONSOLE_ORIGIN` | The console's origin: allowed for CORS and echoed to the page as the `postMessage` target. |
+| `INFSTUDIO_EMBED_ALLOWED_ORIGINS` | Comma-separated origins allowed to frame the page (`Content-Security-Policy: frame-ancestors`). |
+| `INFSTUDIO_STATIC_DIR` | The `out/` export to serve. |
+| `INFSTUDIO_USER_DATA_DIR` | Where `sqlite.db` (studio state, no secrets) lives. |
+| `INFSTUDIO_MCP_DISABLED=1` | Recommended: no MCP endpoint on an embedded studio. |
+| `INFSTUDIO_BIND`, `INFSTUDIO_SERVER_PORT` | The public listener (default `127.0.0.1:3867`). |
+
+### Admin API (console → studio, loopback only)
+
+All routes except health require `Authorization: Bearer <INFSTUDIO_ADMIN_KEY>`.
+
+| Route | Does |
+|---|---|
+| `GET /admin/v1/health` | `{ ok: true }` — public. |
+| `POST /admin/v1/embed-sessions` | Upserts the managed connection and mints a single-use claim token. |
+| `DELETE /admin/v1/embed-sessions?db=<dbId>` | Revokes every session on one database. Add `&purge=1` to also delete its studio state. |
+| `DELETE /admin/v1/embed-sessions?user=<userId>` | Revokes every session of one user. |
+| `DELETE /admin/v1/embed-sessions/<userId>%2F<dbId>` | Revokes one user/database pair. |
+
+Session request body:
+
+```json
+{
+  "externalId": "<userId>/<dbId>", "userId": "u1", "dbId": "db1", "label": "orders",
+  "engine": "postgres | mysql | mongo | redis",
+  "host": "db.internal", "port": 5432, "username": "app", "password": "…", "database": "orders",
+  "options": { "sslmode": "require", "authSource": "admin" },
+  "ttlSeconds": 28800, "tokenTtlSeconds": 60, "displayName": "Jane"
+}
+```
+
+`201 { connectionId, token, tokenExpiresAt }` — `token` is single-use and expires after
+`tokenTtlSeconds` (default 60 s, max 300); the session it opens lasts `ttlSeconds`
+(default 8 h, max 24 h). The password is kept in process memory only: it is never
+written to `sqlite.db`, a log line, or a response. A restart forgets it, and the next
+request on that session answers `401 embed_session_revoked` so the console mints again.
+`DELETE` answers `{ revoked, purged }`, or 404 when nothing matched.
+
+### The iframe
+
+```html
+<iframe src="https://studio.example/embed#s=<token>" allow="clipboard-write"></iframe>
+```
+
+The token rides in the URL fragment, so it never reaches a server log. On load the page
+strips the fragment, exchanges the token at `POST /api/embed/claim` for a bearer that
+lives in `sessionStorage` for that tab, and boots the studio on the one connection.
+Reloading the tab reuses the stored session; a second claim of the same token answers
+`410 token_used`.
+
+Messages the page posts to `window.parent` (targeted at `INFSTUDIO_CONSOLE_ORIGIN`):
+
+| `type` | When |
+|---|---|
+| `infinity-studio:ready` | The session was claimed and the studio is rendering. |
+| `infinity-studio:session-expired` | The token was unusable, or the server answered 401 mid-session (expiry, revocation, or a database authentication failure). The page shows "This session has ended"; the console should mint a new session. |
+
+### What a session may do
+
+Requests carrying an embed bearer are matched against an allow-list: the SQL and schema
+routes, the per-connection studio state (`/studio/<own id>/…`), the actions marked
+`embed: "allow"` in `server/api-actions.ts`, and the read-only appearance settings.
+Everything else — the connection list, other connection ids, MCP, agents, backups,
+bundles, snapshots, global settings writes — answers `403 embed_forbidden`. The client's
+`connectionString` is ignored and replaced with the server-built one, and the row echoed
+by `/studio/<id>/bootstrap` is redacted (`connectionString: "embed://<id>"`, no host,
+user, port or password). A driver authentication failure revokes the session on the spot.
+Only PostgreSQL, MySQL/MariaDB, MongoDB and Redis are served in embed mode.
+
+`scripts/smoke-embed.sh` exercises the whole sequence against a throwaway PostgreSQL.
+
 ## Project layout
 
 ```

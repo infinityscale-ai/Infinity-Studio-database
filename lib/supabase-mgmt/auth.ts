@@ -1,4 +1,4 @@
-import { API_BASE } from "@/lib/api-base";
+import { API_BASE, apiFetch } from "@/lib/api-base";
 
 const DASHBOARD = "https://supabase.com/dashboard";
 const PROXY = `${API_BASE}/api/supabase-mgmt/proxy`;
@@ -45,7 +45,7 @@ export async function createLoginSession(): Promise<LoginSession> {
     `&public_key=${publicKeyHex}`;
 
   const submit = async (deviceCode: string): Promise<string> => {
-    const res = await fetch(
+    const res = await apiFetch(
       `${PROXY}/platform/cli/login/${sessionId}?device_code=${encodeURIComponent(deviceCode)}`,
     );
     if (!res.ok) {

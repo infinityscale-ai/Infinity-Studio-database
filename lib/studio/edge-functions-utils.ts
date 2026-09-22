@@ -1,6 +1,6 @@
 "use client";
 
-import { API_BASE } from "@/lib/api-base";
+import { API_BASE, apiFetch } from "@/lib/api-base";
 import { parseSupabaseMgmtConnectionString } from "@/lib/db/supabase-mgmt-client";
 import { listProjects } from "@/lib/supabase-mgmt/client";
 import {
@@ -81,10 +81,10 @@ async function mgmtRequest<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(`${mgmtBase()}${path}`, {
+  const res = await apiFetch(`${mgmtBase()}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${token}`,
+      "X-Supabase-Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
@@ -236,11 +236,11 @@ export async function deployEdgeFunction(
         new File([f.content], f.name, { type: "application/typescript" }),
       );
     }
-    const res = await fetch(
+    const res = await apiFetch(
       `${mgmtBase()}/projects/${access.projectRef}/functions/deploy?slug=${encodeURIComponent(slug)}`,
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${access.token}` },
+        headers: { "X-Supabase-Authorization": `Bearer ${access.token}` },
         body: form,
       },
     );
@@ -294,9 +294,9 @@ export async function fetchFunctionBody(
   slug: string,
 ): Promise<{ files: CodeFile[]; error?: string }> {
   try {
-    const res = await fetch(
+    const res = await apiFetch(
       `${mgmtBase()}/projects/${access.projectRef}/functions/${encodeURIComponent(slug)}/body`,
-      { headers: { Authorization: `Bearer ${access.token}` } },
+      { headers: { "X-Supabase-Authorization": `Bearer ${access.token}` } },
     );
     const text = await res.text().catch(() => "");
     if (!res.ok) {

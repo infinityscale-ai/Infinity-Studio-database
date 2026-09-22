@@ -53,7 +53,8 @@ export const ACTIONS: Record<string, ActionRule> = {
   deleteIndex: rule(deleteIndex, WRITE),
   createIndex: rule(createIndex, WRITE),
   createTrigger: rule(createTrigger, WRITE),
-  createSnapshot: rule(core.createSnapshot, { csArg: 0, connIdArg: 3, write: false, embed: "allow" }),
+  // The snapshot file persists the connection string it was taken with, so embed sessions may not create one.
+  createSnapshot: rule(core.createSnapshot, { csArg: 0, connIdArg: 3, write: false, embed: "deny" }),
   listSnapshots: rule(core.listSnapshots, SNAPSHOT),
   getSnapshot: rule(core.getSnapshot, SNAPSHOT),
   getSnapshotFull: rule(core.getSnapshotFull, SNAPSHOT),

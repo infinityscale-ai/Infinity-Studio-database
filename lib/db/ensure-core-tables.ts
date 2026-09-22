@@ -35,6 +35,27 @@ export async function ensureCoreTables() {
   }
 
   const coreMigrationPromises = () => [
+    ensureColumns("connections", [
+      { column: "sort_order", statement: "ALTER TABLE connections ADD COLUMN sort_order INTEGER" },
+      { column: "connection_type", statement: "ALTER TABLE connections ADD COLUMN connection_type TEXT" },
+      { column: "environment", statement: "ALTER TABLE connections ADD COLUMN environment TEXT" },
+      { column: "color", statement: "ALTER TABLE connections ADD COLUMN color TEXT" },
+      { column: "group", statement: "ALTER TABLE connections ADD COLUMN \"group\" TEXT" },
+      { column: "is_favorite", statement: "ALTER TABLE connections ADD COLUMN is_favorite INTEGER DEFAULT 0" },
+      { column: "last_active", statement: "ALTER TABLE connections ADD COLUMN last_active INTEGER" },
+      { column: "host", statement: "ALTER TABLE connections ADD COLUMN host TEXT" },
+      { column: "port", statement: "ALTER TABLE connections ADD COLUMN port TEXT" },
+      { column: "database", statement: "ALTER TABLE connections ADD COLUMN database TEXT" },
+      { column: "username", statement: "ALTER TABLE connections ADD COLUMN username TEXT" },
+      { column: "password", statement: "ALTER TABLE connections ADD COLUMN password TEXT" },
+      { column: "ssl_mode", statement: "ALTER TABLE connections ADD COLUMN ssl_mode TEXT" },
+      { column: "auth_token", statement: "ALTER TABLE connections ADD COLUMN auth_token TEXT" },
+      { column: "external_id", statement: "ALTER TABLE connections ADD COLUMN external_id TEXT" },
+      { column: "managed", statement: "ALTER TABLE connections ADD COLUMN managed INTEGER DEFAULT 0" },
+    ]).then(async () => {
+      await db.run(sql`UPDATE connections SET sort_order = created_at WHERE sort_order IS NULL`);
+      await db.run(sql`CREATE UNIQUE INDEX IF NOT EXISTS connections_external_id ON connections(external_id) WHERE external_id IS NOT NULL`);
+    }),
     ensureColumns("connection_settings", [
       { column: "sidebar_behavior", statement: "ALTER TABLE connection_settings ADD COLUMN sidebar_behavior TEXT DEFAULT 'expandable'" },
       { column: "agent_provider", statement: "ALTER TABLE connection_settings ADD COLUMN agent_provider TEXT DEFAULT 'openai'" },
@@ -162,25 +183,7 @@ export async function ensureCoreTables() {
   ];
 
   if (coreTablesEnsured) {
-    await Promise.all([
-      ensureColumns("connections", [
-        { column: "sort_order", statement: "ALTER TABLE connections ADD COLUMN sort_order INTEGER" },
-        { column: "connection_type", statement: "ALTER TABLE connections ADD COLUMN connection_type TEXT" },
-        { column: "environment", statement: "ALTER TABLE connections ADD COLUMN environment TEXT" },
-        { column: "color", statement: "ALTER TABLE connections ADD COLUMN color TEXT" },
-        { column: "group", statement: "ALTER TABLE connections ADD COLUMN \"group\" TEXT" },
-        { column: "is_favorite", statement: "ALTER TABLE connections ADD COLUMN is_favorite INTEGER DEFAULT 0" },
-        { column: "last_active", statement: "ALTER TABLE connections ADD COLUMN last_active INTEGER" },
-        { column: "host", statement: "ALTER TABLE connections ADD COLUMN host TEXT" },
-        { column: "port", statement: "ALTER TABLE connections ADD COLUMN port TEXT" },
-        { column: "database", statement: "ALTER TABLE connections ADD COLUMN database TEXT" },
-        { column: "username", statement: "ALTER TABLE connections ADD COLUMN username TEXT" },
-        { column: "password", statement: "ALTER TABLE connections ADD COLUMN password TEXT" },
-        { column: "ssl_mode", statement: "ALTER TABLE connections ADD COLUMN ssl_mode TEXT" },
-        { column: "auth_token", statement: "ALTER TABLE connections ADD COLUMN auth_token TEXT" },
-      ]).then(() => db.run(sql`UPDATE connections SET sort_order = created_at WHERE sort_order IS NULL`)),
-      ...coreMigrationPromises(),
-    ]);
+    await Promise.all(coreMigrationPromises());
     return;
   }
 
