@@ -55,8 +55,7 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "12.0",
-      "signingIdentity": "Developer ID Application: Hammadi Shahin (B5UL5U45T7)"
+      "minimumSystemVersion": "12.0"
     }
   },
   "plugins": {

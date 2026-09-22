@@ -45,10 +45,6 @@ query-history-debug.json
 *.tsbuildinfo
 next-env.d.ts
 
-Rexa DB
-# Local Netlify folder
-.netlify
-/netlify-deploy
 
 sqlite.db
 /sqlite.db
@@ -91,11 +87,6 @@ skills-lock.json
 # User-imported icon packs (user data, not source)
 /custom-icon-packs/
 
-# Local release staging
-/v1.3/
-/v1.3.1/
-/v1.3.2/
-
 # Session transcripts
 /session-ses_*.md
 
@@ -107,5 +98,5 @@ skills-lock.json
 /resources/java-bridge/out/
 /resources/java-bridge/*.jar
 
-# Supabase local config & credentials
-/supabase/
+# Local sidecar data (web/Docker mode)
+/data
