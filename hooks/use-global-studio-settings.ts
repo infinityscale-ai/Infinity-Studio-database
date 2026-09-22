@@ -16,10 +16,6 @@ import type {
   SqlFormatSettingsRequired,
 } from "@/lib/studio/types";
 import { pickCommonSettings } from "@/lib/studio/settings-common";
-import {
-  emitSettingsSyncLocalChanged,
-  subscribeSettingsSyncApplied,
-} from "@/lib/studio/settings-sync-events";
 
 export const ZOOM_UPDATED_EVENT = "rexadb-zoom-updated";
 
@@ -325,19 +321,6 @@ export function useGlobalStudioSettings(persist = false) {
   }, []);
 
   useEffect(() => {
-    return subscribeSettingsSyncApplied((detail) => {
-      const remote = detail.payload.studioSettings;
-      if (!remote || typeof remote !== "object") return;
-      // Preserve the device-local API key — cloud payload never includes it.
-      applyFromRecord({
-        ...remote,
-        agentApiKey: agentApiKeyRef.current,
-      });
-      setIsLoaded(true);
-    });
-  }, []);
-
-  useEffect(() => {
     if (!persist || !isLoaded) return;
     void saveGlobalStudioSettings({
       appZoom,
@@ -398,8 +381,6 @@ export function useGlobalStudioSettings(persist = false) {
       sqlFormatLinesBetweenQueries,
       sqlFormatDenseOperators,
       sqlFormatNewlineBeforeSemicolon,
-    }).then(() => {
-      emitSettingsSyncLocalChanged("studioSettings");
     });
   }, [
     persist,

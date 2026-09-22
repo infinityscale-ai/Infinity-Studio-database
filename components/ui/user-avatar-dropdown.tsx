@@ -9,45 +9,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  ChevronsUpDown,
-  CloudOff,
-  Settings,
-  LogOut,
-  LogIn,
-  Server,
-} from "@/lib/icon-theme/lucide-react";
+import { ChevronsUpDown, Settings } from "@/lib/icon-theme/lucide-react";
 import type { ReactNode } from "react";
 
 interface UserAvatarDropdownProps {
   displayName: string;
-  user?: { email?: string } | null;
-  isSessionActive?: boolean;
-  localMode?: boolean;
   onOpenSettings?: () => void;
-  onLogout: () => void;
-  onSignIn?: () => void;
   sleekLayout?: boolean;
   children?: ReactNode;
-  plan?: { label?: string };
 }
 
+// Header avatar button that opens the local user's menu: name, caller-provided items, then Settings.
 export function UserAvatarDropdown({
   displayName,
-  user,
-  isSessionActive,
-  localMode,
   onOpenSettings,
-  onLogout,
-  onSignIn,
   sleekLayout,
   children,
-  plan,
 }: UserAvatarDropdownProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
+          type="button"
           className={cn(
             "flex items-center gap-2 px-2 text-xs font-normal border border-studio-border rounded-lg bg-background/15 hover:bg-background/25 transition-colors no-drag",
             sleekLayout ? "h-8" : "h-9",
@@ -65,33 +48,7 @@ export function UserAvatarDropdown({
         className="w-56 bg-popover border-studio-border [.tui-mode_&]:border"
       >
         <DropdownMenuLabel>
-          <div className="flex flex-col space-y-1">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">{displayName}</p>
-              {user && !isSessionActive && (
-                <span title="Not synced to cloud">
-                  <CloudOff className="w-3.5 h-3.5 text-muted-foreground" />
-                </span>
-              )}
-            </div>
-            {plan?.label && (
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary border border-primary/20 w-fit">
-                  {plan.label.charAt(0).toUpperCase() + plan.label.slice(1)}{" "}
-                  Plan
-                </span>
-              </div>
-            )}
-            {user ? (
-              <p className="text-xs text-muted-foreground truncate mt-1">
-                {user.email || ""}
-              </p>
-            ) : localMode ? (
-              <p className="text-xs text-muted-foreground truncate mt-1">
-                Local mode
-              </p>
-            ) : null}
-          </div>
+          <p className="text-sm font-medium">{displayName}</p>
         </DropdownMenuLabel>
         {children}
         <DropdownMenuSeparator className="bg-studio-border" />
@@ -102,31 +59,6 @@ export function UserAvatarDropdown({
           <Settings className="w-3.5 h-3.5" />
           Settings
         </DropdownMenuItem>
-        {user ? (
-          <>
-            <DropdownMenuSeparator className="bg-studio-border" />
-            <DropdownMenuItem
-              onClick={onLogout}
-              className="gap-2 text-xs cursor-pointer text-destructive hover:text-destructive/90 hover:bg-destructive/5"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Sign Out
-            </DropdownMenuItem>
-          </>
-        ) : (
-          onSignIn && (
-            <>
-              <DropdownMenuSeparator className="bg-studio-border" />
-              <DropdownMenuItem
-                onClick={onSignIn}
-                className="gap-2 text-xs cursor-pointer"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                Sign In
-              </DropdownMenuItem>
-            </>
-          )
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

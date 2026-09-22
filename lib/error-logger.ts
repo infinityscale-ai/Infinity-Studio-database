@@ -1,8 +1,6 @@
 "use client";
 
-const API_BASE = typeof window !== "undefined"
-  ? `${window.location.protocol}//${window.location.hostname}:3867`
-  : "http://127.0.0.1:3867";
+import { API_BASE } from "@/lib/api-base";
 
 export interface ErrorLogPayload {
   errorType: string;
@@ -15,36 +13,22 @@ export interface ErrorLogPayload {
   os: string | null;
 }
 
+const MAX_BODY_BYTES = 50_000;
+const MAX_STACK_CHARS = 10_000;
+
+// Posts a client error to the local sidecar log; never throws.
 export async function logAppError(payload: ErrorLogPayload): Promise<void> {
-  const body = JSON.stringify(payload);
-
-  if (body.length > 50_000) {
+  if (JSON.stringify(payload).length > MAX_BODY_BYTES) {
     console.warn("[error-logger] payload exceeds 50KB, truncating stack");
-    const maxStack = 10_000;
-    payload.stack = payload.stack?.slice(0, maxStack) ?? null;
+    payload.stack = payload.stack?.slice(0, MAX_STACK_CHARS) ?? null;
   }
-
   try {
-    const { supabase } = await import("@/lib/supabase/client");
-    await supabase.rpc("log_app_error", {
-      p_error_type: payload.errorType,
-      p_message: payload.message,
-      p_stack: payload.stack,
-      p_url: payload.url,
-      p_component_stack: payload.componentStack,
-      p_metadata: payload.metadata,
-      p_app_version: payload.appVersion,
-      p_os: payload.os,
+    await fetch(`${API_BASE}/api/errors/log`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
   } catch {
-    try {
-      await fetch(`${API_BASE}/api/errors/log`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } catch {
-      console.error("[error-logger] failed to send error to server", payload.message);
-    }
+    console.error("[error-logger] failed to send error to server", payload.message);
   }
 }

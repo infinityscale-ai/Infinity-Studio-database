@@ -74,7 +74,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { RequestQueryApprovalDialog } from "@/components/studio/request-query-approval-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -323,35 +322,6 @@ export function SqlEditor({
     SnippetVersion[]
   >([]);
   const [versionHistoryLoading, setVersionHistoryLoading] = useState(false);
-  const [requestApprovalQuery, setRequestApprovalQuery] = useState<
-    string | null
-  >(null);
-
-  const isWorkspaceConn = connectionString?.startsWith("workspace:");
-  const wsConnectionId = isWorkspaceConn
-    ? connectionString.replace("workspace:", "")
-    : null;
-
-  useEffect(() => {
-    if (
-      error &&
-      isWorkspaceConn &&
-      wsConnectionId &&
-      !loading &&
-      requestApprovalQuery === null
-    ) {
-      const lower = error.toLowerCase();
-      if (
-        lower.includes("read_and_request") ||
-        lower.includes("read and request") ||
-        lower.includes("write query not allowed") ||
-        (lower.includes("read") && lower.includes("request"))
-      ) {
-        setRequestApprovalQuery(query);
-      }
-    }
-  }, [error, loading]);
-
   const customMonacoThemes = React.useMemo(() => {
     const parsedThemes = customEditorThemes
       .map((theme) => ({
@@ -1802,16 +1772,6 @@ export function SqlEditor({
           </div>
         </DialogContent>
       </Dialog>
-
-      {requestApprovalQuery && wsConnectionId && (
-        <RequestQueryApprovalDialog
-          isOpen={true}
-          onClose={() => setRequestApprovalQuery(null)}
-          connectionId={wsConnectionId}
-          connectionName={connectionString}
-          sql={requestApprovalQuery}
-        />
-      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sortable, SortableItem, SortableItemHandle } from "@/components/reui/sortable";
 import { NavUser } from "@/components/navigation/nav-user";
-import { ProviderLogo, SpacetimeDbBrandImage } from "@/components/shared/provider-logo";
+import { ProviderLogo } from "@/components/shared/provider-logo";
 import type { AppTab, AppHeaderTabsProps } from "@/components/app-shell/app-shared";
 import { NavigationControls } from "@/components/navigation/navigation-controls";
 import { WindowControls } from "@/components/shared/window-controls";
@@ -44,12 +44,6 @@ function TabIcon({ tab }: { tab: AppTab }) {
 	if (tab.kind === "settings") return <SettingsIcon className="size-4" />;
 	if (tab.kind === "supabase") {
 		return <ProviderLogo type="supabase" className="size-4" />;
-	}
-	if (tab.kind === "spacetimedb") {
-		return <SpacetimeDbBrandImage className="size-4" />;
-	}
-	if (tab.kind === "neon") {
-		return <ProviderLogo type="neon" className="size-4" />;
 	}
 	if (tab.kind === "browser") return <Globe className="size-4" />;
 	return <DatabaseIcon className="size-4" />;

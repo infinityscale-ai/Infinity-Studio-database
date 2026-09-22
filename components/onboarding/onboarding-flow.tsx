@@ -10,23 +10,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Check, ChevronLeft } from "@/lib/icon-theme/lucide-react";
 import { BUILTIN_APP_THEMES } from "@/lib/studio/app-themes";
-import { supabase } from "@/lib/supabase/client";
-import {
-  activateLocalUserProfile,
-  syncAuthenticatedUserProfile,
-} from "@/lib/auth/user-profile";
+import { activateLocalUserProfile } from "@/lib/auth/user-profile";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type Step = "welcome" | "theme" | "account";
+type Step = "welcome" | "theme" | "name";
 
-const STEPS: Step[] = ["welcome", "theme", "account"];
+const STEPS: Step[] = ["welcome", "theme", "name"];
 
 const DARK_THEME = BUILTIN_APP_THEMES.find((t) => t.id === "rexadb-dark");
 const DARK_THEME_ID = DARK_THEME?.id ?? "dark";
 
 const TIPS: string[] = [
-  "RexaDB connects to Postgres, Supabase, SpacetimeDB, Neon, SQLite and more — all from one unified workspace.",
+  "RexaDB connects to Postgres, MySQL, Supabase, SQLite and more — all from one unified workspace.",
   "Turn on Schema Explorer in Settings to browse tables, functions, triggers and indexes without leaving the sidebar.",
   "You can pin favorite tables and queries for quick access from the sidebar.",
   "Export query results as CSV or JSON with a single click from the results grid.",
@@ -44,9 +40,8 @@ const APPEARANCE_OPTIONS: { id: string; label: string }[] = [
 // theme step.
 const PRIMARY_BTN =
   "flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50";
-const OUTLINE_BTN =
-  "flex h-11 w-full items-center justify-center rounded-xl border border-border/60 bg-background/70 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-50";
 
+// Radio-style pill used by the appearance picker.
 function OptionPill({
   selected,
   label,
@@ -60,6 +55,7 @@ function OptionPill({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={selected}
       className={cn(
         "flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left text-sm transition-colors",
         selected
@@ -80,6 +76,149 @@ function OptionPill({
   );
 }
 
+// Left-hand image panel with the tip that rotates per step.
+function TipPanel({ stepIndex }: { stepIndex: number }) {
+  return (
+    <div className="relative m-3 hidden w-[42%] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sidebar via-studio-bg to-muted md:flex">
+      {/* eslint-disable-next-line @next/next/no-img-element -- static onboarding art from /public */}
+      <img
+        src="/onboarding.png"
+        alt="RexaDB onboarding"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute top-14 left-0 right-0 z-10 max-w-xs mx-auto px-8 text-center">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/70">
+          Tip
+        </p>
+        <p className="text-lg leading-relaxed text-white/90">
+          {TIPS[stepIndex % TIPS.length]}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Step 1: greeting and the Get Started button.
+function WelcomeStep({ onContinue }: { onContinue: () => void }) {
+  return (
+    <>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Welcome to RexaDB</h1>
+        <p className="text-muted-foreground">
+          Let&apos;s get your workspace set up. This will only take a moment.
+        </p>
+      </div>
+      <button type="button" className={PRIMARY_BTN} onClick={onContinue}>
+        Get Started
+      </button>
+    </>
+  );
+}
+
+// Step 2: pick the appearance; the choice applies live.
+function ThemeStep({
+  appThemeId,
+  setAppThemeId,
+  onContinue,
+}: {
+  appThemeId: string;
+  setAppThemeId: (id: string) => void;
+  onContinue: () => void;
+}) {
+  return (
+    <>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Which look works for you?</h1>
+        <p className="text-muted-foreground">You can change this anytime in Settings.</p>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {APPEARANCE_OPTIONS.map((option) => (
+          <OptionPill
+            key={option.id}
+            label={option.label}
+            selected={appThemeId === option.id}
+            onClick={() => setAppThemeId(option.id)}
+          />
+        ))}
+      </div>
+      <button type="button" className={PRIMARY_BTN} onClick={onContinue}>
+        Continue
+      </button>
+    </>
+  );
+}
+
+// Step 3: ask for the display name and create the local profile with it.
+function NameStep({ onComplete }: { onComplete: (name: string) => void }) {
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Saves the typed name as the local profile, then finishes onboarding.
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("Enter your name to continue.");
+      return;
+    }
+    setLoading(true);
+    const { result } = await activateLocalUserProfile(trimmed);
+    setLoading(false);
+    if (!result.success) {
+      toast.error(result.error || "Failed to save your name. Try again.");
+      return;
+    }
+    toast.success(`Welcome, ${trimmed}.`);
+    onComplete(trimmed);
+  }
+
+  return (
+    <>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">What should we call you?</h1>
+        <p className="text-muted-foreground">
+          Your name is stored on this device only. You can change it later in Settings.
+        </p>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <label htmlFor="onboarding-name" className="sr-only">
+          Your name
+        </label>
+        <Input
+          id="onboarding-name"
+          placeholder="Your name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+          className="h-11 border-border/60 bg-background/70"
+        />
+        <button type="submit" disabled={loading} className={PRIMARY_BTN}>
+          {loading ? "Saving..." : "Continue"}
+        </button>
+      </form>
+    </>
+  );
+}
+
+// Progress dots, one per step.
+function StepDots({ stepIndex }: { stepIndex: number }) {
+  return (
+    <div className="flex items-center gap-1.5" aria-hidden="true">
+      {STEPS.map((s, i) => (
+        <span
+          key={s}
+          className={cn(
+            "h-1 w-8 rounded-full transition-all",
+            i === stepIndex ? "bg-primary" : i < stepIndex ? "bg-primary/50" : "bg-muted",
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+// First-run wizard: welcome, appearance, then the local user's name.
 export function OnboardingFlow({
   open,
   appThemeId,
@@ -89,110 +228,15 @@ export function OnboardingFlow({
   open: boolean;
   appThemeId: string;
   setAppThemeId: (id: string) => void;
-  onComplete: (info: { name: string; email?: string }) => void;
+  onComplete: (info: { name: string }) => void;
 }) {
   const [step, setStep] = useState<Step>("welcome");
-  const [authMode, setAuthMode] = useState<"sign-in" | "sign-up">("sign-up");
-  const [email, setEmail] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [localName, setLocalName] = useState("");
-  const [loading, setLoading] = useState(false);
-
   const stepIndex = STEPS.indexOf(step);
 
-  function goTo(next: Step) {
-    setStep(next);
-  }
-
+  // Steps back one screen; the welcome screen has no back button.
   function goBack() {
-    if (step === "theme") goTo("welcome");
-    else if (step === "account") goTo("theme");
-  }
-
-  async function handleRequestOtp(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedEmail) {
-      toast.error("Please enter your email.");
-      return;
-    }
-    if (authMode === "sign-up" && !fullName.trim()) {
-      toast.error("Please enter your name.");
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: {
-        shouldCreateUser: authMode === "sign-up",
-        data: authMode === "sign-up" ? { name: fullName.trim() } : undefined,
-      },
-    });
-    setLoading(false);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    setOtpSent(true);
-    toast.success("We sent a 6-digit OTP to your email.");
-  }
-
-  async function handleVerifyOtp(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const token = otp.trim();
-    if (!/^\d{6}$/.test(token)) {
-      toast.error("Enter a valid 6-digit OTP.");
-      return;
-    }
-
-    setLoading(true);
-    const { data, error } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token,
-      type: authMode === "sign-up" ? "signup" : "email",
-    });
-    setLoading(false);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    const user = data?.session?.user ?? null;
-    if (!user) {
-      toast.error("Authentication succeeded, but no session user was available.");
-      return;
-    }
-
-    const synced = await syncAuthenticatedUserProfile(user);
-    if (!synced.result.success) {
-      toast.error(synced.result.error || "Signed in, but your profile did not sync yet.");
-    }
-
-    toast.success("You're all set.");
-    onComplete({ name: synced.name || fullName.trim() || user.email || "User", email: user.email ?? undefined });
-  }
-
-  async function handleContinueFree() {
-    const trimmed = localName.trim();
-    if (!trimmed) {
-      toast.error("Enter a display name to continue.");
-      return;
-    }
-    setLoading(true);
-    await supabase.auth.signOut().catch(() => {});
-    const result = await activateLocalUserProfile(trimmed);
-    setLoading(false);
-    if (!result.result.success) {
-      toast.error(result.result.error || "Failed to continue. Try again.");
-      return;
-    }
-    toast.success(`Welcome, ${trimmed}.`);
-    onComplete({ name: trimmed });
+    if (step === "theme") setStep("welcome");
+    else if (step === "name") setStep("theme");
   }
 
   return (
@@ -205,29 +249,12 @@ export function OnboardingFlow({
       >
         <DialogTitle className="sr-only">Welcome to RexaDB</DialogTitle>
         <DialogDescription className="sr-only">
-          Set up RexaDB: pick an appearance and sign in or continue for free.
+          Set up RexaDB: pick an appearance and tell us your name.
         </DialogDescription>
 
         <div className="flex h-full">
-          {/* Visual panel */}
-          <div className="relative m-3 hidden w-[42%] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sidebar via-studio-bg to-muted md:flex">
-            <img
-              src="/onboarding.png"
-              alt="RexaDB onboarding"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            <div className="absolute inset-0 bg-black/40" />
-            <div className="absolute top-14 left-0 right-0 z-10 max-w-xs mx-auto px-8 text-center">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/70">
-                Tip
-              </p>
-              <p className="text-lg leading-relaxed text-white/90">
-                {TIPS[stepIndex % TIPS.length]}
-              </p>
-            </div>
-          </div>
+          <TipPanel stepIndex={stepIndex} />
 
-          {/* Content panel */}
           <div className="relative flex flex-1 flex-col px-10 py-10 md:px-14">
             {step !== "welcome" && (
               <button
@@ -241,174 +268,18 @@ export function OnboardingFlow({
             )}
 
             <div className="flex flex-1 flex-col justify-center gap-6 max-w-md">
-              {step === "welcome" && (
-                <>
-                  <div className="space-y-2">
-                    <h1 className="text-3xl font-bold tracking-tight">
-                      Welcome to RexaDB
-                    </h1>
-                    <p className="text-muted-foreground">
-                      Let&apos;s get your workspace set up. This will only take a
-                      moment.
-                    </p>
-                  </div>
-                  <button type="button" className={PRIMARY_BTN} onClick={() => goTo("theme")}>
-                    Get Started
-                  </button>
-                </>
-              )}
-
+              {step === "welcome" && <WelcomeStep onContinue={() => setStep("theme")} />}
               {step === "theme" && (
-                <>
-                  <div className="space-y-2">
-                    <h1 className="text-3xl font-bold tracking-tight">
-                      Which look works for you?
-                    </h1>
-                    <p className="text-muted-foreground">
-                      You can change this anytime in Settings.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    {APPEARANCE_OPTIONS.map((option) => (
-                      <OptionPill
-                        key={option.id}
-                        label={option.label}
-                        selected={appThemeId === option.id}
-                        onClick={() => setAppThemeId(option.id)}
-                      />
-                    ))}
-                  </div>
-
-                  <button type="button" className={PRIMARY_BTN} onClick={() => goTo("account")}>
-                    Continue
-                  </button>
-                </>
-              )}
-
-              {step === "account" && (
-                <>
-                  <div className="space-y-2">
-                    <h1 className="text-3xl font-bold tracking-tight">
-                      Sign in or continue free
-                    </h1>
-                    <p className="text-muted-foreground">
-                      Sync your connections across devices, or stay fully local.
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2 rounded-xl bg-muted/40 p-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMode("sign-up");
-                        setOtpSent(false);
-                      }}
-                      className={cn(
-                        "flex-1 rounded-lg py-2 text-sm font-medium transition-colors",
-                        authMode === "sign-up"
-                          ? "bg-accent text-accent-foreground"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      Sign Up
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMode("sign-in");
-                        setOtpSent(false);
-                      }}
-                      className={cn(
-                        "flex-1 rounded-lg py-2 text-sm font-medium transition-colors",
-                        authMode === "sign-in"
-                          ? "bg-accent text-accent-foreground"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      Sign In
-                    </button>
-                  </div>
-
-                  <form onSubmit={otpSent ? handleVerifyOtp : handleRequestOtp} className="space-y-3">
-                    {authMode === "sign-up" && !otpSent && (
-                      <Input
-                        placeholder="Your name"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        className="h-11 border-border/60 bg-background/70"
-                      />
-                    )}
-                    {!otpSent && (
-                      <Input
-                        type="email"
-                        placeholder="john@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="h-11 border-border/60 bg-background/70"
-                      />
-                    )}
-                    {otpSent && (
-                      <div className="space-y-1.5">
-                        <Input
-                          inputMode="numeric"
-                          placeholder="123456"
-                          value={otp}
-                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                          className="h-11 border-border/60 bg-background/70 text-center tracking-widest"
-                        />
-                        <p className="text-center text-xs text-muted-foreground">Check your inbox</p>
-                      </div>
-                    )}
-                    <button type="submit" disabled={loading} className={PRIMARY_BTN}>
-                      {loading ? "Processing..." : otpSent ? "Verify" : "Continue with Email"}
-                    </button>
-                  </form>
-
-                  <div className="relative py-0.5">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-border/60" />
-                    </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="bg-studio-bg px-2 text-muted-foreground">or</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="Your name"
-                      value={localName}
-                      onChange={(e) => setLocalName(e.target.value)}
-                      className="h-11 border-border/60 bg-background/70"
-                    />
-                    <button
-                      type="button"
-                      disabled={loading}
-                      className={OUTLINE_BTN}
-                      onClick={handleContinueFree}
-                    >
-                      Continue Free
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              {STEPS.map((s, i) => (
-                <span
-                  key={s}
-                  className={cn(
-                    "h-1 w-8 rounded-full transition-all",
-                    i === stepIndex
-                      ? "bg-primary"
-                      : i < stepIndex
-                        ? "bg-primary/50"
-                        : "bg-muted",
-                  )}
+                <ThemeStep
+                  appThemeId={appThemeId}
+                  setAppThemeId={setAppThemeId}
+                  onContinue={() => setStep("name")}
                 />
-              ))}
+              )}
+              {step === "name" && <NameStep onComplete={(name) => onComplete({ name })} />}
             </div>
+
+            <StepDots stepIndex={stepIndex} />
           </div>
         </div>
       </DialogContent>

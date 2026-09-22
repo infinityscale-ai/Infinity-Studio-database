@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useRef } from "react";
 import { API_BASE } from "@/lib/api-base";
-import { saveWorkspaceSnippets, saveWorkspaceDashboards, saveWorkspaceHistory } from "@/lib/supabase/workspace";
 
 interface UseStudioPersistenceProps {
   connectionId: number;
-  workspaceId?: string | null;
-  accessToken?: string | null;
 }
 
-export function useStudioPersistence({ connectionId, workspaceId, accessToken }: UseStudioPersistenceProps) {
+export function useStudioPersistence({ connectionId }: UseStudioPersistenceProps) {
   const studioSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const sharedSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const lastStudioSaveSignatureRef = useRef(new Map<string, string>());
-  const lastSharedSaveSignatureRef = useRef(new Map<string, string>());
   const pendingSavesRef = useRef(0);
 
   useEffect(() => {
@@ -67,42 +62,5 @@ export function useStudioPersistence({ connectionId, workspaceId, accessToken }:
       });
   }, [connectionId, getSignature]);
 
-  const queueSharedSave = useCallback((endpoint: string, payload: unknown, label: string) => {
-    if (!workspaceId) return;
-    const nextSignature = getSignature(payload);
-
-    if (lastSharedSaveSignatureRef.current.get(endpoint) === nextSignature) {
-      return;
-    }
-
-    lastSharedSaveSignatureRef.current.set(endpoint, nextSignature);
-    pendingSavesRef.current++;
-
-    const call = async () => {
-      const p = payload as any;
-      switch (endpoint) {
-        case "snippets":
-          await saveWorkspaceSnippets(p.folders || [], p.snippets || [], p.allowEmpty);
-          break;
-        case "history":
-          await saveWorkspaceHistory(p.history || []);
-          break;
-        case "dashboards":
-          await saveWorkspaceDashboards(p.dashboards || [], p.folders || []);
-          break;
-      }
-    };
-
-    sharedSaveQueueRef.current = sharedSaveQueueRef.current
-      .catch(() => undefined)
-      .then(call)
-      .catch((error) => {
-        console.error(`Failed to save shared ${label}:`, error);
-      })
-      .finally(() => {
-        pendingSavesRef.current--;
-      });
-  }, [workspaceId, getSignature]);
-
-  return { queueStudioSave, queueSharedSave };
+  return { queueStudioSave };
 }

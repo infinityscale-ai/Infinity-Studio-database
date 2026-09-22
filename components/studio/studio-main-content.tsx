@@ -35,17 +35,7 @@ import { SpacetimeDbLogViewer } from "./spacetimedb/log-viewer";
 import { SpacetimeDbSchemaViewer } from "./spacetimedb/schema-viewer";
 import { AuthUsersView } from "./auth/auth-users-view";
 import { AuthSessionsView } from "./auth/auth-sessions-view";
-import { PaymentsPlansView } from "./payments/views/plans-view";
 import { BrowserTab } from "@/components/browser/browser-tab";
-import {
-  PaymentsCustomersView,
-  PaymentsSubscriptionsView,
-} from "./payments/views/customers-view";
-import {
-  PaymentsRevenueView,
-  PaymentsWebhooksView,
-} from "./payments/views/revenue-view";
-import { PaymentsSetupView } from "./payments/views/setup-view";
 import { AuthProvidersView } from "./auth/auth-providers-view";
 import { StorageFilesView } from "./storage/storage-files-view";
 import { StorageSettingsView } from "./storage/storage-settings-view";
@@ -1553,20 +1543,6 @@ export function StudioMainContent({
                     connectionString={currentConnectionString}
                     enabled={authEnabled}
                   />
-                )
-              ) : paneViewMode === "payments" ? (
-                tab?.type === "payments-customers" ? (
-                  <PaymentsCustomersView studio={studio} />
-                ) : tab?.type === "payments-subscriptions" ? (
-                  <PaymentsSubscriptionsView studio={studio} />
-                ) : tab?.type === "payments-revenue" ? (
-                  <PaymentsRevenueView studio={studio} />
-                ) : tab?.type === "payments-webhooks" ? (
-                  <PaymentsWebhooksView studio={studio} />
-                ) : tab?.type === "payments-setup" ? (
-                  <PaymentsSetupView studio={studio} />
-                ) : (
-                  <PaymentsPlansView studio={studio} />
                 )
               ) : paneViewMode === "storage" ? (
                 tab?.type === "storage-settings" ? (

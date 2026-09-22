@@ -6,7 +6,6 @@ import { useToggleRowSelection } from "@/hooks/use-selection-utils";
 import { useGlobalAppTheme } from "@/hooks/use-global-app-theme";
 import { useGlobalEditorTheme } from "@/hooks/use-global-editor-theme";
 import { useGlobalAppFontFamily } from "@/hooks/use-global-app-font-family";
-import { getWorkspaceSnippets, saveWorkspaceSnippets, saveWorkspaceDashboards, saveWorkspaceHistory, shareSnippetEntry, shareDashboardEntry, unshareEntry, getReceivedSharedSnippets, getReceivedSharedDashboards, updateEntryPermissions } from "@/lib/supabase/workspace";
 import { apiFetch, API_BASE } from "@/lib/api-base";
 import { toast } from "sonner";
 import { useConfirm } from "./use-confirm";
@@ -37,13 +36,13 @@ import {
   DashboardWidgetType, DashboardConditionOperator, DashboardConditionActionType, DashboardFolder, Dashboard,
   AgentGeneratedWidgetType, AgentGeneratedWidgetPlan, AgentDashboardPlan, AgentChatMessage, AgentChatHistoryMessage,
   SchemaContextTable, QueryValidationShapeResult, SqlEditorEngine, StudioSplitViewState,
-  GLOBAL_SQL_CONTEXT_ID, DASHBOARD_GRID_SIZE, DASHBOARD_MIN_SIZE, type StudioInitialTab, type KVPermission, type DashboardWidget
+  GLOBAL_SQL_CONTEXT_ID, DASHBOARD_GRID_SIZE, DASHBOARD_MIN_SIZE, type StudioInitialTab, type DashboardWidget
 } from "@/lib/studio/types";
 import { snapToDashboardGrid, snapDashboardPosition, snapDashboardSize, normalizeDashboards, normalizeDashboardFolders } from "@/lib/studio/dashboard-utils";
 import { buildCreateSql as buildRlsCreateSql, supportsWithCheck, quoteRoles } from "@/lib/db/rls-utils";
 import { splitSqlStatements } from "@/lib/studio/split-sql";
-import { isJsonColumnType, normalizeJsonInput, stableStringify, inferMongoShape, inferMongoReferenceTarget, mergeById } from "@/lib/studio/general-utils";
-import { normalizeCloudFolders, normalizeCloudSnippets, mapStudioSnippet } from "@/lib/studio/cloud-sync-utils";
+import { isJsonColumnType, normalizeJsonInput, stableStringify, inferMongoShape, inferMongoReferenceTarget } from "@/lib/studio/general-utils";
+import { mapStudioSnippet } from "@/lib/studio/cloud-sync-utils";
 import { normalizeJsonColumnValue } from "@/lib/studio/data-utils";
 import { isDatabaseTabType, TAB_TYPE_TO_DATABASE_VIEW } from "@/lib/studio/tab-types";
 import { getViewMode, getTabConfig } from "@/lib/studio/tab-registry";
@@ -60,7 +59,7 @@ import { useGlobalStudioSettings } from "./use-global-studio-settings";
 import { useTableDataMutations } from "./use-table-data-mutations";
 import { useTimerCleanup } from "./use-timer-cleanup";
 import { useTabPerformanceLogger } from "./use-tab-performance-logger";
-import { useWorkspaceContext } from "./use-workspace-context";
+import { useAuthState } from "./use-auth-state";
 import { DEFAULT_SIDEBAR_BEHAVIOR, type SidebarBehavior } from "@/lib/studio/sidebar-behavior";
 import { formatDelimitedValue, formatSqlLiteral } from "@/lib/studio/clipboard-utils";
 import {
@@ -341,13 +340,6 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
     }
     return Array.from({ length: count }, (_, i) => `$${i + 1}`).join(", ");
   }, [dbType]);
-  const workspaceContext = useWorkspaceContext({
-    connectionId: connection.id,
-    connectionName: connection.name || "Workspace",
-  });
-  const storageMode = workspaceContext.storageMode;
-  const canUseCloudSnippets = workspaceContext.storageMode === "cloud" && Boolean(workspaceContext.workspaceId && workspaceContext.accessToken);
-  const canUseCloudDashboards = workspaceContext.storageMode === "cloud" && Boolean(workspaceContext.workspaceId && workspaceContext.accessToken);
   const [query, _setQuery] = useState<string>(
     dbType === "mongodb"
       ? "db.collection.find({}).limit(100)"
@@ -488,8 +480,7 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   const [fetchingInitialData, setFetchingInitialData] = useState(!!searchParams.get("t"));
   const [isInitialLoad, setIsInitialLoad] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [isSharedSnippetsLoaded, setIsSharedSnippetsLoaded] = useState(false);
-  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
+  const [, setIsHistoryLoaded] = useState(false);
 
   useEffect(() => {
     if (!fetchingTables && !fetchingSchemas && !fetchingInitialData && isDataLoaded) {
@@ -949,7 +940,7 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
     return null;
   }, [openTabs, getPaneIdForTab, getCurrentPaneId]);
 
-  const [viewMode, setViewMode] = useState<"tables" | "sql" | "code" | "database" | "dashboard" | "create-table" | "create-key" | "create-enum" | "create-index" | "create-trigger" | "create-schema" | "create-database" | "import-export" | "settings" | "agent-settings" | "profile-settings" | "keybindings" | "history" | "auth" | "rls-policy-edit" | "analytics" | "advisor" | "connect-studio" | "manage-workspaces" | "snapshots" | "snapshot-table" | "diff-table" | "workflow" | "erd">("tables");
+  const [viewMode, setViewMode] = useState<"tables" | "sql" | "code" | "database" | "dashboard" | "create-table" | "create-key" | "create-enum" | "create-index" | "create-trigger" | "create-schema" | "create-database" | "import-export" | "settings" | "agent-settings" | "profile-settings" | "keybindings" | "history" | "auth" | "rls-policy-edit" | "analytics" | "advisor" | "snapshots" | "snapshot-table" | "diff-table" | "workflow" | "erd">("tables");
   const [schemaHighlightedTable, setSchemaHighlightedTable] = useState<string | null>(null);
 
 
@@ -1015,7 +1006,7 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   const [sidebarSortMode, setSidebarSortMode] = useState<'alphabetical' | 'tags'>('alphabetical');
 
 // fallow-ignore-next-line code-duplication
-  const [sidebarView, setSidebarViewState] = useState<"dashboard" | "tables" | "sql" | "database" | "import-export" | "auth" | "payments" | "storage" | "edge-functions" | "themes" | "workflows" | "agents" | "erd" | "notes" | null>(() => {
+  const [sidebarView, setSidebarViewState] = useState<"dashboard" | "tables" | "sql" | "database" | "import-export" | "auth" | "storage" | "edge-functions" | "themes" | "workflows" | "agents" | "erd" | "notes" | null>(() => {
     if (typeof window !== "undefined" && window.localStorage) {
       const restoreKey = `rexa-db-restore-state-${propConnection.id}`;
       if (window.localStorage.getItem(restoreKey) !== "0") {
@@ -1026,13 +1017,13 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
     }
     return "tables";
   });
-  const setSidebarView = useCallback((nextView: SetStateAction<"dashboard" | "tables" | "sql" | "database" | "import-export" | "auth" | "payments" | "storage" | "edge-functions" | "themes" | "workflows" | "agents" | "erd" | "notes" | null>) => {
+  const setSidebarView = useCallback((nextView: SetStateAction<"dashboard" | "tables" | "sql" | "database" | "import-export" | "auth" | "storage" | "edge-functions" | "themes" | "workflows" | "agents" | "erd" | "notes" | null>) => {
     delayedUiRestoreBlockedRef.current = true;
     setSidebarViewState(nextView);
   }, []);
   const sidebarViewRef = useRef(sidebarView);
   const lastSidebarViewRef = useRef<
-    "dashboard" | "tables" | "sql" | "database" | "import-export" | "auth" | "payments" | "storage" | "edge-functions" | "themes" | "workflows" | "agents" | "erd" | "notes"
+    "dashboard" | "tables" | "sql" | "database" | "import-export" | "auth" | "storage" | "edge-functions" | "themes" | "workflows" | "agents" | "erd" | "notes"
   >("tables");
   useEffect(() => {
     sidebarViewRef.current = sidebarView;
@@ -1057,11 +1048,6 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   const [notes, setNotes] = useState<Note[]>([]);
 
   const [snippets, setSnippets] = useState<Snippet[]>([]);
-
-  const [receivedSharedSnippets, setReceivedSharedSnippets] = useState<any[]>([]);
-  const [receivedSharedDashboards, setReceivedSharedDashboards] = useState<any[]>([]);
-  const [sharingSnippetId, setSharingSnippetId] = useState<string | null>(null);
-  const [sharingDashboardId, setSharingDashboardId] = useState<string | null>(null);
 
   const [folders, setFolders] = useState<Folder[]>([]);
 
@@ -1190,16 +1176,15 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   const userNameRef = useRef<string | null>(null);
   const userEmailRef = useRef<string | null>(null);
 
+  const authState = useAuthState();
   useEffect(() => {
-    userIdRef.current = workspaceContext.userId;
-    userNameRef.current = workspaceContext.userName;
-    userEmailRef.current = workspaceContext.userEmail;
-  }, [workspaceContext.userId, workspaceContext.userName, workspaceContext.userEmail]);
+    userIdRef.current = authState.userId;
+    userNameRef.current = authState.displayName;
+    userEmailRef.current = authState.email;
+  }, [authState.userId, authState.displayName, authState.email]);
 
-  const { queueStudioSave, queueSharedSave } = useStudioPersistence({
+  const { queueStudioSave } = useStudioPersistence({
     connectionId: connection.id,
-    workspaceId: workspaceContext.workspaceId,
-    accessToken: workspaceContext.accessToken,
   });
 
   const snippetsRef = useRef(snippets);
@@ -1281,14 +1266,12 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
     }
   }, [currentConnectionString, selectedSchema]);
 
-  const { refreshDashboards } = useDashboardPersistence({
+  useDashboardPersistence({
     connectionId: connection.id,
     setDashboards,
     setDashboardFolders,
     dashboards,
     dashboardFolders,
-    workspaceId: workspaceContext.workspaceId,
-    accessToken: workspaceContext.accessToken,
   });
 
   useNotePersistence({
@@ -1338,11 +1321,8 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
 
   useStudioDataPersistence({
     connectionId: connection.id,
-    connectionName: connection.name || "Connection",
     isDataLoaded,
     queueStudioSave,
-    queueSharedSave,
-    isSharedSnippetsLoaded,
     snippets,
     folders,
     openTabs,
@@ -1353,8 +1333,6 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
     keybindings,
     searchSettings,
     splitView,
-    queryHistory,
-    isHistoryLoaded,
     tags,
     tableTags,
   });
@@ -1426,9 +1404,6 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
 
   useInitialStudioData({
     connection,
-    storageMode,
-    workspaceId: workspaceContext.workspaceId,
-    accessToken: workspaceContext.accessToken,
     setFolders,
     setSnippets,
     setQueryHistory: setQueryHistoryForConnection,
@@ -1444,7 +1419,6 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
     setSearchSettings,
     setSplitView,
     setIsDataLoaded,
-    setIsSharedSnippetsLoaded,
     setIsHistoryLoaded,
     delayedUiRestoreBlockedRef,
   });
@@ -1461,43 +1435,6 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
       setSnippets(snippetsRes.data.map(mapStudioSnippet));
     }
   }, [connection.id]);
-
-  const loadCloudSnippets = useCallback(async () => {
-    if (!workspaceContext.workspaceId) return;
-    console.log("[rexadb] loadCloudSnippets: fetching from workspace", workspaceContext.workspaceId);
-    const { folders: cloudFolders, snippets: cloudSnippets, error } = await getWorkspaceSnippets();
-    if (error) {
-      console.error("[rexadb] loadCloudSnippets: failed", error);
-      return;
-    }
-    console.log("[rexadb] loadCloudSnippets: received", {
-      folderCount: cloudFolders?.length ?? 0,
-      snippetCount: cloudSnippets?.length ?? 0,
-      snippetIds: (cloudSnippets ?? []).map((s: any) => s.id),
-      snippetNames: (cloudSnippets ?? []).map((s: any) => s.name),
-    });
-    const normalizedFolders = normalizeCloudFolders(cloudFolders);
-    const normalizedSnippets = normalizeCloudSnippets(cloudSnippets);
-    setFolders((prev) => mergeById(prev, normalizedFolders, (existing, incoming) => ({
-      ...existing, ...incoming, createdAt: existing.createdAt ?? incoming.createdAt,
-    })));
-    setSnippets((prev) => mergeById(prev, normalizedSnippets, (existing, incoming) => ({
-      ...existing, ...incoming, isShared: true,
-    })));
-  }, [workspaceContext.workspaceId]);
-
-  const loadReceivedSharedItems = useCallback(async () => {
-    try {
-      const [snippetsRes, dashboardsRes] = await Promise.all([
-        getReceivedSharedSnippets(),
-        getReceivedSharedDashboards(),
-      ]);
-      if (!snippetsRes.error) setReceivedSharedSnippets(snippetsRes.snippets);
-      if (!dashboardsRes.error) setReceivedSharedDashboards(dashboardsRes.dashboards);
-    } catch (err) {
-      console.error("Failed to load shared items:", err);
-    }
-  }, []);
 
   useEffect(() => {
     void loadLocalSnippets();
@@ -4921,34 +4858,6 @@ END $$;`.trim();
     }
   }, [activeTabId, connection.id]);
 
-  const toggleSnippetShare = useCallback(async (id: string, share: boolean, granteeType?: "studio" | "public") => {
-    const snippet = snippets.find((s) => s.id === id);
-    if (!snippet) return;
-    setSharingSnippetId(id);
-    try {
-      if (share) {
-        const { entryId, error } = await shareSnippetEntry(
-          { id: snippet.id, name: snippet.name, query: snippet.query, folderId: snippet.folderId, createdAt: snippet.createdAt },
-          granteeType || "studio"
-        );
-        if (entryId) {
-          updateSnippet(id, { isShared: true, sharedEntryId: entryId });
-        } else {
-          console.error("Failed to share snippet:", error);
-        }
-      } else if (snippet.sharedEntryId) {
-        await unshareEntry(snippet.sharedEntryId);
-        updateSnippet(id, { isShared: false, sharedEntryId: undefined });
-      }
-    } finally {
-      setSharingSnippetId(null);
-    }
-  }, [snippets, updateSnippet]);
-
-  const updateSnippetPermissions = useCallback(async (entryId: string, permissions: KVPermission[]) => {
-    await updateEntryPermissions(entryId, permissions);
-  }, []);
-
   const deleteSnippet = useCallback((id: string) => {
     let nextSnippets: Snippet[] = [];
     setSnippets(prev => {
@@ -5722,14 +5631,6 @@ END $$;`.trim();
     return () => window.removeEventListener("studio:erd-saved", handleErdSaved);
   }, [setOpenTabs]);
 
-  const openConnectStudioTab = useCallback(() => {
-    openSimpleTab('connect-studio', 'connect-studio', 'Workspace Studio');
-  }, [openSimpleTab]);
-
-  const openManageWorkspacesTab = useCallback(() => {
-    openSimpleTab('manage-workspaces', 'manage-workspaces', 'Workspaces');
-  }, [openSimpleTab]);
-
   const openSnapshotsTab = useCallback(() => {
     openSimpleTab('snapshots', 'snapshots', 'Snapshots');
   }, [openSimpleTab]);
@@ -5749,35 +5650,6 @@ END $$;`.trim();
 
   const openAuthProvidersTab = useCallback(() => {
     openSimpleTab('auth-providers', 'auth-providers', 'Providers', authTabOptions);
-  }, [openSimpleTab, setSidebarView]);
-
-  const paymentsTabOptions = {
-    afterCreated: () => setSidebarView('payments'),
-    afterExisting: () => setSidebarView('payments'),
-  };
-
-  const openPaymentsPlansTab = useCallback(() => {
-    openSimpleTab('payments-plans', 'payments-plans', 'Plans', paymentsTabOptions);
-  }, [openSimpleTab, setSidebarView]);
-
-  const openPaymentsCustomersTab = useCallback(() => {
-    openSimpleTab('payments-customers', 'payments-customers', 'Customers', paymentsTabOptions);
-  }, [openSimpleTab, setSidebarView]);
-
-  const openPaymentsSubscriptionsTab = useCallback(() => {
-    openSimpleTab('payments-subscriptions', 'payments-subscriptions', 'Subscriptions', paymentsTabOptions);
-  }, [openSimpleTab, setSidebarView]);
-
-  const openPaymentsRevenueTab = useCallback(() => {
-    openSimpleTab('payments-revenue', 'payments-revenue', 'Revenue', paymentsTabOptions);
-  }, [openSimpleTab, setSidebarView]);
-
-  const openPaymentsWebhooksTab = useCallback(() => {
-    openSimpleTab('payments-webhooks', 'payments-webhooks', 'Webhooks', paymentsTabOptions);
-  }, [openSimpleTab, setSidebarView]);
-
-  const openPaymentsSetupTab = useCallback(() => {
-    openSimpleTab('payments-setup', 'payments-setup', 'Setup', paymentsTabOptions);
   }, [openSimpleTab, setSidebarView]);
 
   const storageTabOptions = {
@@ -5945,34 +5817,6 @@ END $$;`.trim();
       ...(nextSharedEntryId !== undefined ? { sharedEntryId: nextSharedEntryId } : {}),
     }, setDashboards, setOpenTabs);
   }, [dashboardFolders]);
-
-  const toggleDashboardShare = useCallback(async (id: string, share: boolean, granteeType?: "studio" | "public") => {
-    const dashboard = dashboards.find((d) => d.id === id);
-    if (!dashboard) return;
-    setSharingDashboardId(id);
-    try {
-      if (share) {
-        const { entryId, error } = await shareDashboardEntry(
-          { id: dashboard.id, name: dashboard.name, folderId: dashboard.folderId, widgets: dashboard.widgets },
-          granteeType || "studio"
-        );
-        if (entryId) {
-          updateDashboard(id, { isShared: true, sharedEntryId: entryId });
-        } else {
-          console.error("Failed to share dashboard:", error);
-        }
-      } else if (dashboard.sharedEntryId) {
-        await unshareEntry(dashboard.sharedEntryId);
-        updateDashboard(id, { isShared: false, sharedEntryId: undefined });
-      }
-    } finally {
-      setSharingDashboardId(null);
-    }
-  }, [dashboards, updateDashboard]);
-
-  const updateDashboardPermissions = useCallback(async (entryId: string, permissions: KVPermission[]) => {
-    await updateEntryPermissions(entryId, permissions);
-  }, []);
 
   const deleteDashboard = useCallback((dashboardId: string) => {
     setDashboards((prev) => prev.filter((dashboard) => dashboard.id !== dashboardId));
@@ -6797,7 +6641,7 @@ END $$;`.trim();
     const closedTab = openTabs.find((tab) => tab.id === id);
     if (!closedTab) return;
     if (closedTab.pinned) return;
-    let nextTabs = filterTabsAfterClose(openTabs, closedTab, getTabBaseId);
+    const nextTabs = filterTabsAfterClose(openTabs, closedTab, getTabBaseId);
     const initialRemovedTabIds = openTabs
       .filter((tab) => !nextTabs.some((nextTab) => nextTab.id === tab.id))
       .map((tab) => tab.id);
@@ -8414,7 +8258,7 @@ END $$;`.trim();
     }
   }
 
-  const handleSetViewMode = useCallback((mode: "tables" | "sql" | "code" | "database" | "dashboard" | "create-table" | "create-key" | "create-enum" | "create-index" | "create-trigger" | "create-schema" | "create-database" | "import-export" | "settings" | "agent-settings" | "profile-settings" | "keybindings" | "history" | "analytics" | "advisor" | "auth" | "rls-policy-edit" | "connect-studio" | "manage-workspaces" | "snapshots" | "snapshot-table" | "diff-table" | "workflow") => {
+  const handleSetViewMode = useCallback((mode: "tables" | "sql" | "code" | "database" | "dashboard" | "create-table" | "create-key" | "create-enum" | "create-index" | "create-trigger" | "create-schema" | "create-database" | "import-export" | "settings" | "agent-settings" | "profile-settings" | "keybindings" | "history" | "analytics" | "advisor" | "auth" | "rls-policy-edit" | "snapshots" | "snapshot-table" | "diff-table" | "workflow") => {
     if (mode === "create-enum" && !createSupport.enum) {
       toast.error("Create Enum is supported only for PostgreSQL connections.");
       return;
@@ -8814,12 +8658,6 @@ END $$;`.trim();
     openAuthUsersTab,
     openAuthSessionsTab,
     openAuthProvidersTab,
-    openPaymentsPlansTab,
-    openPaymentsCustomersTab,
-    openPaymentsSubscriptionsTab,
-    openPaymentsRevenueTab,
-    openPaymentsWebhooksTab,
-    openPaymentsSetupTab,
     openStorageFilesTab,
     openStorageSettingsTab,
     openStoragePoliciesTab,
@@ -9044,7 +8882,7 @@ END $$;`.trim();
     snippets, setSnippets,
     folders, setFolders,
     addSnippet, updateSnippet, deleteSnippet,
-    toggleSnippetShare, sharingSnippetId, updateSnippetPermissions, createSnippetVersion, getSnippetVersions, restoreSnippetVersion,
+    createSnippetVersion, getSnippetVersions, restoreSnippetVersion,
     addFolder, updateFolder, deleteFolder, handleImportSnippets,
     isInsertSheetOpen, setIsInsertSheetOpen,
     insertData, setInsertData,
@@ -9061,14 +8899,6 @@ END $$;`.trim();
     currentConnectionString,
     dbType,
     connection,
-    storageMode,
-    refreshCloudSnippets: loadCloudSnippets,
-    receivedSharedSnippets,
-    receivedSharedDashboards,
-    loadReceivedSharedItems,
-    workspaceId: workspaceContext.workspaceId,
-    isSharedWorkspace: storageMode === "cloud",
-    planCode: workspaceContext.planCode,
     isCreatingSchema, setIsCreatingSchema,
     isCreatingDatabase, setIsCreatingDatabase,
     isEditingEnum, setIsEditingEnum,
@@ -9089,6 +8919,7 @@ END $$;`.trim();
     refreshTableData,
     refreshCurrentTab,
     handleCommitChanges,
+    handleCancelCommit,
     handleAddColumn,
     handleDeleteColumn,
     handleEditColumn,
@@ -9103,8 +8934,6 @@ END $$;`.trim();
     openWorkflowsTab,
     openErdTab,
     openSnapshotsTab,
-    openConnectStudioTab,
-    openManageWorkspacesTab,
     settingsInitialSection,
     settingsModalOpen,
     setSettingsModalOpen,
@@ -9115,12 +8944,6 @@ END $$;`.trim();
     openAuthUsersTab,
     openAuthSessionsTab,
     openAuthProvidersTab,
-    openPaymentsPlansTab,
-    openPaymentsCustomersTab,
-    openPaymentsSubscriptionsTab,
-    openPaymentsRevenueTab,
-    openPaymentsWebhooksTab,
-    openPaymentsSetupTab,
     openStorageFilesTab,
     openStorageSettingsTab,
     openStoragePoliciesTab,
@@ -9153,7 +8976,6 @@ END $$;`.trim();
     openDashboardTab,
     createDashboard,
     updateDashboard,
-    toggleDashboardShare, sharingDashboardId, updateDashboardPermissions,
     deleteDashboard,
     addDashboardFolder,
     updateDashboardFolder,
@@ -9281,9 +9103,6 @@ END $$;`.trim();
     customFontFamily, setCustomFontFamily,
     appEditorTheme,
     effectiveEditorThemeId,
-    canUseCloudDashboards,
-    canUseCloudSnippets,
-    refreshDashboards,
     agentChatMessages,
     appendAgentChatMessage,
     updateAgentChatMessage,

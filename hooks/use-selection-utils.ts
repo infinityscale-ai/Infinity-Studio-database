@@ -1,11 +1,16 @@
 import { useCallback } from "react";
-import { toggleRowSelection as toggleRow } from "@/lib/studio-backend/api-client";
 
+// Returns a stable callback that toggles a row index in the selected-rows set.
 export function useToggleRowSelection(
   setSelectedRows: React.Dispatch<React.SetStateAction<Set<number>>>,
 ) {
   return useCallback((index: number) => {
-    toggleRow(index, setSelectedRows);
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
   }, [setSelectedRows]);
 }
 

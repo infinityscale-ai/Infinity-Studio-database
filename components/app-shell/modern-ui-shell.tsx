@@ -101,8 +101,6 @@ export type ModernUIShellProps = {
 	hideSettingsDialog?: boolean;
 	/** Shows the rail's bottom "Home" item. Defaults to true. */
 	railShowHome?: boolean;
-	/** Shows the rail's bottom "Workspace" item. Defaults to true. */
-	railShowWorkspace?: boolean;
 	/** Whether the bottom "SQL Editor" panel (Cmd+J) is available. It renders
 	 *  `<ModernSqlEditorPanel studio={studio} />`, which needs a full studio
 	 *  session (query execution, snippets, etc.) — disable on surfaces with no
@@ -163,7 +161,6 @@ export function ModernUIShell({
 	settingsActive,
 	hideSettingsDialog,
 	railShowHome = true,
-	railShowWorkspace = true,
 	enableBottomSqlPanel = true,
 	noiseBgEnabled,
 	noiseBgOpacity = 30,
@@ -438,7 +435,6 @@ export function ModernUIShell({
 								activeId={railActiveId}
 								onSettingsClick={onSettingsClick}
 								showHome={railShowHome}
-								showWorkspace={railShowWorkspace}
 								user={user}
 							/>
 						</div>

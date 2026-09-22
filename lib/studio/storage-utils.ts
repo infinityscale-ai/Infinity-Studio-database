@@ -1,4 +1,4 @@
-import { resolvePaymentsConnection } from "@/lib/supabase-paykit/supabase-ref";
+import { resolveSupabaseProjectConnection } from "@/lib/supabase-mgmt/project-ref";
 import { runQuery } from "@/lib/api/actions-client";
 
 /** Storage is available on supabase-mgmt and direct Postgres-to-Supabase connections. */
@@ -8,7 +8,7 @@ export function shouldShowStorage(
   schemas?: string[] | null,
 ): boolean {
   if (schemas?.includes("storage")) return true;
-  return resolvePaymentsConnection(connectionType, connectionString) !== null;
+  return resolveSupabaseProjectConnection(connectionType, connectionString) !== null;
 }
 
 export type StorageBucket = {

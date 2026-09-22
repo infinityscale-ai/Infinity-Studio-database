@@ -4,9 +4,8 @@ import {
   clearMgmtTokenCache,
   inferSupabaseRefFromPostgresUrl,
   resolveMgmtTokenForRef,
-  resolvePaymentsConnection,
-  shouldShowPayments,
-} from "../../../lib/supabase-paykit/supabase-ref";
+  resolveSupabaseProjectConnection,
+} from "../../../lib/supabase-mgmt/project-ref";
 
 test("infers ref from direct Supabase postgres hosts", () => {
   assert.equal(
@@ -42,7 +41,7 @@ test("rejects non-Supabase and pooler hosts", () => {
 });
 
 test("resolves mgmt connections with embedded token", () => {
-  const info = resolvePaymentsConnection(
+  const info = resolveSupabaseProjectConnection(
     "supabase-mgmt",
     "supabase-mgmt://myref?token=tok123",
   );
@@ -50,37 +49,24 @@ test("resolves mgmt connections with embedded token", () => {
 });
 
 test("resolves Supabase postgres connections without token", () => {
-  const info = resolvePaymentsConnection(
+  const info = resolveSupabaseProjectConnection(
     "postgres",
     "postgresql://postgres:pw@db.myref123.supabase.co:5432/postgres",
   );
   assert.deepEqual(info, { kind: "postgres", projectRef: "myref123", token: null });
 });
 
-test("shouldShowPayments covers mgmt + Supabase postgres only", () => {
+test("other engines and non-Supabase hosts resolve to null", () => {
   assert.equal(
-    shouldShowPayments("supabase-mgmt", "supabase-mgmt://r?token=t"),
-    true,
+    resolveSupabaseProjectConnection("postgres", "postgresql://u:p@localhost:5432/db"),
+    null,
   );
-  assert.equal(
-    shouldShowPayments(
-      "postgres",
-      "postgresql://postgres:pw@db.myref123.supabase.co:5432/postgres",
-    ),
-    true,
-  );
-  assert.equal(
-    shouldShowPayments("postgres", "postgresql://u:p@localhost:5432/db"),
-    false,
-  );
-  assert.equal(shouldShowPayments("mysql", "mysql://u:p@host/db"), false);
-  assert.equal(shouldShowPayments("postgres", undefined), false);
+  assert.equal(resolveSupabaseProjectConnection("mysql", "mysql://u:p@host/db"), null);
+  assert.equal(resolveSupabaseProjectConnection("postgres", undefined), null);
 });
 
-test("resolveMgmtTokenForRef picks the account that sees the ref", async () => {
+test("resolveMgmtTokenForRef resolves null when no linked account sees the ref", async () => {
   clearMgmtTokenCache();
-  // localStorage-backed accounts are unavailable in this env; stub via cache
-  // behavior: with no accounts, resolves null without throwing.
   const token = await resolveMgmtTokenForRef("somerref", async () => [
     { ref: "other" },
   ]);

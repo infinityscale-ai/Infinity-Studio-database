@@ -20,7 +20,6 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSectionId, string> = {
   security: "Security",
   keybindings: "Keybindings",
   advanced: "Advanced",
-  workspace: "Workspace",
 };
 
 export const SETTINGS_SEARCH_INDEX: SettingsSearchEntry[] = [
@@ -111,12 +110,6 @@ export const SETTINGS_SEARCH_INDEX: SettingsSearchEntry[] = [
   { id: "rls-tab-editor", section: "advanced", title: "Open RLS Policies in Tab", description: "Edit Row-Level Security policies in an editor tab instead of a side sheet.", keywords: ["rls", "policies", "security", "tab", "row level"] },
   { id: "app-updates", section: "advanced", title: "App Updates", description: "Check for, download, and install application updates.", keywords: ["updates", "version", "download", "install", "upgrade", "license"] },
   { id: "command-menu", section: "advanced", title: "Command Menu Customization", description: "Reorder or show/hide sections in the command menu (⌘K).", keywords: ["command", "menu", "palette", "cmdk", "reorder", "sections"] },
-
-  // ---- Workspace ----
-  { id: "workspace-connect", section: "workspace", title: "Connect Workspace", description: "Connect to a rexadb-studio workspace to manage shared connections.", keywords: ["workspace", "connect", "studio", "shared", "team"] },
-  { id: "workspace-invite", section: "workspace", title: "Accept Invite", description: "Join a workspace with an invite token.", keywords: ["invite", "token", "join", "workspace"] },
-  { id: "workspace-signin", section: "workspace", title: "Workspace Sign In", description: "Sign in to a workspace with email and password.", keywords: ["sign in", "login", "email", "password", "workspace", "totp", "2fa"] },
-  { id: "workspace-saved", section: "workspace", title: "Saved Workspaces", description: "Switch between or remove saved workspaces.", keywords: ["saved", "workspaces", "switch", "remove"] },
 ];
 
 export function filterSettingsSearch(query: string): SettingsSearchEntry[] {

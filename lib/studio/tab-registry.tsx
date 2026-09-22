@@ -7,7 +7,6 @@ import { WorkflowView } from "@/components/workflows/workflow-view";
 import { ErdDesignerView } from "@/components/studio/erd/erd-designer-view";
 import type { ConnectionDbType } from "@/lib/db/connection-type";
 import { ProfileSettingsView } from "@/components/studio/profile-settings-view";
-import { ConnectStudioView } from "@/components/studio/connect-studio-view";
 import { DiffTableView } from "@/components/studio/snapshots/diff-table-view";
 import { SnapshotTableView } from "@/components/studio/snapshots/snapshot-table-view";
 import { ImportExportView } from "@/components/studio/import-export-view";
@@ -16,7 +15,6 @@ import { KeybindingsView } from "@/components/studio/keybindings-view";
 import { ExtensionsView } from "@/components/studio/extensions-view";
 import { ExtensionTabView } from "@/components/studio/extension-tab-view";
 import { ExtensionPanelTabView } from "@/components/studio/extension-panel-tab-view";
-import { ManageWorkspacesView } from "@/components/studio/manage-workspaces-view";
 import { SnapshotsView } from "@/components/studio/snapshots/snapshots-view";
 import {
   BarChart3,
@@ -93,7 +91,7 @@ export interface TabTypeConfig<TMeta = Record<string, unknown>> {
   /** Canonical icon key resolved to a lucide component via TAB_ICON_COMPONENTS */
   icon?: string;
   /** Optional: semantic grouping to help future code (e.g. "database", "auth", "settings", "create", "content") */
-  group?: "content" | "database" | "auth" | "payments" | "storage" | "edge-functions" | "settings" | "create" | "special";
+  group?: "content" | "database" | "auth" | "storage" | "edge-functions" | "settings" | "create" | "special";
   /** Render the tab's view. Receives the tab and the full studio hook return value. */
   renderComponent?: (opts: RenderTabOptions) => ReactNode;
 }
@@ -194,17 +192,9 @@ export const TAB_REGISTRY: {
   snapshots: TabTypeConfig;
   "snapshot-table": TabTypeConfig;
   "diff-table": TabTypeConfig;
-  "connect-studio": TabTypeConfig;
-  "manage-workspaces": TabTypeConfig;
   "auth-users": TabTypeConfig;
   "auth-sessions": TabTypeConfig;
   "auth-providers": TabTypeConfig;
-  "payments-plans": TabTypeConfig;
-  "payments-customers": TabTypeConfig;
-  "payments-subscriptions": TabTypeConfig;
-  "payments-revenue": TabTypeConfig;
-  "payments-webhooks": TabTypeConfig;
-  "payments-setup": TabTypeConfig;
   "storage-files": TabTypeConfig;
   "storage-settings": TabTypeConfig;
   "storage-policies": TabTypeConfig;
@@ -808,27 +798,10 @@ export const TAB_REGISTRY: {
     renderComponent: (opts) => <DiffTableView tabId={opts.tab.id} />,
   },
 
-  "connect-studio": {
-    ...simpleConfig("connect-studio", "connect-studio", "Workspace Studio", "server", "special"),
-    renderComponent: () => <ConnectStudioView />,
-  },
-  "manage-workspaces": {
-    ...simpleConfig("manage-workspaces", "manage-workspaces", "Workspaces", "settings", "special"),
-    renderComponent: (opts) => <ManageWorkspacesView studio={opts.studio as any} />,
-  },
-
   // ── auth ───────────────────────────────────────────────────────────────
   "auth-users": simpleConfig("auth-users", "auth", "Users", "user", "auth"),
   "auth-sessions": simpleConfig("auth-sessions", "auth", "Sessions", "clock", "auth"),
   "auth-providers": simpleConfig("auth-providers", "auth", "Providers", "shield", "auth"),
-
-  // ── payments (PayKit billing in the user's Supabase project) ─────────
-  "payments-plans": simpleConfig("payments-plans", "payments", "Plans", "boxes", "payments"),
-  "payments-customers": simpleConfig("payments-customers", "payments", "Customers", "user", "payments"),
-  "payments-subscriptions": simpleConfig("payments-subscriptions", "payments", "Subscriptions", "history", "payments"),
-  "payments-revenue": simpleConfig("payments-revenue", "payments", "Revenue", "chart", "payments"),
-  "payments-webhooks": simpleConfig("payments-webhooks", "payments", "Webhooks", "zap", "payments"),
-  "payments-setup": simpleConfig("payments-setup", "payments", "Setup", "settings", "payments"),
 
   // ── edge functions (Supabase Edge Functions via the mgmt API) ────
   "edge-functions": simpleConfig("edge-functions", "edge-functions", "Functions", "edge-function", "edge-functions"),

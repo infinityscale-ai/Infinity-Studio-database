@@ -1,173 +1,59 @@
 "use client";
 
-import type { User } from "@supabase/supabase-js";
+import { getStoredUserProfile, upsertUserProfile } from "@/lib/api/actions-client";
 
-import {
-  clearAllUsers,
-  getStoredUserProfile,
-  upsertUserProfile,
-} from "@/lib/api/actions-client";
-import { supabase } from "@/lib/supabase/client";
-
-export const LOCAL_MODE_STORAGE_KEY = "rexa-db-local-mode";
-export const LOCAL_NAME_STORAGE_KEY = "rexa-db-local-name";
 export const DISPLAY_NAME_STORAGE_KEY = "rexa-db-display-name";
+export const LOCAL_USER_ID = "local";
+export const PROFILE_CHANGED_EVENT = "rexa-db-profile-changed";
 
-type UserLike = Pick<User, "id" | "email" | "user_metadata">;
+export interface LocalUserProfile {
+  name: string;
+  email: string | null;
+}
 
-function normalizeText(value: unknown) {
+// Trims a value to a non-empty string, or returns null.
+function normalizeText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function isSameAsEmail(value: string | null, email: string | null) {
-  if (!value || !email) return false;
-  return value.localeCompare(email, undefined, { sensitivity: "accent" }) === 0;
-}
-
-function getUserMetadata(user: UserLike | null) {
-  if (!user?.user_metadata || typeof user.user_metadata !== "object") {
-    return {};
-  }
-
-  return user.user_metadata as Record<string, unknown>;
-}
-
-export function getSupabaseUserDisplayName(user: UserLike | null) {
-  if (!user) return null;
-
-  const email = normalizeText(user.email);
-  const metadata = getUserMetadata(user);
-  const candidates = [
-    normalizeText(metadata.name),
-    normalizeText(metadata.full_name),
-    normalizeText(metadata.display_name),
-  ];
-
-  for (const candidate of candidates) {
-    if (candidate && !isSameAsEmail(candidate, email)) {
-      return candidate;
-    }
-  }
-
-  return email;
-}
-
-function applySupabaseUserDisplayName<T extends UserLike>(user: T, name: string | null) {
-  const trimmedName = normalizeText(name);
-  if (!trimmedName) return user;
-
-  return {
-    ...user,
-    user_metadata: {
-      ...getUserMetadata(user),
-      display_name: trimmedName,
-    },
-  } as T;
-}
-
-async function resolveSupabaseUserDisplayName(user: UserLike) {
-  const email = normalizeText(user.email);
-  let resolvedName = getSupabaseUserDisplayName(user);
-
-  if (!resolvedName || isSameAsEmail(resolvedName, email)) {
-    try {
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle<{ full_name: string | null }>();
-
-      const cloudName = normalizeText(data?.full_name);
-      if (cloudName && !isSameAsEmail(cloudName, email)) {
-        resolvedName = cloudName;
-      }
-    } catch {
-      // Ignore profile lookup failures and fall back to local state.
-    }
-  }
-
-  if (!resolvedName || isSameAsEmail(resolvedName, email)) {
-    try {
-      const storedProfile = await getStoredUserProfile(user.id);
-      const storedName = normalizeText(storedProfile.data?.name);
-      if (storedName) {
-        resolvedName = storedName;
-      }
-    } catch {
-      // Ignore local profile lookup failures and keep remaining fallbacks.
-    }
-  }
-
-  return resolvedName ?? email;
-}
-
-function clearLocalModePreference() {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(LOCAL_MODE_STORAGE_KEY);
-  window.localStorage.removeItem(LOCAL_NAME_STORAGE_KEY);
-  window.localStorage.removeItem(DISPLAY_NAME_STORAGE_KEY);
-}
-
-function setLocalModePreference(name: string) {
-  if (typeof window === "undefined") return;
-
-  const trimmedName = normalizeText(name) ?? "Local";
-  window.localStorage.setItem(LOCAL_MODE_STORAGE_KEY, "1");
-  window.localStorage.setItem(LOCAL_NAME_STORAGE_KEY, trimmedName);
-}
-
-export function getStoredLocalModeName() {
-  if (typeof window === "undefined") return null;
-  if (window.localStorage.getItem(LOCAL_MODE_STORAGE_KEY) !== "1") return null;
-  return normalizeText(window.localStorage.getItem(LOCAL_NAME_STORAGE_KEY));
-}
-
+// Reads the display name cached in localStorage, or an empty string.
 export function loadStoredDisplayName(): string {
   if (typeof window === "undefined") return "";
-  const localName = window.localStorage.getItem(LOCAL_NAME_STORAGE_KEY);
-  if (localName?.trim()) return localName.trim();
-  const displayName = window.localStorage.getItem(DISPLAY_NAME_STORAGE_KEY);
-  return displayName?.trim() ?? "";
+  return normalizeText(window.localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)) ?? "";
 }
 
-export async function syncAuthenticatedUserProfile<T extends UserLike>(user: T) {
-  const name = await resolveSupabaseUserDisplayName(user);
-  clearLocalModePreference();
+// Caches the display name in localStorage and tells listeners the profile changed.
+function storeDisplayName(name: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, name);
+  window.dispatchEvent(new CustomEvent(PROFILE_CHANGED_EVENT));
+}
 
-  if (name && typeof window !== "undefined") {
-    window.localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, name);
-  }
-
-  const result = await upsertUserProfile({
-    id: user.id,
-    email: normalizeText(user.email),
-    name,
-    isLocal: false,
-    supabaseId: user.id,
-  });
-
+// Resolves the local profile from the users table, falling back to the cached name.
+export async function resolveLocalUserProfile(): Promise<LocalUserProfile> {
+  const cachedName = loadStoredDisplayName();
+  const stored = await getStoredUserProfile(LOCAL_USER_ID).catch(() => null);
+  const storedName = normalizeText(stored?.data?.name);
   return {
-    name,
-    result,
-    user: applySupabaseUserDisplayName(user, name),
+    name: storedName ?? cachedName ?? "User",
+    email: normalizeText(stored?.data?.email),
   };
 }
 
-export async function activateLocalUserProfile(name: string) {
-  const trimmedName = normalizeText(name) ?? "Local";
-  setLocalModePreference(trimmedName);
-
-  try {
-    await clearAllUsers();
-  } catch {
-    // Best-effort: proceed even if clear fails
-  }
-
+// Saves the local user's name (and optional email) to the users table and the cache.
+export async function saveLocalUserProfile(name: string, email?: string | null) {
+  const trimmedName = normalizeText(name) ?? "User";
   const result = await upsertUserProfile({
-    id: "local",
+    id: LOCAL_USER_ID,
     name: trimmedName,
+    email: normalizeText(email),
     isLocal: true,
   });
-
+  if (result.success) storeDisplayName(trimmedName);
   return { name: trimmedName, result };
+}
+
+// Creates the local profile on first run; the same write as saving it later.
+export function activateLocalUserProfile(name: string) {
+  return saveLocalUserProfile(name);
 }

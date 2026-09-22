@@ -54,7 +54,7 @@ import {
   type StorageBucket,
   type StorageObject,
 } from "@/lib/studio/storage-utils";
-import { resolvePaymentsConnection } from "@/lib/supabase-paykit/supabase-ref";
+import { resolveSupabaseProjectConnection } from "@/lib/supabase-mgmt/project-ref";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -123,7 +123,7 @@ export function StorageBucketView({
 
   // Public URL base for previews / downloads (public buckets only).
   const publicUrlBase = useMemo(() => {
-    const info = resolvePaymentsConnection(connectionType, connectionString);
+    const info = resolveSupabaseProjectConnection(connectionType, connectionString);
     if (!info) return null;
     return `https://${info.projectRef}.supabase.co/storage/v1/object/public/${bucketName}`;
   }, [connectionType, connectionString, bucketName]);

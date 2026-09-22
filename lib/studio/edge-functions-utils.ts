@@ -5,18 +5,18 @@ import { parseSupabaseMgmtConnectionString } from "@/lib/db/supabase-mgmt-client
 import { listProjects } from "@/lib/supabase-mgmt/client";
 import {
   resolveMgmtTokenForRef,
-  resolvePaymentsConnection,
-} from "@/lib/supabase-paykit/supabase-ref";
+  resolveSupabaseProjectConnection,
+} from "@/lib/supabase-mgmt/project-ref";
 
 /** Edge Functions live on the user's Supabase project (mgmt API), so the
- *  gating matches the other Supabase-project sections (Storage/Payments):
+ *  gating matches the other Supabase-project section (Storage):
  *  supabase-mgmt connections plus direct Postgres connections to
  *  db.<ref>.supabase.co. */
 export function shouldShowEdgeFunctions(
   connectionType: string | undefined,
   connectionString: string | undefined,
 ): boolean {
-  return resolvePaymentsConnection(connectionType, connectionString) !== null;
+  return resolveSupabaseProjectConnection(connectionType, connectionString) !== null;
 }
 
 export type EdgeFunction = {
@@ -49,7 +49,7 @@ export async function resolveEdgeAccess(
   connectionType: string | undefined,
   connectionString: string | undefined,
 ): Promise<{ access: EdgeAccess | null; error?: string }> {
-  const info = resolvePaymentsConnection(connectionType, connectionString);
+  const info = resolveSupabaseProjectConnection(connectionType, connectionString);
   if (!info) return { access: null };
   if (info.kind === "mgmt") {
     const parsed = parseSupabaseMgmtConnectionString(connectionString ?? "");

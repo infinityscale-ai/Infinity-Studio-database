@@ -9,16 +9,6 @@ import "drizzle-orm";
 import "drizzle-orm/bun-sqlite";
 import "nearley";
 import { extractIndexColumns } from "../lib/db/pg-utils";
-import {
-  deployPaykitFunctions,
-  exposePaykitSchema,
-  getPaykitStatus,
-  pushPaykitSchema,
-  repairPaykitProject,
-  setPaykitSecrets,
-  syncPaykitProducts,
-} from "./supabase-paykit";
-import { createStripeWebhookEndpoint } from "./stripe";
 import { createRexaDbPiSession, streamPiResponse, type PiAgentInput, type PiSseEvent } from "../lib/ai/pi-agent";
 import { getAgentSandboxCwd } from "../lib/agents/sandbox-cwd";
 import { ensureEnrichedPath } from "../lib/system/shell-path";
@@ -192,229 +182,6 @@ app.all("/api/supabase-mgmt/proxy/*", async (req, res) => {
   }
 });
 
-// PayKit billing scaffolding for the USER's Supabase projects (smgt).
-// Fully automatic via the Management API; manual CLI fallback lives in the UI.
-// NOTE: static imports (not dynamicPostRoute) — `bun build --compile` cannot
-// resolve variable dynamic import() at runtime, so dynamically-imported
-// modules are missing from the packaged binary (bunfs).
-app.post("/api/supabase-paykit/status", simplePostRoute((body) => getPaykitStatus(body)));
-app.post("/api/supabase-paykit/push-schema", simplePostRoute((body) => pushPaykitSchema(body)));
-app.post("/api/supabase-paykit/expose", simplePostRoute((body) => exposePaykitSchema(body)));
-app.post("/api/supabase-paykit/repair", simplePostRoute((body) => repairPaykitProject(body)));
-app.post("/api/supabase-paykit/sync-products", simplePostRoute((body) => syncPaykitProducts(body)));
-app.post("/api/supabase-paykit/deploy", simplePostRoute((body) => deployPaykitFunctions(body)));
-app.post("/api/supabase-paykit/secrets", simplePostRoute((body) => setPaykitSecrets(body)));
-
-// Stripe API proxy (avoids CORS in the browser). Creates a webhook endpoint
-// with URL + events pre-set; the secret key travels in the request body and
-// is never logged or stored.
-app.post("/api/stripe/create-webhook-endpoint", simplePostRoute((body) => createStripeWebhookEndpoint(body)));
-
-// PlanetScale API proxy (avoids CORS in the browser). Used for browsing
-// orgs/databases/branches and minting branch passwords — never for query
-// execution, which talks to the resulting mysql/postgres connection directly.
-app.all("/api/planetscale/proxy/*", async (req, res) => {
-  try {
-    const targetPath = (req.params as any)[0];
-    const qs = Object.keys(req.query).length
-      ? "?" + new URLSearchParams(req.query as Record<string, string>).toString()
-      : "";
-    const targetUrl = `https://api.planetscale.com/${targetPath}${qs}`;
-    const headers: Record<string, string> = {
-      Accept: "application/json",
-    };
-    if (req.headers.authorization) headers.Authorization = req.headers.authorization;
-    if (req.method !== "GET" && req.method !== "HEAD") {
-      headers["Content-Type"] = req.headers["content-type"] || "application/json";
-    }
-    const fetchInit: RequestInit = {
-      method: req.method,
-      headers,
-    };
-    if (req.method !== "GET" && req.method !== "HEAD" && req.body) {
-      fetchInit.body = JSON.stringify(req.body);
-    }
-    const authHeader = headers.Authorization || "";
-    log("[planetscale/proxy] ->", req.method, targetUrl, "auth:", authHeader ? `${authHeader.slice(0, 13)}...${authHeader.slice(-4)}(${authHeader.length})` : "(none)");
-    const upstream = await fetch(targetUrl, fetchInit);
-    const text = await upstream.text();
-    log("[planetscale/proxy] <-", upstream.status, text.slice(0, 500));
-    res.status(upstream.status);
-    try {
-      res.json(JSON.parse(text));
-    } catch {
-      res.send(text);
-    }
-  } catch (e: any) {
-    res.status(502).json({ success: false, error: e.message });
-  }
-});
-
-// SpacetimeDB management/auth API proxy (avoids CORS in the browser).
-// The SpacetimeDB CLI talks to these endpoints directly with reqwest; the
-// webview can't because of CORS. The target host comes from ?host= — the
-// login flow targets spacetimedb.com, while database listing targets the
-// cloud host (customizable like `spacetime server add` in the CLI).
-app.all("/api/spacetimedb-mgmt/proxy/*", async (req, res) => {
-  try {
-    const targetPath = (req.params as any)[0];
-    const host = String(req.query.host || "spacetimedb.com");
-    // Cloud/maincloud hosts speak TLS; loopback/self-hosted servers usually
-    // speak plain HTTP. Let an explicit http:// prefix win, then sniff.
-    const explicitProto = /^https?:\/\//i.test(host);
-    const cleanHost = host.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
-    if (!cleanHost || /[/?#@]/.test(cleanHost)) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Invalid proxy host" });
-    }
-    const isLoopback =
-      /^localhost([:\/]|$)/i.test(cleanHost) ||
-      /^127\.0\.0\.1([:\/]|$)/.test(cleanHost) ||
-      /^\[?::1\]([:\/]|$)/.test(cleanHost);
-    const protocol = explicitProto
-      ? host.match(/^https:\/\//i)
-        ? "https"
-        : "http"
-      : isLoopback
-        ? "http"
-        : "https";
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(req.query)) {
-      if (k === "host") continue;
-      if (typeof v === "string") params.set(k, v);
-    }
-    const qs = params.toString() ? `?${params.toString()}` : "";
-    const targetUrl = `${protocol}://${cleanHost}/${targetPath}${qs}`;
-    const headers: Record<string, string> = {
-      "User-Agent": "spacetime-cli",
-    };
-    if (req.headers.authorization) headers.Authorization = req.headers.authorization;
-    if (req.headers["user-agent"]) headers["User-Agent"] = req.headers["user-agent"];
-    const hasBody =
-      req.body &&
-      typeof req.body === "object" &&
-      Object.keys(req.body).length > 0;
-    if (req.method !== "GET" && req.method !== "HEAD" && hasBody) {
-      headers["Content-Type"] = req.headers["content-type"] || "application/json";
-    }
-    const fetchInit: RequestInit = {
-      method: req.method,
-      headers,
-    };
-    if (req.method !== "GET" && req.method !== "HEAD" && hasBody) {
-      fetchInit.body = JSON.stringify(req.body);
-    }
-    const upstream = await fetch(targetUrl, fetchInit);
-    const text = await upstream.text();
-    res.status(upstream.status);
-    try {
-      res.json(JSON.parse(text));
-    } catch {
-      res.send(text);
-    }
-  } catch (e: any) {
-    res.status(502).json({ success: false, error: e.message });
-  }
-});
-
-// Neon CLI integration — spawns the real `neon` binary (npm package
-// `neonctl`) so login/consent is genuinely Neon's own software, never a
-// reimplementation of its OAuth flow under its identity. See lib/neon-cli/.
-app.post("/api/neon-cli/detect", async (_req, res) => {
-  try {
-    const { detectNeonCli } = await import("../lib/neon-cli/cli-runner");
-    res.json({ success: true, ...(await detectNeonCli()) });
-  } catch (e: any) {
-    res.json({ success: false, installed: false, error: e.message });
-  }
-});
-
-const NEON_PROFILE_NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
-
-app.post("/api/neon-cli/login", async (req, res) => {
-  const profile = String(req.body?.profile || "").trim();
-  if (!NEON_PROFILE_NAME_RE.test(profile)) {
-    res.status(400).json({ success: false, error: "Invalid profile name" });
-    return;
-  }
-
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
-  });
-  const send = (event: Record<string, unknown>) => res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-  let aborted = false;
-  let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    res.end();
-  };
-
-  try {
-    const { spawnNeonAuthLogin } = await import("../lib/neon-cli/cli-runner");
-    const child = spawnNeonAuthLogin(profile);
-
-    req.on("close", () => {
-      aborted = true;
-      try { child.kill("SIGTERM"); } catch {}
-    });
-
-    const forwardLine = (line: string) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-      const urlMatch = trimmed.match(/https?:\/\/\S+/);
-      if (urlMatch) {
-        send({ type: "open-url", url: urlMatch[0], message: trimmed });
-      } else {
-        send({ type: "log", message: trimmed });
-      }
-    };
-
-    let buffer = "";
-    const onChunk = (chunk: Buffer) => {
-      if (aborted) return;
-      buffer += chunk.toString();
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-      for (const line of lines) forwardLine(line);
-    };
-    child.stdout?.on("data", onChunk);
-    child.stderr?.on("data", onChunk);
-
-    child.on("close", (code) => {
-      if (aborted) return;
-      if (buffer.trim()) forwardLine(buffer);
-      if (code === 0) {
-        send({ type: "done", success: true });
-      } else {
-        send({ type: "error", message: `neon auth exited with code ${code}` });
-      }
-      finish();
-    });
-
-    child.on("error", (err) => {
-      if (aborted || finished) return;
-      send({ type: "error", message: err.message });
-      finish();
-    });
-  } catch (e: any) {
-    send({ type: "error", message: e.message });
-    finish();
-  }
-});
-
-app.post("/api/neon-cli/orgs", dynamicPostRoute("../lib/neon-cli/cli-runner", (body, m) => m.neonOrgsList(body.profile)));
-app.post("/api/neon-cli/projects", dynamicPostRoute("../lib/neon-cli/cli-runner", (body, m) => m.neonProjectsList(body.profile, body.orgId)));
-app.post("/api/neon-cli/branches", dynamicPostRoute("../lib/neon-cli/cli-runner", (body, m) => m.neonBranchesList(body.profile, body.projectId)));
-app.post("/api/neon-cli/databases", dynamicPostRoute("../lib/neon-cli/cli-runner", (body, m) => m.neonDatabasesList(body.profile, body.projectId, body.branchId)));
-app.post("/api/neon-cli/roles", dynamicPostRoute("../lib/neon-cli/cli-runner", (body, m) => m.neonRolesList(body.profile, body.projectId, body.branchId)));
-app.post("/api/neon-cli/remove-profile", dynamicPostRoute("../lib/neon-cli/cli-runner", (body, m) => m.neonProfileRemove(body.profile)));
-
 // Load actions-core at module init — forces Bun to bundle it and all static deps
 const actionsCore = require("../lib/db/actions-core");
 const mod = actionsCore;
@@ -475,15 +242,6 @@ app.put("/api/connections/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
     const result = await mod.updateConnection(id, req.body);
-    res.json(result);
-  } catch (e: any) {
-    res.json({ success: false, error: e.message });
-  }
-});
-
-app.delete("/api/connections/workspace", async (_req, res) => {
-  try {
-    const result = await mod.deleteConnectionsByPrefix("workspace:");
     res.json(result);
   } catch (e: any) {
     res.json({ success: false, error: e.message });
@@ -715,7 +473,6 @@ app.all("/mcp", async (req, res) => {
 app.post("/api/sql/run", async (req, res) => {
   try {
     const { connectionString, query, params, options } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.runQuery(connectionString, query, params || [], options || {});
     res.json(result);
   } catch (e: any) {
@@ -726,7 +483,6 @@ app.post("/api/sql/run", async (req, res) => {
 app.post("/api/sql/cancel", async (req, res) => {
   try {
     const { connectionString, queryId } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.cancelRunningQuery(connectionString, queryId);
     res.json(result);
   } catch (e: any) {
@@ -738,7 +494,6 @@ app.post("/api/sql/cancel", async (req, res) => {
 app.post("/api/schema", async (req, res) => {
   try {
     const { connectionString, options } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.fetchSchemas(connectionString, options);
     res.json(result);
   } catch (e: any) {
@@ -749,7 +504,6 @@ app.post("/api/schema", async (req, res) => {
 app.post("/api/tables", async (req, res) => {
   try {
     const { connectionString, schema, options } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.fetchTables(connectionString, schema, options);
     res.json(result);
   } catch (e: any) {
@@ -760,7 +514,6 @@ app.post("/api/tables", async (req, res) => {
 app.post("/api/tables-with-columns", async (req, res) => {
   try {
     const { connectionString, options } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.fetchAllTablesWithColumns(connectionString, options);
     res.json(result);
   } catch (e: any) {
@@ -772,7 +525,6 @@ app.post("/api/tables/search-all", async (req, res) => {
   try {
     const { searchAllTables } = await import("../lib/db/actions");
     const { connectionString, searchTerm, schema, connectionType } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await searchAllTables(connectionString, searchTerm, { schema, connectionType });
     res.json(result);
   } catch (e: any) {
@@ -796,7 +548,6 @@ app.post("/api/table-foreign-keys", proxyThreeArgRoute(mod.fetchTableForeignKeys
 app.post("/api/referenced-record", async (req, res) => {
   try {
     const { connectionString, schema, table, keyValues } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.fetchReferencedRecord(connectionString, schema, table, keyValues);
     res.json(result);
   } catch (e: any) {
@@ -809,7 +560,6 @@ app.post("/api/functions", proxyTwoArgRoute(mod.fetchFunctions));
 app.post("/api/databases", async (req, res) => {
   try {
     const { connectionString, connectionType } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.fetchDatabases(connectionString, connectionType);
     res.json(result);
   } catch (e: any) {
@@ -821,7 +571,6 @@ app.post("/api/databases", async (req, res) => {
 app.post("/api/table/update-rows", async (req, res) => {
   try {
     const { connectionString, schema, table, rows } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.updateTableRows(connectionString, schema, table, rows);
     res.json(result);
   } catch (e: any) {
@@ -832,7 +581,6 @@ app.post("/api/table/update-rows", async (req, res) => {
 app.post("/api/table/delete-rows", async (req, res) => {
   try {
     const { connectionString, schema, table, pkValues } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.deleteTableRows(connectionString, schema, table, pkValues);
     res.json(result);
   } catch (e: any) {
@@ -854,7 +602,6 @@ app.post("/api/views", proxyTwoArgRoute(mod.fetchViews));
 app.post("/api/rls-policies", async (req, res) => {
   try {
     const { connectionString, schema, table } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.fetchRlsPolicies(connectionString, schema ?? null, table ?? null);
     res.json(result);
   } catch (e: any) {
@@ -868,7 +615,6 @@ app.post("/api/table-security-info", proxyTwoArgRoute(mod.fetchTableSecurityInfo
 
 app.post("/api/supabase-auth-users", async (req, res) => {
   try {
-    if (await tryProxyDbOp(req, res)) return;
     const { connectionString } = req.body || {};
     const result = await mod.fetchSupabaseAuthUsers(connectionString);
     res.json(result);
@@ -888,7 +634,6 @@ app.post("/api/locks", proxyOneArgRoute(mod.fetchLocks));
 app.post("/api/db-advisor", async (req, res) => {
   try {
     const { connectionString } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.runAdvisorChecks(connectionString);
     res.json({ success: true, data: result });
   } catch (e: any) {
@@ -899,7 +644,6 @@ app.post("/api/db-advisor", async (req, res) => {
 app.post("/api/explain-plan", async (req, res) => {
   try {
     const { connectionString, query } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.fetchExplainPlan(connectionString, query);
     res.json(result);
   } catch (e: any) {
@@ -910,7 +654,6 @@ app.post("/api/explain-plan", async (req, res) => {
 app.post("/api/backup/run", async (req, res) => {
   try {
     const { connectionString, options } = req.body;
-    if (await tryProxyDbOp(req, res)) return;
     const result = await mod.runDbBackup(connectionString, options);
     res.json(result);
   } catch (e: any) {
@@ -1135,41 +878,6 @@ app.get("/studio/:connectionId/bootstrap", async (req, res) => {
       return res.json(result);
     }
 
-    // Otherwise, if studio is configured, fetch from studio API
-    if (studioConfig && rawId) {
-      const { studioUrl, studioToken, userId } = studioConfig;
-      const connRes = await fetch(`${studioUrl.replace(/\/+$/, "")}/api/connections/${rawId}`, {
-        headers: { Authorization: `Bearer ${studioToken}` },
-      });
-      const connData = await connRes.json();
-      if (connData?.data) {
-        const cd = connData.data;
-        const connStr = `workspace:${rawId}`;
-        const connType = cd.type || "postgresql";
-        wsConnTypes.set(rawId, connType === "mysql" ? "mysql" : "postgres");
-        const fakeConn = {
-          id: numericId || 0,
-          name: cd.name || "Workspace Connection",
-          connectionString: connStr,
-          connectionType: connType,
-          createdAt: new Date().toISOString(),
-          sortOrder: Date.now(),
-        };
-        // Save to local DB so sidecar lookups (folders, snippets, etc.) resolve
-        await mod.addConnection(fakeConn.name, fakeConn.connectionString).catch(() => {});
-        return res.json({
-          success: true,
-          data: {
-            connection: fakeConn,
-            tabs: [],
-            settings: null,
-            schemas: [] as string[],
-            selectedSchema: null as string | null,
-            tables: [] as string[],
-          },
-        });
-      }
-    }
     res.json(result);
   } catch (e: any) {
     res.json({ success: false, error: e.message });
@@ -1254,384 +962,6 @@ app.delete("/api/studio/chats/:chatId", async (req, res) => {
   }
 });
 
-// --- Stub routes for endpoints not yet implemented on the sidecar ---
-
-// Studio config (in-memory for local usage)
-let studioConfig: { studioUrl: string; studioToken: string; userId: string } | null = null;
-
-// Workspace connection helpers — proxy DB operations through studio API
-// All SQL executes via POST /api/connections/<uuid>/query on the Studio,
-// which enforces RBAC. The sidecar NEVER holds credentials.
-function isWsConnection(cs: string): boolean {
-  return typeof cs === "string" && cs.startsWith("workspace:");
-}
-
-function getWsConnId(cs: string): string | null {
-  if (!cs || !cs.startsWith("workspace:")) return null;
-  return cs.slice("workspace:".length);
-}
-
-// Cache connection type (postgres|mysql) per workspace UUID
-const wsConnTypes = new Map<string, string>();
-
-async function apiQuery(wsId: string, sql: string, params: any[] = []): Promise<any> {
-  if (!studioConfig) return { error: "Studio not configured" };
-  const { studioUrl, studioToken } = studioConfig;
-  const url = `${studioUrl.replace(/\/+$/, "")}/api/connections/${wsId}/query`;
-  log("[apiQuery] POST", url, "SQL:", sql.substring(0, 120));
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${studioToken}` },
-    body: JSON.stringify({ sql, params }),
-  });
-  const text = await res.text();
-  log("[apiQuery] status:", res.status, "body:", text.substring(0, 800));
-  try { return JSON.parse(text); } catch { return { error: text || "Empty response" }; }
-}
-
-async function queryAndReturn(wsId: string, sql: string, params?: any[]) {
-  const qr = await apiQuery(wsId, sql, params);
-  if (qr.error) return { success: false, error: qr.error };
-  return { success: true, data: qr.rows || [] };
-}
-
-async function proxyDbOp(apiPath: string, body: any): Promise<any> {
-  if (!studioConfig) return { success: false, error: "Studio not configured" };
-  const wsId = getWsConnId(body?.connectionString);
-  if (!wsId) return { success: false, error: "Invalid workspace connection string" };
-
-  const connType = wsConnTypes.get(wsId) || "postgres";
-  log("[proxyDbOp] enter apiPath=%s wsId=%s connType=%s", apiPath, wsId, connType);
-  const P = (i: number) => connType === "mysql" ? "?" : `$${i}`;
-
-  try {
-    switch (apiPath) {
-
-      case "sql/run": {
-        if (!body.query) return { success: false, error: "No query provided" };
-        const qr = await apiQuery(wsId, body.query, body.params || []);
-        if (qr.error) return { success: false, error: qr.error };
-        return {
-          success: true,
-          data: {
-            rows: qr.rows || [],
-            fields: (qr.fields || []).map((f: any) => typeof f === "string" ? { name: f } : f),
-            rowCount: qr.rowCount ?? 0,
-            executionTime: qr.duration ?? 0,
-          },
-        };
-      }
-
-      case "sql/cancel":
-        return { success: true };
-
-      case "schema": {
-        log("[proxyDbOp] schema: wsId=%s connType=%s", wsId, connType);
-        const sql = connType === "mysql"
-          ? "SELECT SCHEMA_NAME AS schema_name FROM information_schema.schemata ORDER BY SCHEMA_NAME"
-          : "SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema','pg_catalog') AND schema_name NOT LIKE 'pg_toast%' ORDER BY schema_name";
-        const qr = await apiQuery(wsId, sql);
-        if (qr.error) return { success: false, error: qr.error };
-        const data = (qr.rows || []).map((r: any) => r.schema_name);
-        log("[proxyDbOp] schema result: success=true data.length=%d", data.length);
-        return { success: true, data };
-      }
-
-      case "tables": {
-        const schema = body.schema || "public";
-        const sql = connType === "mysql"
-          ? `SELECT TABLE_NAME AS table_name FROM information_schema.tables WHERE TABLE_SCHEMA = ${P(1)} ORDER BY TABLE_NAME`
-          : `SELECT table_name FROM information_schema.tables WHERE table_schema = ${P(1)} ORDER BY table_name`;
-        const qr = await apiQuery(wsId, sql, [schema]);
-        if (qr.error) return { success: false, error: qr.error };
-        return { success: true, data: (qr.rows || []).map((r: any) => r.table_name) };
-      }
-
-      case "tables-with-columns": {
-        const sql = connType === "mysql" ? `
-          SELECT cols.TABLE_SCHEMA AS table_schema, cols.TABLE_NAME AS table_name,
-            cols.COLUMN_NAME AS column_name, cols.DATA_TYPE AS data_type,
-            cols.IS_NULLABLE AS is_nullable, cols.COLUMN_DEFAULT AS column_default,
-            IF(cols.COLUMN_KEY='PRI',TRUE,FALSE) AS is_primary,
-            ref.REFERENCED_TABLE_SCHEMA AS referenced_table_schema,
-            ref.REFERENCED_TABLE_NAME AS referenced_table_name,
-            ref.REFERENCED_COLUMN_NAME AS referenced_column_name
-          FROM information_schema.COLUMNS cols
-          LEFT JOIN information_schema.KEY_COLUMN_USAGE ref
-            ON cols.TABLE_SCHEMA = ref.TABLE_SCHEMA AND cols.TABLE_NAME = ref.TABLE_NAME
-            AND cols.COLUMN_NAME = ref.COLUMN_NAME AND ref.REFERENCED_TABLE_NAME IS NOT NULL
-          WHERE cols.TABLE_SCHEMA NOT IN ('information_schema','mysql','performance_schema','sys')
-          ORDER BY cols.TABLE_SCHEMA, cols.TABLE_NAME, cols.ORDINAL_POSITION
-        ` : `
-          SELECT cols.table_schema, cols.table_name, cols.column_name, cols.data_type,
-            cols.is_nullable, cols.column_default,
-            (SELECT count(*) FROM information_schema.table_constraints tc
-              JOIN information_schema.key_column_usage kcu2
-                ON tc.constraint_name = kcu2.constraint_name
-              WHERE tc.constraint_type = 'PRIMARY KEY'
-                AND kcu2.table_schema = cols.table_schema
-                AND kcu2.table_name = cols.table_name
-                AND kcu2.column_name = cols.column_name) > 0 AS is_primary,
-            kcu.referenced_table_schema, kcu.referenced_table_name, kcu.referenced_column_name
-          FROM information_schema.columns cols
-          LEFT JOIN (
-            SELECT kcu1.table_schema, kcu1.table_name, kcu1.column_name,
-              kcu2.table_schema AS referenced_table_schema,
-              kcu2.table_name AS referenced_table_name,
-              kcu2.column_name AS referenced_column_name
-            FROM information_schema.referential_constraints rc
-            JOIN information_schema.key_column_usage kcu1
-              ON rc.constraint_name = kcu1.constraint_name
-              AND rc.constraint_schema = kcu1.constraint_schema
-            JOIN information_schema.key_column_usage kcu2
-              ON rc.unique_constraint_name = kcu2.constraint_name
-              AND rc.unique_constraint_schema = kcu2.constraint_schema
-              AND kcu1.ordinal_position = kcu2.ordinal_position
-          ) kcu ON cols.table_schema = kcu.table_schema
-            AND cols.table_name = kcu.table_name
-            AND cols.column_name = kcu.column_name
-          WHERE cols.table_schema NOT IN ('information_schema','pg_catalog')
-          ORDER BY cols.table_schema, cols.table_name, cols.ordinal_position
-        `;
-        return await queryAndReturn(wsId, sql);
-      }
-
-      case "table/update-rows": {
-        return { success: false, error: "Row updates are not supported for workspace connections via the sidecar proxy. Execute UPDATE SQL directly." };
-      }
-
-      case "table/delete-rows": {
-        return { success: false, error: "Row deletion is not supported for workspace connections via the sidecar proxy. Execute DELETE SQL directly." };
-      }
-
-      case "extensions": {
-        const sql = `
-          SELECT ext.name, ext.default_version, ext.installed_version,
-            ext.comment, ns.nspname AS installed_schema,
-            details.schema AS default_schema,
-            array_to_string(details.requires, ', ') AS requires,
-            details.trusted, details.relocatable, details.superuser,
-            array_to_string(
-              ARRAY(
-                SELECT version_item.version
-                FROM pg_available_extension_versions AS version_item
-                WHERE version_item.name = ext.name
-                ORDER BY version_item.version DESC
-              ),
-              ', '
-            ) AS available_versions
-          FROM pg_available_extensions AS ext
-          LEFT JOIN pg_extension AS installed_ext
-            ON installed_ext.extname = ext.name
-          LEFT JOIN pg_namespace AS ns
-            ON ns.oid = installed_ext.extnamespace
-          LEFT JOIN pg_available_extension_versions AS details
-            ON details.name = ext.name
-           AND details.version = COALESCE(ext.installed_version, ext.default_version)
-          ORDER BY ext.name;
-        `;
-        const qr = await apiQuery(wsId, sql);
-        if (qr.error) return { success: false, error: qr.error };
-        return { success: true, data: qr.rows || [] };
-      }
-
-      case "triggers": {
-        const schema = body.schema || "public";
-        const sql = `
-          SELECT trigger_schema AS schema, trigger_name AS name,
-            event_object_table AS table_name, action_timing AS timing,
-            event_manipulation AS event, action_statement AS definition
-          FROM information_schema.triggers
-          WHERE trigger_schema = ${P(1)}
-          ORDER BY event_object_table, trigger_name
-        `;
-        return await queryAndReturn(wsId, sql, [schema]);
-      }
-
-      case "enums": {
-        const sql = `
-          SELECT n.nspname AS schema, t.typname AS name,
-            e.enumlabel AS value, e.enumsortorder AS sort_order
-          FROM pg_type t
-          JOIN pg_enum e ON t.oid = e.enumtypid
-          JOIN pg_catalog.pg_namespace n ON n.oid = t.typnamespace
-          ORDER BY n.nspname, t.typname, e.enumsortorder
-        `;
-        const qr = await apiQuery(wsId, sql);
-        if (qr.error) return { success: false, error: qr.error };
-        const rows = qr.rows || [];
-        const enumsMap: Record<string, { schema: string; name: string; values: string[] }> = {};
-        for (const row of rows) {
-          const key = `${row.schema}.${row.name}`;
-          if (!enumsMap[key]) enumsMap[key] = { schema: row.schema, name: row.name, values: [] };
-          enumsMap[key].values.push(row.value);
-        }
-        return { success: true, data: Object.values(enumsMap) };
-      }
-
-      case "indexes": {
-        const schema = body.schema || "public";
-        const sql = `
-          SELECT schemaname AS schema, tablename AS table_name,
-            indexname AS name, indexdef AS definition,
-            CASE WHEN indexdef LIKE 'CREATE UNIQUE INDEX%' THEN true ELSE false END AS is_unique
-          FROM pg_indexes
-          WHERE schemaname = ${P(1)}
-          ORDER BY tablename, indexname
-        `;
-        const qr = await apiQuery(wsId, sql, [schema]);
-        if (qr.error) return { success: false, error: qr.error };
-        const raw = qr.rows || [];
-        const data = raw.map((row: any) => ({
-          ...row,
-          columns: extractIndexColumns(row.definition),
-        }));
-        return { success: true, data };
-      }
-
-      case "views": {
-        const s = body.schema || "public";
-        const sql = `
-          SELECT table_name AS name
-          FROM information_schema.views
-          WHERE table_schema = ${P(1)}
-          UNION
-          SELECT matviewname AS name
-          FROM pg_matviews
-          WHERE schemaname = ${P(1)}
-          ORDER BY name
-        `;
-        const qr = await apiQuery(wsId, sql, [s]);
-        if (qr.error) return { success: false, error: qr.error };
-        const data = qr.rows.map((r: any) => r.name);
-        return { success: true, data };
-      }
-
-      case "rls-policies": {
-        const rlsSchema = body.schema || null;
-        const rlsTable = body.table || null;
-        const sql = `
-          SELECT
-            p.schemaname AS schema,
-            p.tablename AS table_name,
-            p.policyname AS name,
-            p.permissive AS permissive,
-            p.roles AS roles,
-            p.cmd AS command,
-            p.qual AS using_expression,
-            p.with_check AS with_check_expression,
-            c.relrowsecurity AS rls_enabled,
-            c.relforcerowsecurity AS rls_forced
-          FROM pg_policies p
-          JOIN pg_namespace n ON n.nspname = p.schemaname
-          JOIN pg_class c ON c.relname = p.tablename AND c.relnamespace = n.oid
-          WHERE p.schemaname NOT IN ('information_schema', 'pg_catalog')
-            AND (${P(1)}::text IS NULL OR p.schemaname = ${P(1)})
-            AND (${P(2)}::text IS NULL OR p.tablename = ${P(2)})
-          ORDER BY p.schemaname, p.tablename, p.policyname
-        `;
-        const qr = await apiQuery(wsId, sql, [rlsSchema, rlsTable]);
-        if (qr.error) return { success: false, error: qr.error };
-        return { success: true, data: qr.rows || [] };
-      }
-
-      case "postgres-roles": {
-        const sql = `
-          SELECT rolname AS name
-          FROM pg_roles
-          WHERE rolname !~ '^pg_'
-          ORDER BY rolname
-        `;
-        const qr = await apiQuery(wsId, sql);
-        if (qr.error) return { success: false, error: qr.error };
-        const data = qr.rows.map((r: any) => String(r.name || "").trim()).filter(Boolean);
-        return { success: true, data };
-      }
-
-      case "table-security-info": {
-        const secSchema = body.schema || "public";
-        const sql = `
-          SELECT
-            c.relname AS table_name,
-            c.relrowsecurity AS rls_enabled,
-            c.relforcerowsecurity AS rls_forced,
-            COUNT(p.policyname) AS policy_count
-          FROM pg_class c
-          JOIN pg_namespace n ON n.oid = c.relnamespace
-          LEFT JOIN pg_policies p ON p.schemaname = n.nspname AND p.tablename = c.relname
-          WHERE n.nspname = ${P(1)}
-            AND c.relkind IN ('r', 'p')
-          GROUP BY c.relname, c.relrowsecurity, c.relforcerowsecurity
-          ORDER BY c.relname
-        `;
-        const qr = await apiQuery(wsId, sql, [secSchema]);
-        if (qr.error) return { success: false, error: qr.error };
-        return { success: true, data: qr.rows || [] };
-      }
-
-      case "supabase-auth-users": {
-        // Use simple queries for maximum compatibility (workspace proxy may also be strict about GROUP BY)
-        const usersSql = `SELECT u.id::text AS id, u.email, u.phone, u.role, u.created_at, u.raw_app_meta_data, u.raw_user_meta_data FROM auth.users u ORDER BY u.created_at DESC LIMIT 500`;
-        const qr = await apiQuery(wsId, usersSql);
-        if (qr.error) return { success: false, error: qr.error };
-        const mapped = (qr.rows || []).map((row: any) => {
-          const rawUserMetaData =
-            row?.raw_user_meta_data && typeof row.raw_user_meta_data === "object"
-              ? row.raw_user_meta_data
-              : {};
-          const rawAppMetaData =
-            row?.raw_app_meta_data && typeof row.raw_app_meta_data === "object"
-              ? row.raw_app_meta_data
-              : {};
-          const displayName =
-            (typeof rawUserMetaData.full_name === "string" && rawUserMetaData.full_name.trim()) ||
-            (typeof rawUserMetaData.name === "string" && rawUserMetaData.name.trim()) ||
-            (typeof rawUserMetaData.display_name === "string" && rawUserMetaData.display_name.trim()) ||
-            (typeof row?.email === "string" ? row.email.split("@")[0] : "") ||
-            String(row?.id || "");
-          return {
-            id: String(row?.id || ""),
-            displayName,
-            email: row?.email ?? null,
-            phone: row?.phone ?? null,
-            role: String(row?.role || "authenticated"),
-            providers: String(row?.identities || "")
-              .split(",")
-              .map((p: string) => p.trim())
-              .filter(Boolean),
-            createdAt: row?.created_at ? String(row.created_at) : null,
-            rawAppMetaData,
-            rawUserMetaData,
-          };
-        }).filter((u: { id: string }) => Boolean(u.id));
-        return { success: true, data: mapped };
-      }
-
-      default:
-        return { success: false, error: `Unsupported workspace operation: ${apiPath}` };
-    }
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Proxy request failed" };
-  }
-}
-
-// Middleware: proxy DB operation if workspace connection
-async function tryProxyDbOp(req: any, res: any): Promise<boolean> {
-  const cs = req.body?.connectionString;
-  log("[tryProxyDbOp] checking cs=%s", cs);
-  if (isWsConnection(cs)) {
-    log("[tryProxyDbOp] intercepting", req.path);
-    if (!studioConfig) {
-      res.json({ success: false, error: "Workspace connection requires studio to be configured. Connect to studio in Settings first." });
-      return true;
-    }
-    const apiPath = req.path.replace("/api/", "");
-    res.json(await proxyDbOp(apiPath, req.body));
-    return true;
-  }
-  return false;
-}
-
 // ─── Route-handler factories (eliminate try/catch/tryProxy boilerplate) ──────
 type Handler = (req: any, res: any) => Promise<void>;
 
@@ -1662,33 +992,30 @@ function simpleGetRoute(fn: () => Promise<any>): Handler {
   };
 }
 
-/** POST /api/X — tryProxyDbOp + extract connectionString, call mod.fn(cs) */
+/** POST /api/X — extract connectionString, call mod.fn(cs) */
 function proxyOneArgRoute(fn: (cs: string) => Promise<any>): Handler {
   return async (req, res) => {
     try {
-      if (await tryProxyDbOp(req, res)) return;
       res.json(await fn(req.body.connectionString));
     } catch (e: any) { res.json({ success: false, error: e.message }); }
   };
 }
 
-/** POST /api/X — tryProxyDbOp + extract connectionString, schema */
+/** POST /api/X — extract connectionString, schema */
 // fallow-ignore-next-line code-duplication
 function proxyTwoArgRoute(fn: (cs: string, schema: string) => Promise<any>): Handler {
   return async (req, res) => {
     try {
-      if (await tryProxyDbOp(req, res)) return;
       res.json(await fn(req.body.connectionString, req.body.schema));
     } catch (e: any) { res.json({ success: false, error: e.message }); }
   };
 }
 
-/** POST /api/X — tryProxyDbOp + extract connectionString, schema, table */
+/** POST /api/X — extract connectionString, schema, table */
 // fallow-ignore-next-line code-duplication
 function proxyThreeArgRoute(fn: (cs: string, schema: string, table: string) => Promise<any>): Handler {
   return async (req, res) => {
     try {
-      if (await tryProxyDbOp(req, res)) return;
       res.json(await fn(req.body.connectionString, req.body.schema, req.body.table));
     } catch (e: any) { res.json({ success: false, error: e.message }); }
   };
@@ -1720,191 +1047,6 @@ async function getWorkflowDeps() {
   await ensureCoreTables();
   return { client };
 }
-
-app.post("/api/studio/ws-type", (req, res) => {
-  const { wsId, connType } = req.body || {};
-  if (wsId && connType) {
-    wsConnTypes.set(wsId, connType);
-    res.json({ success: true });
-  } else {
-    res.json({ success: false, error: "Missing wsId or connType" });
-  }
-});
-
-app.get("/api/studio-config", async (_req, res) => {
-  if (studioConfig) {
-    res.json({ success: true, data: studioConfig });
-    return;
-  }
-  try {
-    const { getStudioBackendConfig } = await import("../lib/db/actions");
-    const result = await getStudioBackendConfig();
-    if (result.success && result.data) {
-      studioConfig = result.data;
-      res.json({ success: true, data: result.data });
-      return;
-    }
-  } catch (e) {
-    logToFile("Failed to load studio config from DB:", e);
-  }
-  res.json({ success: false, data: null });
-});
-
-app.post("/api/studio-config", async (req, res) => {
-  const { studioUrl, studioToken, userId } = req.body || {};
-  if (studioUrl && studioToken && userId) {
-    studioConfig = { studioUrl, studioToken, userId };
-    try {
-      const { saveStudioBackendConfig } = await import("../lib/db/actions");
-      await saveStudioBackendConfig(studioConfig);
-    } catch (e) {
-      logToFile("Failed to save studio config to DB:", e);
-    }
-  }
-  res.json({ success: true });
-});
-
-app.delete("/api/studio-config", async (_req, res) => {
-  studioConfig = null;
-  try {
-    const { clearStudioBackendConfig } = await import("../lib/db/actions");
-    await clearStudioBackendConfig();
-  } catch (e) {
-    logToFile("Failed to clear studio config from DB:", e);
-  }
-  res.json({ success: true });
-});
-
-// Multi-workspace support
-app.get("/api/workspaces", async (_req, res) => {
-  try {
-    const { getWorkspaceList } = await import("../lib/db/actions");
-    const result = await getWorkspaceList();
-    res.json({ success: true, data: result.data });
-  } catch (e: any) {
-    res.json({ success: false, data: [], error: e.message });
-  }
-});
-
-app.put("/api/workspaces/activate", async (req, res) => {
-  try {
-    const { studioUrl } = req.body || {};
-    if (!studioUrl) {
-      res.json({ success: false, error: "Missing studioUrl" });
-      return;
-    }
-    const { getWorkspaceList } = await import("../lib/db/actions");
-    const list = await getWorkspaceList();
-    const workspace = list.data.find((w: any) => w.studioUrl === studioUrl);
-    if (!workspace) {
-      res.json({ success: false, error: "Workspace not found" });
-      return;
-    }
-    studioConfig = { studioUrl: workspace.studioUrl, studioToken: workspace.studioToken, userId: workspace.userId };
-    const { saveStudioBackendConfig } = await import("../lib/db/actions");
-    await saveStudioBackendConfig(studioConfig);
-    res.json({ success: true });
-  } catch (e: any) {
-    res.json({ success: false, error: e.message });
-  }
-});
-
-app.put("/api/workspaces/deactivate", async (_req, res) => {
-  try {
-    if (studioConfig) {
-      const { clearStudioBackendConfig } = await import("../lib/db/actions");
-      await clearStudioBackendConfig();
-      studioConfig = null;
-    }
-    res.json({ success: true });
-  } catch (e: any) {
-    res.json({ success: false, error: e.message });
-  }
-});
-
-app.post("/api/workspaces", async (req, res) => {
-  try {
-    const { studioUrl, studioToken, userId, name } = req.body || {};
-    if (!studioUrl || !studioToken || !userId) {
-      res.json({ success: false, error: "Missing required fields" });
-      return;
-    }
-    const { getWorkspaceList, saveWorkspaceList } = await import("../lib/db/actions");
-    const list = await getWorkspaceList();
-    const existing = list.data.findIndex((w: any) => w.studioUrl === studioUrl);
-    const entry = { studioUrl, studioToken, userId, name: name || studioUrl };
-    if (existing >= 0) {
-      list.data[existing] = entry;
-    } else {
-      list.data.push(entry);
-    }
-    await saveWorkspaceList(list.data);
-    res.json({ success: true });
-  } catch (e: any) {
-    res.json({ success: false, error: e.message });
-  }
-});
-
-app.delete("/api/workspaces", async (req, res) => {
-  try {
-    const { studioUrl } = req.body || {};
-    if (!studioUrl) {
-      res.json({ success: false, error: "Missing studioUrl" });
-      return;
-    }
-    const { getWorkspaceList, saveWorkspaceList } = await import("../lib/db/actions");
-    const list = await getWorkspaceList();
-    list.data = list.data.filter((w: any) => w.studioUrl !== studioUrl);
-    await saveWorkspaceList(list.data);
-    if (studioConfig?.studioUrl === studioUrl) {
-      studioConfig = null;
-      const { clearStudioBackendConfig } = await import("../lib/db/actions");
-      await clearStudioBackendConfig();
-    }
-    res.json({ success: true });
-  } catch (e: any) {
-    res.json({ success: false, error: e.message });
-  }
-});
-
-// Billing / entitlement
-app.get("/api/billing/entitlement", async (req, res) => {
-  try {
-    const { getEntitlementPrivateKeyPem, signEntitlementPayload } = await import("../lib/billing/entitlement-server");
-    const { ENTITLEMENT_CACHE_TTL_MS } = await import("../lib/billing/entitlement-constants");
-
-    const auth = req.headers.authorization || "";
-    const token = auth.replace(/^Bearer\s+/i, "").trim();
-    const userId = token || "local";
-    const privateKey = getEntitlementPrivateKeyPem();
-
-    if (!privateKey) {
-      return res.json({ success: false, error: "Entitlement signing not configured" });
-    }
-
-    const now = Date.now();
-    const payload: import("../lib/billing/entitlement-types").SignedEntitlementPayload = {
-      version: 1,
-      userId,
-      entitlementPlanCode: "free",
-      lastPaidPlanCode: null,
-      status: "none",
-      cloudEnabled: true,
-      maxConnections: null,
-      maxWorkspaces: null,
-      accessEndsAt: null,
-      graceEndsAt: null,
-      updatesUntil: null,
-      issuedAt: now,
-      refreshAfter: now + ENTITLEMENT_CACHE_TTL_MS,
-    };
-
-    const envelope = signEntitlementPayload(payload, privateKey);
-    res.json({ success: true, envelope });
-  } catch (e: any) {
-    res.json({ success: false, error: e.message });
-  }
-});
 
 // Notifications
 app.get("/api/notifications", (req, res) => {
@@ -2250,58 +1392,6 @@ app.post("/api/sql/cancel", (req, res) => {
 // Tauri updater placeholder
 app.get("/api/updates/check", async (_req, res) => {
   res.json({ success: true, updateAvailable: false });
-});
-
-// Studio API proxy — forwards requests to the configured studio backend
-// Bun v1.3.14+ ships with path-to-regexp v8+ which rejects wildcard strings;
-// use a regex to bypass path-to-regexp entirely
-app.all(/^\/api\/studio-proxy(?:\/|$)/, async (req, res) => {
-  const studioUrl = (req.headers["x-studio-url"] as string || "").replace(/\/+$/, "");
-  log(`[proxy] ${req.method} ${req.path} x-studio-url="${req.headers["x-studio-url"]}"`);
-  if (!studioUrl) {
-    log(`[proxy] MISSING X-Studio-Url header`);
-    res.status(400).json({ error: "Missing X-Studio-Url header" });
-    return;
-  }
-
-  const targetPath = req.path.replace(/^\/api\/studio-proxy\//, "");
-  const cleanPath = targetPath.replace(/^api\//, "");
-  const targetUrl = `${studioUrl}/api/${cleanPath}`;
-  log(`[proxy] targetUrl="${targetUrl}"`);
-
-  const headers: Record<string, string> = {
-    "Content-Type": req.headers["content-type"] as string || "application/json",
-  };
-  const auth = req.headers["authorization"] as string | undefined;
-  if (auth) headers["Authorization"] = auth;
-
-  try {
-    const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
-    const body = ["GET", "HEAD"].includes(req.method) ? undefined : JSON.stringify(req.body);
-    log(`[proxy] fetching ${req.method} ${targetUrl + query}`);
-    const res_ = await fetch(targetUrl + query, {
-      method: req.method,
-      headers,
-      body,
-    });
-    const text = await res_.text();
-    log(`[proxy] response status=${res_.status} body="${text.slice(0, 200)}"`);
-    let json: unknown;
-    try { json = JSON.parse(text); } catch {
-      log(`[proxy] NON-JSON response from ${studioUrl}`);
-      res.status(502).json({
-        error: `Workspace server returned non-JSON response (status ${res_.status}). Check that "${studioUrl}" is the correct workspace backend URL.`,
-      });
-      return;
-    }
-    res.status(res_.status).json(json);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Proxy request failed";
-    log(`[proxy] FETCH ERROR: ${message}`);
-    res.status(502).json({
-      error: `Cannot reach workspace server at "${studioUrl}". ${message}`,
-    });
-  }
 });
 
 // ─── Workflows ────────────────────────────────────────────────────────────────

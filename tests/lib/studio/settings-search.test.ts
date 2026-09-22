@@ -28,9 +28,10 @@ test("filterSettingsSearch requires every token to match", () => {
 });
 
 test("filterSettingsSearch matches section names", () => {
-  const ids = filterSettingsSearch("workspace").map((e) => e.id);
-  assert.ok(ids.includes("workspace-connect"));
-  assert.ok(ids.includes("workspace-saved"));
+  const ids = filterSettingsSearch("security").map((e) => e.id);
+  const securityIds = SETTINGS_SEARCH_INDEX.filter((e) => e.section === "security").map((e) => e.id);
+  assert.ok(securityIds.length > 0);
+  for (const id of securityIds) assert.ok(ids.includes(id), id);
 });
 
 test("SETTINGS_SEARCH_INDEX has unique ids", () => {

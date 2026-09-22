@@ -247,8 +247,6 @@ export async function runDbBackup(
     const { execFileSync } = await import("child_process");
     const { resolvePgDumpBinary } = await import("./pg-dump");
     const { getPgHost, getPgPort, getPgDatabase, getPgUsername, getPgPassword } = await import("./pg-connection");
-    const { resolveEffectiveConnectionString } = await import("./neon-cli-client");
-    connectionString = await resolveEffectiveConnectionString(connectionString);
 
     const pgDump = await resolvePgDumpBinary();
     if (!pgDump.binary) {
@@ -460,247 +458,6 @@ export async function getStoredUserProfile(id?: string | null) {
   };
 }
 
-export async function updateUserPlan(payload: {
-  id: string;
-  planType: string;
-  planStatus?: string | null;
-  planSyncedAt?: number | string | Date | null;
-  planPeriodEnd?: number | string | Date | null;
-}) {
-  const { db } = await import("./index");
-  const { sql } = await import("drizzle-orm");
-  const id = typeof payload?.id === "string" ? payload.id.trim() : "";
-  if (!id) return { success: false, error: "User id is required." };
-  const planType =
-    typeof payload?.planType === "string" ? payload.planType.trim() : "";
-  if (!planType) return { success: false, error: "Plan type is required." };
-  const planStatus =
-    typeof payload?.planStatus === "string"
-      ? payload.planStatus.trim()
-      : "none";
-  const planSyncedAt = toTimestamp(payload?.planSyncedAt) ?? Date.now();
-  const createdAt = Date.now();
-  const planPeriodEnd = toTimestamp(payload?.planPeriodEnd);
-
-  await ensureCoreTables();
-  await db.run(sql`
-    INSERT INTO users (id, created_at, plan_type, plan_status, plan_synced_at, plan_period_end)
-    VALUES (${id}, ${createdAt}, ${planType}, ${planStatus}, ${planSyncedAt}, ${planPeriodEnd})
-    ON CONFLICT(id) DO UPDATE SET
-      plan_type = excluded.plan_type,
-      plan_status = excluded.plan_status,
-      plan_synced_at = excluded.plan_synced_at,
-      plan_period_end = excluded.plan_period_end
-  `);
-
-  return { success: true };
-}
-
-export async function getStoredUserEntitlement(id?: string | null) {
-  const { db } = await import("./index");
-  const { sql } = await import("drizzle-orm");
-  const trimmedId = typeof id === "string" ? id.trim() : "";
-
-  await ensureCoreTables();
-
-  const rows = trimmedId
-    ? await db.all<Record<string, unknown>>(sql`
-        SELECT *
-        FROM user_entitlements
-        WHERE user_id = ${trimmedId}
-        LIMIT 1
-      `)
-    : await db.all<Record<string, unknown>>(sql`
-        SELECT ue.*
-        FROM user_entitlements ue
-        JOIN users u ON u.id = ue.user_id
-        ORDER BY u.is_local ASC, u.created_at DESC
-        LIMIT 1
-      `);
-
-  const row = rows[0];
-  if (!row) {
-    return { success: false, error: "Entitlement not found." };
-  }
-
-  return {
-    success: true,
-    data: {
-      userId: String(row.user_id || ""),
-      payloadJson: String(row.payload_json || ""),
-      signature: String(row.signature || ""),
-      entitlementPlanCode: String(row.entitlement_plan_code || "free"),
-      lastPaidPlanCode: row.last_paid_plan_code
-        ? String(row.last_paid_plan_code)
-        : null,
-      status: String(row.status || "none"),
-      cloudEnabled: Boolean(row.cloud_enabled),
-      maxConnections:
-        row.max_connections === null ||
-        typeof row.max_connections === "undefined"
-          ? null
-          : Number(row.max_connections),
-      maxWorkspaces:
-        row.max_workspaces === null || typeof row.max_workspaces === "undefined"
-          ? null
-          : Number(row.max_workspaces),
-      accessEndsAt:
-        row.access_ends_at === null || typeof row.access_ends_at === "undefined"
-          ? null
-          : Number(row.access_ends_at),
-      graceEndsAt:
-        row.grace_ends_at === null || typeof row.grace_ends_at === "undefined"
-          ? null
-          : Number(row.grace_ends_at),
-      updatesUntil:
-        row.updates_until === null || typeof row.updates_until === "undefined"
-          ? null
-          : Number(row.updates_until),
-      issuedAt: Number(row.issued_at || 0),
-      refreshAfter: Number(row.refresh_after || 0),
-      lastObservedAt: Number(row.last_observed_at || 0),
-      syncedAt: Number(row.synced_at || 0),
-    },
-  };
-}
-
-export async function upsertUserEntitlement(payload: {
-  userId?: string | null;
-  payload?: Record<string, unknown> | null;
-  payloadJson?: string | null;
-  signature?: string | null;
-  lastObservedAt?: number | string | Date | null;
-}) {
-  const { db } = await import("./index");
-  const { sql } = await import("drizzle-orm");
-  const userId =
-    typeof payload?.userId === "string" ? payload.userId.trim() : "";
-  const payloadJson =
-    typeof payload?.payloadJson === "string" ? payload.payloadJson.trim() : "";
-  const signature =
-    typeof payload?.signature === "string" ? payload.signature.trim() : "";
-  const entitlementPayload =
-    payload?.payload && typeof payload.payload === "object"
-      ? payload.payload
-      : payloadJson
-        ? JSON.parse(payloadJson)
-        : null;
-
-  if (!userId) return { success: false, error: "User id is required." };
-  if (!payloadJson)
-    return { success: false, error: "Payload JSON is required." };
-  if (!signature) return { success: false, error: "Signature is required." };
-  if (!entitlementPayload || typeof entitlementPayload !== "object") {
-    return { success: false, error: "Entitlement payload is required." };
-  }
-
-  const entitlementPlanCode =
-    typeof entitlementPayload.entitlementPlanCode === "string" &&
-    entitlementPayload.entitlementPlanCode.trim()
-      ? entitlementPayload.entitlementPlanCode.trim()
-      : "free";
-  const lastPaidPlanCode =
-    typeof entitlementPayload.lastPaidPlanCode === "string" &&
-    entitlementPayload.lastPaidPlanCode.trim()
-      ? entitlementPayload.lastPaidPlanCode.trim()
-      : null;
-  const status =
-    typeof entitlementPayload.status === "string" &&
-    entitlementPayload.status.trim()
-      ? entitlementPayload.status.trim()
-      : "none";
-  const cloudEnabled = Boolean(entitlementPayload.cloudEnabled);
-  const maxConnections = toTimestamp(
-    entitlementPayload.maxConnections as number | string | Date | null,
-  );
-  const maxWorkspaces = toTimestamp(
-    entitlementPayload.maxWorkspaces as number | string | Date | null,
-  );
-  const accessEndsAt = toTimestamp(
-    entitlementPayload.accessEndsAt as number | string | Date | null,
-  );
-  const graceEndsAt = toTimestamp(
-    entitlementPayload.graceEndsAt as number | string | Date | null,
-  );
-  const updatesUntil = toTimestamp(
-    entitlementPayload.updatesUntil as number | string | Date | null,
-  );
-  const issuedAt =
-    toTimestamp(entitlementPayload.issuedAt as number | string | Date | null) ??
-    Date.now();
-  const refreshAfter =
-    toTimestamp(
-      entitlementPayload.refreshAfter as number | string | Date | null,
-    ) ?? issuedAt;
-  const lastObservedAt = toTimestamp(payload?.lastObservedAt) ?? Date.now();
-  const syncedAt = Date.now();
-
-  await ensureCoreTables();
-  await db.run(sql`
-    INSERT INTO users (id, created_at, is_local)
-    VALUES (${userId}, ${Date.now()}, 0)
-    ON CONFLICT(id) DO NOTHING
-  `);
-
-  await db.run(sql`
-    INSERT INTO user_entitlements (
-      user_id,
-      payload_json,
-      signature,
-      entitlement_plan_code,
-      last_paid_plan_code,
-      status,
-      cloud_enabled,
-      max_connections,
-      max_workspaces,
-      access_ends_at,
-      grace_ends_at,
-      updates_until,
-      issued_at,
-      refresh_after,
-      last_observed_at,
-      synced_at
-    )
-    VALUES (
-      ${userId},
-      ${payloadJson},
-      ${signature},
-      ${entitlementPlanCode},
-      ${lastPaidPlanCode},
-      ${status},
-      ${cloudEnabled ? 1 : 0},
-      ${maxConnections},
-      ${maxWorkspaces},
-      ${accessEndsAt},
-      ${graceEndsAt},
-      ${updatesUntil},
-      ${issuedAt},
-      ${refreshAfter},
-      ${lastObservedAt},
-      ${syncedAt}
-    )
-    ON CONFLICT(user_id) DO UPDATE SET
-      payload_json = excluded.payload_json,
-      signature = excluded.signature,
-      entitlement_plan_code = excluded.entitlement_plan_code,
-      last_paid_plan_code = excluded.last_paid_plan_code,
-      status = excluded.status,
-      cloud_enabled = excluded.cloud_enabled,
-      max_connections = excluded.max_connections,
-      max_workspaces = excluded.max_workspaces,
-      access_ends_at = excluded.access_ends_at,
-      grace_ends_at = excluded.grace_ends_at,
-      updates_until = excluded.updates_until,
-      issued_at = excluded.issued_at,
-      refresh_after = excluded.refresh_after,
-      last_observed_at = excluded.last_observed_at,
-      synced_at = excluded.synced_at
-  `);
-
-  return { success: true };
-}
-
-/** Providers pinned in the settings UI; any other Pi-SDK provider id may also be a key of `providers`. */
 export type AgentProvider =
   | "openai"
   | "google"
@@ -1317,21 +1074,6 @@ export async function getConnection(id: number) {
   } catch (error) {
     console.error("Failed to get connection:", error);
     return null;
-  }
-}
-
-export async function deleteConnectionsByPrefix(prefix: string) {
-  const { client } = await import("./index");
-
-  try {
-    await ensureCoreTables();
-    await client.connections.deleteMany({
-      where: { connectionString: { startsWith: prefix } },
-    });
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to delete connections by prefix:", error);
-    return { success: false };
   }
 }
 
@@ -2454,8 +2196,7 @@ export async function testConnection(
         return { success: true };
       }
       case "postgres": {
-        const { resolveEffectiveConnectionString } = await import("./neon-cli-client");
-        const effectiveConnectionString = await resolveEffectiveConnectionString(connectionString);
+        const effectiveConnectionString = connectionString;
         const pgMod = (globalThis as any).__pg || (await import("pg")).default;
         const client = new pgMod.Client({ connectionString: effectiveConnectionString });
         try {

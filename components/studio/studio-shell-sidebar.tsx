@@ -79,7 +79,6 @@ import {
   FunctionSquare,
   Gauge,
   Braces,
-  CreditCard,
   Globe,
   Unlock,
   MoreVertical,
@@ -87,11 +86,9 @@ import {
   Tag,
   X,
 } from "lucide-react";
-import { PaymentsPanel } from "./payments/payments-panel";
 import { StoragePanel } from "./storage/storage-panel";
 import { EdgeFunctionsPanel } from "./edge-functions/edge-functions-panel";
 import { ErdsPanel } from "./erd/erds-panel";
-import { shouldShowPayments } from "@/lib/supabase-paykit/supabase-ref";
 import { shouldShowStorage } from "@/lib/studio/storage-utils";
 import { shouldShowEdgeFunctions } from "@/lib/studio/edge-functions-utils";
 import { GitFork } from "@/lib/icon-theme/lucide-react";
@@ -110,7 +107,7 @@ import {
   getTableDerivedValues,
 } from "@/lib/studio/table-utils";
 
-type Section = "dashboard" | "notes" | "tables" | "sql" | "database" | "auth" | "workflows" | "payments" | "storage" | "edge-functions" | "import-export" | "themes" | "erd" | "extensions" | null;
+type Section = "dashboard" | "notes" | "tables" | "sql" | "database" | "auth" | "workflows" | "storage" | "edge-functions" | "import-export" | "themes" | "erd" | "extensions" | null;
 
 const ROW =
   "flex h-8 w-full select-none items-center gap-2 rounded-lg px-1 text-left text-sm text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground";
@@ -351,17 +348,6 @@ export function StudioShellSidebar({
       show: Boolean(studio.schemas?.includes?.("auth")),
     },
     {
-      id: "payments",
-      label: "Payments",
-      Icon: CreditCard,
-      // supabase-mgmt connections + direct Postgres connections to Supabase
-      // (db.<ref>.supabase.co). Other engines have no Edge Functions target.
-      show: shouldShowPayments(
-        studio.connection?.connectionType ?? studio.dbType,
-        studio.connection?.connectionString,
-      ),
-    },
-    {
       id: "storage",
       label: "Storage",
       Icon: HardDrive,
@@ -445,7 +431,6 @@ export function StudioShellSidebar({
             {section === "notes" && <NotesPanel studio={studio} />}
             {section === "database" && <DatabasePanel studio={studio} />}
             {section === "auth" && <AuthPanel studio={studio} />}
-            {section === "payments" && <PaymentsPanel studio={studio} />}
             {section === "storage" && <StoragePanel studio={studio} />}
             {section === "edge-functions" && <EdgeFunctionsPanel studio={studio} />}
             {section === "workflows" && <WorkflowsPanel studio={studio} />}

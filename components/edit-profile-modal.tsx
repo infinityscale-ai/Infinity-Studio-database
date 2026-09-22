@@ -1,22 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
-import { ChevronDown, Pencil, RefreshCw, Sparkles } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
+import { Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import FallbackAvatar from "@/components/fallback-avatar";
-import { cn } from "@/lib/utils";
+import { useAuthState } from "@/hooks/use-auth-state";
+import { saveLocalUserProfile } from "@/lib/auth/user-profile";
+import { toast } from "sonner";
 
-export type PlanTier = "free" | "pro" | "team" | "enterprise" | "otl";
+export const USER_AVATAR_STORAGE_KEY = "rexa-db-user-avatar";
 
 export interface ProfileData {
   fullName: string;
   email: string;
   avatarUrl?: string;
-  plan: PlanTier;
-  daysRemaining?: number;
 }
 
 export interface EditProfileModalProps {
@@ -25,32 +33,100 @@ export interface EditProfileModalProps {
   profile: ProfileData;
   lastUpdated?: string;
   onSave: (data: ProfileData) => void | Promise<void>;
-  onUpgrade?: () => void;
-  onRefreshSubscription?: () => void | Promise<void>;
-  onAvatarEdit?: () => void;
 }
 
-const PLAN_LABEL: Record<PlanTier, string> = {
-  free: "Free",
-  pro: "Pro",
-  team: "Team",
-  enterprise: "Enterprise",
-  otl: "Lifetime",
-};
+// Reads the avatar data URL cached for the local user, or undefined.
+export function loadStoredAvatar(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    return window.localStorage.getItem(USER_AVATAR_STORAGE_KEY) || undefined;
+  } catch {
+    return undefined;
+  }
+}
 
+// Caches the avatar data URL for the local user, or clears it when empty.
+export function storeAvatar(avatarUrl?: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (avatarUrl) window.localStorage.setItem(USER_AVATAR_STORAGE_KEY, avatarUrl);
+    else window.localStorage.removeItem(USER_AVATAR_STORAGE_KEY);
+  } catch {
+    // Storage unavailable: the avatar then lives only for this session.
+  }
+}
+
+// Reads a picked image file as a data URL and hands it to the callback.
+export function readAvatarFile(file: File, onLoad: (dataUrl: string) => void): void {
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (typeof reader.result === "string") onLoad(reader.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+interface LocalProfileOverrides {
+  name?: string;
+  email?: string;
+  avatar?: string;
+}
+
+export interface LocalProfileEditor {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  resolved: boolean;
+  profile: ProfileData;
+  save: (data: ProfileData) => Promise<void>;
+}
+
+// Drives profile editing for the single local user: resolves the stored profile and saves name, email and avatar.
+export function useLocalProfileEditor(
+  overrides: LocalProfileOverrides = {},
+): LocalProfileEditor {
+  const auth = useAuthState();
+  const [open, setOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    setAvatarUrl(loadStoredAvatar());
+  }, []);
+
+  const save = useCallback(async (data: ProfileData) => {
+    const { result } = await saveLocalUserProfile(data.fullName, data.email);
+    if (!result.success) {
+      toast.error(result.error || "Failed to save profile. Try again.");
+      return;
+    }
+    storeAvatar(data.avatarUrl);
+    setAvatarUrl(data.avatarUrl);
+    setOpen(false);
+    toast.success("Profile updated.");
+  }, []);
+
+  const overrideName = overrides.name?.trim();
+  const overrideEmail = overrides.email?.trim();
+  const overrideAvatar = overrides.avatar;
+  const profile = useMemo<ProfileData>(
+    () => ({
+      fullName: auth.authResolved ? auth.displayName : overrideName || "User",
+      email: auth.authResolved ? (auth.email ?? "") : (overrideEmail ?? ""),
+      avatarUrl: avatarUrl || overrideAvatar,
+    }),
+    [auth.authResolved, auth.displayName, auth.email, overrideName, overrideEmail, avatarUrl, overrideAvatar],
+  );
+
+  return { open, setOpen, resolved: auth.authResolved, profile, save };
+}
+
+// Modal for editing the local user's name, email and avatar.
 export function EditProfileModal({
   open,
   onOpenChange,
   profile,
   lastUpdated,
   onSave,
-  onUpgrade,
-  onRefreshSubscription,
-  onAvatarEdit,
 }: EditProfileModalProps) {
   const [draft, setDraft] = useState<ProfileData>(profile);
-  const [planOpen, setPlanOpen] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -59,28 +135,11 @@ export function EditProfileModal({
 
   const handleAvatarClick = () => fileInputRef.current?.click();
 
-  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setDraft((d) => ({ ...d, avatarUrl: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
+    if (file) readAvatarFile(file, (dataUrl) => setDraft((d) => ({ ...d, avatarUrl: dataUrl })));
     e.target.value = "";
   };
-
-  const handleRefresh = async () => {
-    if (!onRefreshSubscription) return;
-    setRefreshing(true);
-    try {
-      await onRefreshSubscription();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const isSubscribed = draft.plan !== "free" && draft.plan != null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,92 +151,24 @@ export function EditProfileModal({
         <div className="grid grid-cols-[1fr_280px] gap-8 px-8 pb-8">
           {/* Left: form */}
           <div className="space-y-5 border-r border-dashed border-border pr-8">
-            <Field label="Full name">
+            <Field label="Full name" htmlFor="edit-profile-name">
               <Input
+                id="edit-profile-name"
                 value={draft.fullName}
                 onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}
                 className="rounded-xl"
               />
             </Field>
 
-            <Field label="Email">
+            <Field label="Email" htmlFor="edit-profile-email">
               <Input
+                id="edit-profile-email"
                 type="email"
                 value={draft.email}
                 onChange={(e) => setDraft({ ...draft, email: e.target.value })}
                 className="rounded-xl"
               />
             </Field>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-muted-foreground text-xs font-normal">Plan</Label>
-                <button
-                  type="button"
-                  onClick={() => setPlanOpen((v) => !v)}
-                  className={cn(
-                    "border-input bg-background flex h-10 w-full items-center justify-between rounded-xl border px-3 text-sm transition-colors hover:bg-accent/40",
-                  )}
-                >
-                  <span className="flex items-center gap-1.5">
-                    {isSubscribed && <Sparkles className="h-3.5 w-3.5" />}
-                    {PLAN_LABEL[draft.plan]}
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "h-4 w-4 text-muted-foreground transition-transform",
-                      planOpen && "rotate-180",
-                    )}
-                  />
-                </button>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-muted-foreground text-xs font-normal">Subscription</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleRefresh}
-                  disabled={refreshing || !onRefreshSubscription}
-                  className="h-10 w-full justify-between rounded-xl px-3 font-normal"
-                >
-                  <span>Refresh</span>
-                  <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-                </Button>
-              </div>
-            </div>
-
-            {planOpen && (
-              <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm">
-                {isSubscribed ? (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{PLAN_LABEL[draft.plan]} plan</div>
-                      <div className="text-muted-foreground text-xs">
-                        {draft.daysRemaining ?? 0} days remaining
-                      </div>
-                    </div>
-                    {onUpgrade && draft.plan !== "team" && (
-                      <Button size="sm" variant="ghost" onClick={onUpgrade} className="h-8">
-                        Upgrade
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-medium">You're on the Free plan</div>
-                      <div className="text-muted-foreground text-xs">
-                        Upgrade to unlock more features
-                      </div>
-                    </div>
-                    <Button size="sm" onClick={onUpgrade} className="h-8 rounded-full">
-                      Upgrade
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Right: preview */}
@@ -194,10 +185,11 @@ export function EditProfileModal({
               <button
                 type="button"
                 onClick={handleAvatarClick}
-                className="bg-muted h-24 w-24 overflow-hidden rounded-full focus:outline-none"
+                className="bg-muted h-24 w-24 overflow-hidden rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="Change avatar"
               >
                 {draft.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- data URL avatar, not an optimizable asset
                   <img
                     src={draft.avatarUrl}
                     alt={draft.fullName}
@@ -222,14 +214,8 @@ export function EditProfileModal({
             </div>
             <div className="mt-3 text-center">
               <div className="text-base font-semibold">{draft.fullName || "Your name"}</div>
-              <div className="text-muted-foreground text-sm">{PLAN_LABEL[draft.plan]} plan</div>
+              <div className="text-muted-foreground text-sm">{draft.email || "No email"}</div>
             </div>
-            {isSubscribed && draft.daysRemaining != null && (
-              <div className="bg-muted text-muted-foreground mt-3 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs">
-                <Sparkles className="h-3 w-3" />
-                {draft.daysRemaining} days left
-              </div>
-            )}
           </div>
         </div>
 
@@ -254,10 +240,11 @@ export function EditProfileModal({
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+// Labelled form row used by the modal's inputs.
+function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-muted-foreground text-xs font-normal">{label}</Label>
+      <Label htmlFor={htmlFor} className="text-muted-foreground text-xs font-normal">{label}</Label>
       {children}
     </div>
   );

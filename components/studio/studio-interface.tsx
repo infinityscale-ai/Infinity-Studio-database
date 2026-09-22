@@ -82,7 +82,7 @@ export function StudioInterface({
   initialUiState,
 }: StudioInterfaceProps) {
   const studio = useStudio({ connection, initialUiState });
-  const { displayName, user: authUser } = useAuthState();
+  const { displayName, email: authEmail } = useAuthState();
   const [isGlobalSqlSheetOpen, setIsGlobalSqlSheetOpen] = useState(false);
   const [isUniversalSearchOpen, setIsUniversalSearchOpen] = useState(false);
   const [isAiSheetOpen, setIsAiSheetOpen] = useState(false);
@@ -989,7 +989,7 @@ export function StudioInterface({
     askAIActive: isAiSheetOpen,
     onAgentsClick: handleToggleAgentsPanel,
     onQueryHistory: studio.openHistoryTab,
-    user: { name: displayName, email: authUser?.email },
+    user: { name: displayName, email: authEmail ?? undefined },
     noiseBgEnabled: studio.noiseBgEnabled,
     noiseBgOpacity: studio.noiseBgOpacity,
     noiseBgSize: studio.noiseBgSize,

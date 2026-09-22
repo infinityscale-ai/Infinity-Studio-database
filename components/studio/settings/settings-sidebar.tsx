@@ -11,7 +11,6 @@ import {
   Shield,
   SlidersHorizontal,
   Keyboard,
-  Users,
   Search,
   X,
   Server as ServerIcon,
@@ -26,8 +25,7 @@ export type SettingsSectionId =
   | "security"
   | "advanced"
   | "themes"
-  | "keybindings"
-  | "workspace";
+  | "keybindings";
 
 const items: Array<{
   id: SettingsSectionId;
@@ -42,7 +40,6 @@ const items: Array<{
   { id: "security", label: "Security", Icon: Shield },
   { id: "keybindings", label: "Keybindings", Icon: Keyboard },
   { id: "advanced", label: "Advanced", Icon: SlidersHorizontal },
-  { id: "workspace", label: "Workspace", Icon: Users },
 ];
 
 export function SettingsSidebar({

@@ -15,7 +15,6 @@ import { Toaster } from "sonner";
 import { ConfirmProvider } from "@/hooks/use-confirm";
 import { UpdateNotificationProvider } from "@/components/providers/update-notification-provider";
 import { AppUpdateProvider } from "@/components/providers/app-update-context";
-import { SettingsSyncProvider } from "@/components/providers/settings-sync-provider";
 import { ClientShim } from "@/components/client-shim";
 import { SettingsMigrationGate } from "@/components/gates/settings-migration-gate";
 import { SidecarGate } from "@/components/gates/sidecar-gate";
@@ -64,7 +63,6 @@ export default function RootLayout({
                 <ConfirmProvider>
                   <AppUpdateProvider>
                     <UpdateNotificationProvider>
-                    <SettingsSyncProvider>
                       <ExtensionProvider>
                       {children}
                       </ExtensionProvider>
@@ -82,7 +80,6 @@ export default function RootLayout({
                           },
                         }}
                       />
-                    </SettingsSyncProvider>
                   </UpdateNotificationProvider>
                   </AppUpdateProvider>
                 </ConfirmProvider>

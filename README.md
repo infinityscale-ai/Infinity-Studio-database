@@ -33,6 +33,7 @@ desktop shell a Rust toolchain plus the Tauri prerequisites for your OS.
 
 ```bash
 bun install            # install dependencies (bun.lock is the lockfile)
+bun run server:install # the sidecar's own deps (express 4) under server/node_modules
 bun run dev            # Next.js dev server on http://localhost:3000
 bun run server:dev     # Bun sidecar on http://127.0.0.1:3867 (run in a second terminal)
 bun test               # unit tests

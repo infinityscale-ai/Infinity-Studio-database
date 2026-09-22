@@ -15,14 +15,12 @@ import { ArrowLeft } from "@/lib/icon-theme/lucide-react";
 import type { AppTab } from "@/components/app-shell/app-shared";
 import { Connection } from "@/lib/db/schema";
 import { getConnections, getStoredUserProfile } from "@/lib/api/actions-client";
-import { supabase } from "@/lib/supabase/client";
-import { loadStoredDisplayName, syncAuthenticatedUserProfile } from "@/lib/auth/user-profile";
+import { LOCAL_USER_ID, loadStoredDisplayName } from "@/lib/auth/user-profile";
 import { ONBOARDING_COMPLETE_KEY } from "@/lib/onboarding";
 import { useAppSettings } from "@/hooks/use-app-settings";
 import { getDefaultKeybindings, buildShortcutCombo } from "@/lib/studio/keybindings";
 import { Database as DatabaseIcon } from "@/lib/icon-theme/solar-icons";
 import { ProviderLogo } from "@/components/shared/provider-logo";
-import { PLANETSCALE_LOGIN_ENABLED } from "@/lib/planetscale/auth";
 import { useDesktopWindow } from "@/hooks/use-desktop-window";
 import { WindowControls } from "@/components/shared/window-controls";
 import { BrowserTab } from "@/components/browser/browser-tab";
@@ -38,24 +36,6 @@ const SUPABASE_TAB: AppTab = {
   id: "supabase",
   kind: "supabase",
   title: "Supabase",
-};
-
-const SPACETIMEDB_TAB: AppTab = {
-  id: "spacetimedb",
-  kind: "spacetimedb",
-  title: "SpacetimeDB",
-};
-
-const NEON_TAB: AppTab = {
-  id: "neon",
-  kind: "neon",
-  title: "Neon",
-};
-
-const PLANETSCALE_TAB: AppTab = {
-  id: "planetscale",
-  kind: "planetscale",
-  title: "PlanetScale",
 };
 
 let browserTabCounter = 0;
@@ -111,32 +91,19 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
       } catch {}
     };
 
+    // Boots from the local users row: a stored profile means onboarding already ran.
     const hydrate = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.user) {
-          markOnboardingComplete();
-          const synced = await syncAuthenticatedUserProfile(data.session.user);
-          if (synced.result.success && synced.user) {
-            const name =
-              synced.user.user_metadata?.name ||
-              synced.user.user_metadata?.full_name ||
-              synced.user.user_metadata?.display_name ||
-              synced.user.email?.split("@")[0];
-            if (name) setDisplayName(name);
-            if (synced.user.email) setEmail(synced.user.email);
-          }
-          return;
-        }
-        const profile = await getStoredUserProfile();
+        const profile = await getStoredUserProfile(LOCAL_USER_ID);
         if (profile.success && profile.data) {
           markOnboardingComplete();
           setDisplayName(profile.data.name || "User");
+          if (profile.data.email) setEmail(profile.data.email);
           return;
         }
-        // No session and no stored profile — this is a brand new install.
-        // Grandfather anyone who somehow already flagged onboarding complete
-        // (e.g. cleared their profile but kept localStorage) out of the flow.
+        // No stored profile — this is a brand new install. Grandfather anyone
+        // who already flagged onboarding complete (e.g. cleared their profile
+        // but kept localStorage) out of the flow.
         const alreadyOnboarded =
           window.localStorage.getItem(ONBOARDING_COMPLETE_KEY) === "1";
         if (!alreadyOnboarded) {
@@ -284,9 +251,6 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
     (path: string) => {
       if (path === "connections") openTab(CONNECTIONS_TAB);
       else if (path === "supabase") openTab(SUPABASE_TAB);
-      else if (path === "spacetimedb") openTab(SPACETIMEDB_TAB);
-      else if (path === "neon") openTab(NEON_TAB);
-      else if (path === "planetscale" && PLANETSCALE_LOGIN_ENABLED) openTab(PLANETSCALE_TAB);
       else if (path === "settings") setSettingsModalOpen(true);
       else if (path === "browser") {
         browserTabCounter++;
@@ -329,28 +293,6 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
         icon: <ProviderLogo type="supabase" className="w-5 h-5 shrink-0" />,
         onClick: () => openTab(SUPABASE_TAB),
       },
-      {
-        id: "spacetimedb",
-        label: "SpacetimeDB",
-        icon: <ProviderLogo type="spacetimedb" className="w-5 h-5 shrink-0" />,
-        onClick: () => openTab(SPACETIMEDB_TAB),
-      },
-      {
-        id: "neon",
-        label: "Neon",
-        icon: <ProviderLogo type="neon" className="w-5 h-5 shrink-0" />,
-        onClick: () => openTab(NEON_TAB),
-      },
-      ...(PLANETSCALE_LOGIN_ENABLED
-        ? [
-            {
-              id: "planetscale",
-              label: "PlanetScale",
-              icon: <ProviderLogo type="planetscale" className="w-5 h-5 shrink-0" />,
-              onClick: () => openTab(PLANETSCALE_TAB),
-            },
-          ]
-        : []),
       {
         id: "browser",
         label: "Browser",
@@ -445,9 +387,6 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
             onAnalyticsToggle={() => {}}
             onViewAnalytics={(id) => handleSelectConnection(id)}
             onOpenSupabaseAccounts={() => openTab(SUPABASE_TAB)}
-            onOpenSpacetimedbAccounts={() => openTab(SPACETIMEDB_TAB)}
-            onOpenNeonAccounts={() => openTab(NEON_TAB)}
-            onOpenPlanetscaleAccounts={() => openTab(PLANETSCALE_TAB)}
             onOpenBrowser={() => handleNavigate("browser")}
           />
         </div>
@@ -456,36 +395,6 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
       {section === "supabase" && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <ConnectionManager hideHeader initialScreen="supabase" />
-        </div>
-      )}
-
-      {section === "spacetimedb" && (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <ConnectionManager
-            hideHeader
-            initialScreen="spacetimedb-account"
-            onOpenSpacetimedbAccounts={() => openTab(SPACETIMEDB_TAB)}
-          />
-        </div>
-      )}
-
-      {section === "neon" && (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <ConnectionManager
-            hideHeader
-            initialScreen="neon-cli"
-            onOpenNeonAccounts={() => openTab(NEON_TAB)}
-          />
-        </div>
-      )}
-
-      {section === "planetscale" && (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <ConnectionManager
-            hideHeader
-            initialScreen="planetscale-account"
-            onOpenPlanetscaleAccounts={() => openTab(PLANETSCALE_TAB)}
-          />
         </div>
       )}
 
@@ -583,9 +492,8 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
         open={onboardingOpen}
         appThemeId={appThemeId}
         setAppThemeId={setAppThemeId}
-        onComplete={({ name, email: onboardedEmail }) => {
+        onComplete={({ name }) => {
           setDisplayName(name);
-          if (onboardedEmail) setEmail(onboardedEmail);
           try {
             window.localStorage.setItem(ONBOARDING_COMPLETE_KEY, "1");
           } catch {}
@@ -614,9 +522,6 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
           railActiveId={
             section === "connections" ||
             section === "supabase" ||
-            section === "spacetimedb" ||
-            section === "neon" ||
-            section === "planetscale" ||
             section === "browser"
               ? section
               : null
@@ -625,7 +530,6 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
           settingsActive={settingsModalOpen}
           hideSettingsDialog
           railShowHome={false}
-          railShowWorkspace={false}
           enableBottomSqlPanel={false}
         >
           {content}

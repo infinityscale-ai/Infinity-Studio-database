@@ -11,8 +11,6 @@ import {
   Settings,
   SquareTerminal,
   TableEditorIcon,
-  Users,
-  WalletMoney,
   Workflow,
 } from "@/lib/icon-theme/solar-icons";
 import { GitFork } from "@/lib/icon-theme/lucide-react";
@@ -23,7 +21,6 @@ import { visibleContainerRailEntries } from "@/lib/extensions/rail-icon";
 import { ExtensionRailIcon } from "@/components/studio/extension-rail-icon";
 import { EdgeFunctionsIcon as EdgeFunctionsRailIcon } from "@/lib/icon-theme/lucide-react";
 import { getEditorLabel, getTableLabels } from "@/lib/studio/db-labels";
-import { shouldShowPayments } from "@/lib/supabase-paykit/supabase-ref";
 import { shouldShowStorage } from "@/lib/studio/storage-utils";
 import { shouldShowEdgeFunctions } from "@/lib/studio/edge-functions-utils";
 import { NavigationRailItem } from "@/components/studio/navigation-rail-item";
@@ -52,7 +49,6 @@ export function ModernUIRail({
   activeId,
   onSettingsClick,
   showHome = true,
-  showWorkspace = true,
   user,
 }: {
   studio: any;
@@ -70,8 +66,6 @@ export function ModernUIRail({
   onSettingsClick?: () => void;
   /** Shows the bottom "Home" item. Defaults to true. */
   showHome?: boolean;
-  /** Shows the bottom "Workspace" item. Defaults to true. */
-  showWorkspace?: boolean;
   /** Shows a profile/account avatar at the very bottom of the rail, matching
    *  the user button New Layout shows. Omitted when there's no user info. */
   user?: { name?: string; email?: string } | null;
@@ -87,13 +81,6 @@ export function ModernUIRail({
   const tableLabels = getTableLabels(studio.dbType);
   const isSupabase = studio.connection?.connectionType === "supabase";
   const showAuth = studio.schemas?.includes?.("auth") && isSupabase;
-  // Billing scaffolding for Supabase projects: supabase-mgmt connections plus
-  // direct Postgres connections to db.<ref>.supabase.co. Other engines have
-  // no Edge Functions target, so the item stays hidden there.
-  const showPayments = shouldShowPayments(
-    studio.connection?.connectionType ?? studio.dbType,
-    studio.connection?.connectionString,
-  );
   // Supabase Storage: supabase-mgmt connections plus direct Postgres
   // connections to db.<ref>.supabase.co (or any connection with a `storage`
   // schema). Other engines have no Storage target, so the item stays hidden.
@@ -236,16 +223,6 @@ export function ModernUIRail({
         icon: <PuzzleIcon className="w-5 h-5 shrink-0" />,
         onClick: () => selectView("extensions"),
       },
-      ...(showPayments
-        ? [
-            {
-              id: "payments",
-              label: "Payments",
-              icon: <WalletMoney className="w-5 h-5 shrink-0" />,
-              onClick: () => selectView("payments"),
-            },
-          ]
-        : []),
       ...(showStorage
         ? [
             {
@@ -315,21 +292,6 @@ export function ModernUIRail({
               }
               router.push("/");
             },
-          },
-        ]
-      : []),
-    ...(showWorkspace
-      ? [
-          {
-            label: "Workspace",
-            Icon: Users,
-            onClick:
-              studio.openConnectStudioTab ||
-              (() => {
-                if (typeof window !== "undefined") {
-                  window.location.href = "/team";
-                }
-              }),
           },
         ]
       : []),

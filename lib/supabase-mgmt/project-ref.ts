@@ -1,18 +1,15 @@
 import { parseSupabaseMgmtConnectionString } from "@/lib/db/supabase-mgmt-client";
 import { getMgmtAccounts } from "@/lib/supabase-mgmt/token-store";
 
-export interface PaymentsConnectionInfo {
-  /** supabase-mgmt connections deploy with their embedded token */
+export interface SupabaseProjectConnection {
+  /** supabase-mgmt connections carry their embedded token */
   kind: "mgmt" | "postgres";
   projectRef: string;
   /** embedded token for mgmt connections; null until resolved for postgres */
   token: string | null;
 }
 
-/**
- * Direct Postgres connections to Supabase use `db.<ref>.supabase.co`
- * (including the 6543 pooler on the same host). Returns the ref or null.
- */
+// Extracts the project ref from a direct `db.<ref>.supabase.co` Postgres URL, or null.
 export function inferSupabaseRefFromPostgresUrl(
   connectionString: string,
 ): string | null {
@@ -29,10 +26,11 @@ export function inferSupabaseRefFromPostgresUrl(
   }
 }
 
-export function resolvePaymentsConnection(
+// Resolves which Supabase project a connection targets, or null for other engines.
+export function resolveSupabaseProjectConnection(
   connectionType: string | undefined,
   connectionString: string | undefined,
-): PaymentsConnectionInfo | null {
+): SupabaseProjectConnection | null {
   if (!connectionString) return null;
   if (connectionType === "supabase-mgmt") {
     const parsed = parseSupabaseMgmtConnectionString(connectionString);
@@ -47,21 +45,9 @@ export function resolvePaymentsConnection(
   return null;
 }
 
-export function shouldShowPayments(
-  connectionType: string | undefined,
-  connectionString: string | undefined,
-): boolean {
-  return resolvePaymentsConnection(connectionType, connectionString) !== null;
-}
-
 const tokenCache = new Map<string, string>();
 
-/**
- * Finds a linked Supabase Management API token that can see `ref`.
- * Tries linked accounts (usually just one) via listProjects and caches
- * the winner per ref. Returns null when no linked account has access —
- * the UI then offers plans/code/guide plus manual deploy steps.
- */
+// Finds a linked Management API token that can see `ref`, cached per ref; null when none can.
 export async function resolveMgmtTokenForRef(
   ref: string,
   listProjects: (token: string) => Promise<Array<{ ref: string }>>,
@@ -88,6 +74,7 @@ export async function resolveMgmtTokenForRef(
   return null;
 }
 
+// Forgets every cached token, e.g. after an account is unlinked.
 export function clearMgmtTokenCache(): void {
   tokenCache.clear();
 }

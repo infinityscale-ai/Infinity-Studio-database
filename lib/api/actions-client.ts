@@ -1,11 +1,6 @@
 "use client";
 
 import type { Connection, ConnectionSettings, OpenTab } from "@/lib/db/schema";
-import type {
-  SignedEntitlementPayload,
-  StoredUserEntitlement,
-  StoredUserEntitlementInput,
-} from "@/lib/billing/entitlement-types";
 import type { QueryExecutionContext } from "@/lib/studio/table-permissions";
 import type { HistoryEntry } from "@/lib/api/history-entry-types";
 import { emitGlobalAiSettingsUpdated } from "@/lib/ai/ai-settings-events";
@@ -146,36 +141,6 @@ export function deleteUserProfile(id: string) {
 
 export function getStoredUserProfile(id?: string | null) {
   return request(buildUrl("/api/user/profile", { id: id || "" }));
-}
-
-export function updateUserPlan(payload: {
-  id: string;
-  planType: string;
-  planStatus?: string | null;
-  planSyncedAt?: number | string | Date | null;
-  planPeriodEnd?: number | string | Date | null;
-}) {
-  return request(buildUrl("/api/user/plan"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function getStoredUserEntitlement(id?: string | null) {
-  return request<StoredUserEntitlement>(
-    buildUrl("/api/user/entitlement", { id: id || "" }),
-  );
-}
-
-export function upsertUserEntitlement(
-  payload: StoredUserEntitlementInput & { payload: SignedEntitlementPayload },
-) {
-  return request(buildUrl("/api/user/entitlement"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
 }
 
 export function getGlobalAiSettings() {

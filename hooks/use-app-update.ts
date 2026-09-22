@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Update } from "@tauri-apps/plugin-updater";
-import { markEntitlementRefreshPending } from "@/lib/billing/entitlement-resolver";
-import { supabase } from "@/lib/supabase/client";
 import { isDesktopRuntime } from "@/lib/desktop";
 
 const DEBUG = true;
@@ -241,18 +239,6 @@ export function useAppUpdate() {
     setDismissed(true);
   }, []);
 
-  const handleRenewOtl = useCallback(async () => {
-    const { data, error } = await supabase.functions.invoke("subscribe", {
-      body: { planCode: "otl" },
-    });
-    if (error || data?.error) return;
-    if (data?.checkoutUrl) {
-      markEntitlementRefreshPending();
-      const { openExternalUrl } = await import("@/lib/desktop");
-      await openExternalUrl(data.checkoutUrl);
-    }
-  }, []);
-
   return {
     updateState,
     setUpdateState,
@@ -265,6 +251,5 @@ export function useAppUpdate() {
     handleDownload,
     handleInstall,
     handleDismiss,
-    handleRenewOtl,
   };
 }

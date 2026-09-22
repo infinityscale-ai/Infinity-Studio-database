@@ -55,30 +55,19 @@ import {
   type PlanetScaleProtocol,
 } from "@/lib/db/connection-fields";
 import {
-  Trash2,
   Plus,
   Search,
   ChevronDown,
-  ChevronRight,
-  Edit2,
-  Copy,
-  CopyPlus,
   MoreVertical,
   GripVertical,
-  LogOut,
   ArrowLeft,
   ArrowRightLeft,
-  Eye,
-  EyeOff,
   ShieldCheck,
   KeyRound,
-  ExternalLink,
   Database,
-  Sparkles,
   Star,
   Folder,
   ChevronsUpDown,
-  User as UserIcon,
   Square,
   Check,
   List,
@@ -91,7 +80,6 @@ import {
   Globe,
 } from "@/lib/icon-theme/lucide-react";
 import { useAppUpdateContext } from "@/components/providers/app-update-context";
-import Link from "next/link";
 import Image from "next/image";
 import {
   SpacetimeDbLogo,
@@ -100,7 +88,6 @@ import {
   ProviderLogo,
   getProviderLogoUrl,
 } from "@/components/shared/provider-logo";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { NavUser } from "@/components/navigation/nav-user";
 import {
   DropdownMenu,
@@ -108,28 +95,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuLabel,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import type { User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase/client";
-import { getConnections, getStoredUserProfile } from "@/lib/api/actions-client";
-import {
-  activateLocalUserProfile,
-  loadStoredDisplayName,
-  LOCAL_NAME_STORAGE_KEY,
-  syncAuthenticatedUserProfile,
-} from "@/lib/auth/user-profile";
-import { useEntitlementState } from "@/hooks/use-entitlement-state";
-import {
-  encryptConnectionString,
-  decryptConnectionString,
-} from "@/lib/crypto/connection-encryption";
-import { mergeConnections } from "@/lib/studio/connection-merge";
+import { getConnections } from "@/lib/api/actions-client";
+import { useAuthState } from "@/hooks/use-auth-state";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Popover,
@@ -164,23 +137,9 @@ import {
   type CustomAppTheme,
 } from "@/lib/studio/app-themes";
 import type { CustomIconTheme } from "@/lib/icon-theme/types";
-import { SectionHeader } from "@/components/shared/section-header";
 import { useDesktopWindow } from "@/hooks/use-desktop-window";
 import { openConnectionInNewWindow } from "@/lib/connections/open-connection-window";
 import { API_BASE } from "@/lib/api-base";
-import {
-  initStudioAuth,
-  loadStudioAuth,
-  clearAllStudioData,
-  getStudioUrl,
-  disconnectStudioWorkspace,
-} from "@/lib/studio-backend/auth-store";
-import { studioApi, StudioApiError } from "@/lib/studio-backend/api-client";
-import type {
-  Role,
-  ConnectionAccess,
-  AccessType,
-} from "@/lib/studio-backend/types";
 import { SupabaseLoginDialog } from "@/components/supabase/supabase-login-dialog";
 import { SupabaseAccountsScreen } from "@/components/supabase/supabase-account-screen";
 import {
@@ -192,77 +151,26 @@ import {
   registerActiveSupabaseProjects,
 } from "@/lib/supabase-mgmt/register";
 import { listProjects } from "@/lib/supabase-mgmt/client";
-import { SpacetimeDbLoginDialog } from "@/components/spacetimedb/spacetimedb-login-dialog";
-import { SpacetimeDbAccountsScreen } from "@/components/spacetimedb/spacetimedb-account-screen";
-import {
-  getSpacetimeDbMgmtAccounts,
-  removeSpacetimeDbMgmtAccount,
-  type SpacetimeDbMgmtAccount,
-} from "@/lib/spacetimedb-mgmt/token-store";
-import {
-  registerSpacetimeDbDatabases,
-} from "@/lib/spacetimedb-mgmt/register";
-import { listSpacetimeDbDatabases } from "@/lib/spacetimedb-mgmt/client";
-import { NeonLoginDialog } from "@/components/neon/neon-login-dialog";
-import { NeonAccountsScreen } from "@/components/neon/neon-account-screen";
-import {
-  getNeonCliAccounts,
-  removeNeonCliAccount,
-  type NeonCliAccount,
-} from "@/lib/neon-cli/profile-store";
-import { detectNeonCli } from "@/lib/neon-cli/detect";
-import { PlanetscaleLoginDialog } from "@/components/planetscale/planetscale-login-dialog";
-import { PlanetscaleAccountsScreen } from "@/components/planetscale/planetscale-account-screen";
-import {
-  getPlanetscaleAccounts,
-  removePlanetscaleAccount,
-  type PlanetscaleAccount,
-} from "@/lib/planetscale/token-store";
-import { PLANETSCALE_LOGIN_ENABLED } from "@/lib/planetscale/auth";
 
 // Removed Pattern import
-
-function fmtErr(error: unknown, fallback: string): string {
-  return error instanceof Error
-    ? error.message
-    : typeof error === "string"
-      ? error
-      : JSON.stringify(error);
-}
 
 type ConnectionScreen =
   | "list"
   | "new-select"
   | "new-form"
   | "edit-form"
-  | "cloud-sync"
   | "compare"
   | "settings"
   | "jdbc-picker"
-  | "supabase"
-  | "spacetimedb"
-  | "spacetimedb-account"
-  | "neon-cli"
-  | "planetscale-account";
-
-type PlanCode = "free" | "pro" | "team" | "enterprise" | "otl";
-type PlanEntitlements = {
-  code: PlanCode;
-  label: string;
-  cloudEnabled: boolean;
-  maxConnections: number | null;
-  updatesUntil: number | null;
-};
+  | "supabase";
 
 /** Pill update CTA — same height as provider/settings icon buttons (h-7), rounded-full. */
 function ConnectionsUpdatePill({
   updateState,
   installing,
   dismissed,
-  updatesExpired,
   onDownload,
   onInstall,
-  onRenew,
 }: {
   updateState: {
     enabled: boolean;
@@ -275,10 +183,8 @@ function ConnectionsUpdatePill({
   };
   installing: boolean;
   dismissed: boolean;
-  updatesExpired: boolean;
   onDownload: () => void;
   onInstall: () => void;
-  onRenew: () => void;
 }) {
   const {
     enabled,
@@ -296,23 +202,6 @@ function ConnectionsUpdatePill({
   const pill =
     "flex h-7 select-none items-center gap-1.5 rounded-full border px-2.5 text-xs no-drag transition-colors";
   const version = latestVersion ? ` · v${latestVersion}` : "";
-
-  if (updatesExpired && updateAvailable) {
-    return (
-      <button
-        type="button"
-        onClick={onRenew}
-        title="Renew to update"
-        className={cn(
-          pill,
-          "border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/15 hover:border-amber-500/40 hover:text-amber-300",
-        )}
-      >
-        <ExternalLink className="size-3.5 shrink-0" />
-        <span className="truncate">Renew{version}</span>
-      </button>
-    );
-  }
 
   if (updateDownloaded) {
     return (
@@ -379,9 +268,6 @@ export function ConnectionManager({
   newConnectionTrigger = 0,
   initialScreen = "list",
   onOpenSupabaseAccounts,
-  onOpenSpacetimedbAccounts,
-  onOpenNeonAccounts,
-  onOpenPlanetscaleAccounts,
   onOpenBrowser,
 }: {
   hideHeader?: boolean;
@@ -397,21 +283,14 @@ export function ConnectionManager({
   newConnectionTrigger?: number;
   initialScreen?: ConnectionScreen;
   onOpenSupabaseAccounts?: () => void;
-  onOpenSpacetimedbAccounts?: () => void;
-  onOpenNeonAccounts?: () => void;
-  onOpenPlanetscaleAccounts?: () => void;
   onOpenBrowser?: () => void;
 }) {
   useGlobalAppFontFamily();
   const isStandalone = !embedded;
   const isSupabaseMode = initialScreen === "supabase";
-  const isSpacetimeDbMode = initialScreen === "spacetimedb-account";
-  const isNeonCliMode = initialScreen === "neon-cli";
-  const isPlanetscaleMode = initialScreen === "planetscale-account";
   const appTheme = useGlobalAppTheme(false);
   const {
     sleekLayout,
-    hideWindowActions,
     setCustomIconThemes,
     customIconThemes,
     setIconThemeId,
@@ -425,7 +304,6 @@ export function ConnectionManager({
     dismissed,
     handleDownload,
     handleInstall,
-    handleRenewOtl,
   } = useAppUpdateContext();
   useEffect(() => {
     if (typeof window === "undefined" || !window.localStorage) return;
@@ -875,25 +753,6 @@ export function ConnectionManager({
     return trimmed;
   };
 
-  const normalizeMysqlConnectionString = (
-    conn: string,
-    provider?: ConnectionProvider | null,
-  ) => {
-    const trimmed = conn.trim();
-    if (!trimmed) return trimmed;
-    if (/^(mysql|mariadb):\/(?!\/)/i.test(trimmed)) {
-      return trimmed.replace(/^((?:mysql|mariadb):)\/(?!\/)/i, "$1//");
-    }
-    if (/^(mysql|mariadb):\/\//i.test(trimmed)) {
-      return trimmed;
-    }
-    if (!trimmed.includes("://")) {
-      const prefix = provider === "mariadb" ? "mariadb://" : "mysql://";
-      return `${prefix}${trimmed}`;
-    }
-    return trimmed;
-  };
-
   const parsePostgresConnectionString = (conn: string) => {
     const trimmed = normalizePgConnectionString(conn);
     if (!trimmed) return null;
@@ -1203,81 +1062,13 @@ export function ConnectionManager({
         ? null
         : (getMgmtAccounts()[0]?.id ?? null),
   );
-  const [spacetimedbLoginOpen, setSpacetimedbLoginOpen] = useState(false);
-  const [spacetimedbAccounts, setSpacetimedbAccounts] = useState<
-    SpacetimeDbMgmtAccount[]
-  >(
-    () =>
-      typeof window === "undefined" ? [] : getSpacetimeDbMgmtAccounts(),
-  );
-  const [activeSpacetimeDbAccountId, setActiveSpacetimeDbAccountId] = useState<
-    string | null
-  >(
-    () =>
-      typeof window === "undefined"
-        ? null
-        : (getSpacetimeDbMgmtAccounts()[0]?.id ?? null),
-  );
-  const [neonLoginOpen, setNeonLoginOpen] = useState(false);
-  const [neonAccounts, setNeonAccounts] = useState<NeonCliAccount[]>(
-    () => (typeof window === "undefined" ? [] : getNeonCliAccounts()),
-  );
-  const [activeNeonAccountId, setActiveNeonAccountId] = useState<
-    string | null
-  >(
-    () =>
-      typeof window === "undefined" ? null : (getNeonCliAccounts()[0]?.id ?? null),
-  );
-  const [neonCliInstalled, setNeonCliInstalled] = useState<boolean | null>(null);
-  const [neonCliChecking, setNeonCliChecking] = useState(false);
-  const [neonReconnectProfile, setNeonReconnectProfile] = useState<string | null>(null);
-  const [neonReloadSignal, setNeonReloadSignal] = useState(0);
-  const [planetscaleLoginOpen, setPlanetscaleLoginOpen] = useState(false);
-  const [planetscaleAccounts, setPlanetscaleAccounts] = useState<PlanetscaleAccount[]>(
-    () => (typeof window === "undefined" ? [] : getPlanetscaleAccounts()),
-  );
-  const [activePlanetscaleAccountId, setActivePlanetscaleAccountId] = useState<
-    string | null
-  >(
-    () =>
-      typeof window === "undefined" ? null : (getPlanetscaleAccounts()[0]?.id ?? null),
-  );
-  const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [isSessionActive, setIsSessionActive] = useState(false);
-  const [authResolved, setAuthResolved] = useState(false);
-  const [localMode, setLocalMode] = useState(false);
-  const cloudSyncEnabledKey = "rexa-db-cloud-sync-enabled";
-  const cloudSyncKeyStorage = "rexa-db-cloud-sync-key";
-
-  const reportRendererError = useCallback((context: string, error: unknown) => {
-    const payload = {
-      context,
-      error:
-        error instanceof Error
-          ? { message: error.message, stack: error.stack }
-          : error,
-    };
-    try {
-      console.error("[cloud-sync]", payload);
-    } catch {
-      // ignore
-    }
-    try {
-      console.log("[debug:renderer]", payload);
-    } catch {
-      // ignore
-    }
-  }, []);
-  const [localDisplayName, setLocalDisplayName] = useState("");
+  const { authResolved, displayName, email: profileEmail } = useAuthState();
   const [manageMenuOpen, setManageMenuOpen] = useState(false);
   const [reorderMode, setReorderMode] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set(),
   );
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [formAccess, setFormAccess] = useState<Record<string, AccessType>>({});
   const [isFolderDeleteDialogOpen, setIsFolderDeleteDialogOpen] =
     useState(false);
   const [isFolderPromptOpen, setIsFolderPromptOpen] = useState(false);
@@ -1289,15 +1080,7 @@ export function ConnectionManager({
   const [deleteOption, setDeleteOption] = useState<
     "with-connections" | "keep-connections"
   >("keep-connections");
-  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
-  const [cloudSyncLoading, setCloudSyncLoading] = useState(false);
-  const [cloudSyncError, setCloudSyncError] = useState<string | null>(null);
-  const [cloudSyncKey, setCloudSyncKey] = useState<string | null>(null);
-  const [cloudSyncKeyInput, setCloudSyncKeyInput] = useState("");
-  const [lastCloudSyncAt, setLastCloudSyncAt] = useState<number | null>(null);
-  const cloudSyncTimerRef = useRef<number | null>(null);
   const supabaseImportReloadTimerRef = useRef<number | null>(null);
-  const cloudSyncInFlightRef = useRef(false);
   const [isThemeCreatorOpen, setIsThemeCreatorOpen] = useState(false);
 
   const selectedAppTheme = useMemo(() => {
@@ -1337,55 +1120,13 @@ export function ConnectionManager({
     [setCustomIconThemes, customIconThemes, setIconThemeId],
   );
 
-  const [workspaceMode, setWorkspaceMode] = useState(false);
-  const [workspaceAuthLoaded, setWorkspaceAuthLoaded] = useState(false);
-  const [workspacePermissions, setWorkspacePermissions] = useState<string[]>(
-    [],
-  );
-  const [credentialsDialog, setCredentialsDialog] = useState<{
-    open: boolean;
-    conn: Connection | null;
-    data: {
-      host: string;
-      port: number;
-      database: string;
-      username: string;
-      password: string;
-      connectionString: string;
-    } | null;
-    loading: boolean;
-  }>({ open: false, conn: null, data: null, loading: false });
-
   const connectionsRef = useRef<Connection[]>([]);
-  const cloudSyncKeyRef = useRef<string | null>(null);
-  const can = useCallback(
-    (permission: string): boolean => {
-      if (!workspaceMode) return true;
-      return workspacePermissions.includes(permission);
-    },
-    [workspaceMode, workspacePermissions],
-  );
   const {
     isMaximized,
     sendWindowAction,
     canUseDesktop,
     isMac: isMacDesktopApp,
   } = useDesktopWindow();
-  const {
-    entitlement,
-    loading: planLoading,
-  } = useEntitlementState({
-    userId: isSessionActive ? (user?.id ?? null) : null,
-    accessToken,
-    isSessionActive,
-  });
-  const plan: PlanEntitlements = {
-    code: (entitlement.effectivePlanCode || "free") as PlanCode,
-    label: entitlement.label || "Free",
-    cloudEnabled: entitlement.cloudEnabled,
-    maxConnections: entitlement.maxConnections,
-    updatesUntil: entitlement.updatesUntil,
-  };
   const sidecarFetch = useCallback(
     async (path: string, options?: RequestInit) => {
       try {
@@ -1401,162 +1142,19 @@ export function ConnectionManager({
     [],
   );
 
-  // fallow-ignore-next-line code-duplication
-  const PRIVATE_HOST_PATTERNS = [
-    (s: string) => s === "localhost",
-
-    (s: string) => s === "::1",
-    (s: string) => /^127\./.test(s),
-    (s: string) => /^10\./.test(s),
-    (s: string) => /^192\.168\./.test(s),
-    (s: string) => /^172\.(1[6-9]|2\d|3[0-1])\./.test(s),
-    (s: string) => s.endsWith(".local"),
-  ] as const;
-
-  // fallow-ignore-next-line code-duplication
-  const PRIVATE_STR_PATTERNS = [
-    (s: string) => s.includes("localhost"),
-
-    (s: string) => s.includes("::1"),
-    (s: string) => /\b127\./.test(s),
-    (s: string) => /\b10\./.test(s),
-    (s: string) => /\b192\.168\./.test(s),
-    (s: string) => /172\.(1[6-9]|2\d|3[0-1])\./.test(s),
-    (s: string) => s.includes(".local"),
-  ] as const;
-
-  const isLocalOrPrivateHost = useCallback((host: string) => {
-    const normalized = host
-      .trim()
-      .toLowerCase()
-      .replace(/^\[|\]$/g, "");
-    if (!normalized) return false;
-    return PRIVATE_HOST_PATTERNS.some((fn) => fn(normalized));
-  }, []);
-
-  const extractHostFromConnection = useCallback(
-    (conn: string, provider: ConnectionProvider | null) => {
-      if (!conn || !provider) return "";
-      let normalized = conn;
-      if (
-        provider === "postgresql" ||
-        provider === "timescale" ||
-        provider === "supabase" ||
-        provider === "neon" ||
-        provider === "planetscale" ||
-        provider === "cockroachdb" ||
-        provider === "yugabytedb" ||
-        provider === "redshift"
-      ) {
-        normalized = normalizePgConnectionString(conn);
-      } else if (provider === "mysql" || provider === "mariadb") {
-        normalized = normalizeMysqlConnectionString(conn, provider);
-      }
-
-      const match = normalized.match(/^[a-z][a-z0-9+.-]*:\/\/([^/?#]+)/i);
-      if (!match?.[1]) return "";
-      let hostPort = match[1];
-      if (hostPort.includes("@")) {
-        hostPort = hostPort.split("@").pop() || hostPort;
-      }
-      if (hostPort.startsWith("[")) {
-        const end = hostPort.indexOf("]");
-        if (end !== -1) return hostPort.slice(1, end);
-      }
-      if (hostPort.includes(":")) return hostPort.split(":")[0];
-      return hostPort;
-    },
-    [],
-  );
-
-  const inferLocalHostFromString = useCallback((conn: string) => {
-    const normalized = conn.trim().toLowerCase();
-    if (!normalized) return false;
-    return PRIVATE_STR_PATTERNS.some((fn) => fn(normalized));
-  }, []);
-
-  const enforceConnectionEntitlements = useCallback(
-    async (
-      _candidateConn: string,
-      _provider: ConnectionProvider | null,
-      _opts?: { enforceLimit?: boolean },
-    ) => {
-      // Totally free: no connection caps.
-      return true;
-    },
-    [],
-  );
-
   useEffect(() => {
     document.title = "Manage Connections";
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storedName = loadStoredDisplayName();
-    if (storedName) {
-      setLocalDisplayName(storedName);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!workspaceMode) return;
-    (async () => {
-      try {
-        const res = await studioApi.get<{ data: Role[] }>("/roles");
-        setRoles(res.data || []);
-      } catch {
-        // workspace mode not available
-      }
-    })();
-  }, [workspaceMode]);
-
   const fetchConnections = useCallback(async (): Promise<Connection[]> => {
-    if (workspaceMode) {
-      try {
-        const res = await studioApi.get<{
-          data: Array<{
-            id: string;
-            name: string;
-            type: string;
-            host: string;
-            port: number;
-            database: string;
-            username: string;
-          }>;
-        }>("/connections");
-        return (res.data || []).map((c) => {
-          const connStr = `workspace:${c.id}`;
-          return {
-            id: c.id as unknown as number,
-            name: c.name,
-            connectionString: connStr,
-            connectionType: c.type,
-            createdAt: new Date(),
-            sortOrder: null,
-            environment: null,
-            color: null,
-            group: null,
-            isFavorite: null,
-            lastActive: null,
-          } as Connection;
-        });
-      } catch {
-        return [];
-      }
-    }
     try {
-      const local = (await getConnections()) ?? [];
-      return local.filter(
-        (c: any) => !c.connectionString?.startsWith("workspace:"),
-      );
+      return (await getConnections()) ?? [];
     } catch {
       return [];
     }
-  }, [workspaceMode]);
+  }, []);
 
   const fetchConnectionGroups = useCallback(async (): Promise<any[]> => {
-    if (workspaceMode) return [];
     try {
       const res = await sidecarFetch("/api/connections/groups");
       if (res.success && Array.isArray(res.groups)) return res.groups;
@@ -1564,13 +1162,12 @@ export function ConnectionManager({
       /* ignore */
     }
     return [];
-  }, [workspaceMode]);
+  }, [sidecarFetch]);
 
   const createConnection = async (payload: {
     name: string;
     connectionString: string;
     connectionType?: string;
-    maxConnections?: number | null;
     environment?: string | null;
     color?: string | null;
     group?: string | null;
@@ -1585,43 +1182,6 @@ export function ConnectionManager({
     sslMode?: string;
     authToken?: string;
   }) => {
-    if (workspaceMode) {
-      try {
-        const type =
-          payload.connectionType === "mysql"
-            ? "mysql"
-            : payload.connectionType === "jdbc"
-              ? "jdbc"
-              : "postgres";
-        const parsed = parsePostgresConnectionString(payload.connectionString);
-        const host = parsed?.host || pgHost || "localhost";
-        const port =
-          parsed?.port || pgPort || (type === "mysql" ? "3306" : "5432");
-        const database = parsed?.database || pgDatabase || "postgres";
-        const username = parsed?.username || pgUsername || "postgres";
-        const password = parsed?.password || pgPassword || "";
-        const ssl = pgSslMode === "require" || pgSslMode === "verify-full";
-        const createdRes = await studioApi.post("/connections", {
-          name: payload.name,
-          type,
-          host,
-          port: Number(port),
-          database,
-          username,
-          password,
-          ssl,
-        });
-        const createdId =
-          (createdRes as any)?.data?.id ?? (createdRes as any)?.id;
-        return { success: true, id: createdId };
-      } catch (err) {
-        return {
-          success: false,
-          error:
-            err instanceof Error ? err.message : "Failed to create connection",
-        };
-      }
-    }
     return await sidecarFetch("/api/connections", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -1649,29 +1209,6 @@ export function ConnectionManager({
       authToken?: string;
     }>,
   ) => {
-    if (workspaceMode) {
-      try {
-        const updates: Record<string, unknown> = {};
-        if (payload.name) updates.name = payload.name;
-        if (payload.connectionString) {
-          const parsed = parsePostgresConnectionString(
-            payload.connectionString,
-          );
-          updates.host = parsed?.host || pgHost || "localhost";
-          updates.port = Number(parsed?.port || pgPort || 5432);
-          updates.database = parsed?.database || pgDatabase || "postgres";
-          updates.username = parsed?.username || pgUsername || "postgres";
-        }
-        await studioApi.put(`/connections/${id}`, updates);
-        return { success: true };
-      } catch (err) {
-        return {
-          success: false,
-          error:
-            err instanceof Error ? err.message : "Failed to update connection",
-        };
-      }
-    }
     return await sidecarFetch(`/api/connections/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload),
@@ -1679,18 +1216,6 @@ export function ConnectionManager({
   };
 
   const removeConnection = async (id: number) => {
-    if (workspaceMode) {
-      try {
-        await studioApi.del(`/connections/${id}`);
-        return { success: true };
-      } catch (err) {
-        return {
-          success: false,
-          error:
-            err instanceof Error ? err.message : "Failed to delete connection",
-        };
-      }
-    }
     return await sidecarFetch(`/api/connections/${id}`, { method: "DELETE" });
   };
 
@@ -1870,7 +1395,6 @@ export function ConnectionManager({
     setJdbcPassword("");
     setJdbcJarPaths([]);
     setJdbcDriverManagerOpen(false);
-    setFormAccess({});
   };
 
   const federatedConfigError =
@@ -1907,209 +1431,9 @@ export function ConnectionManager({
     }
   };
 
-  const canUseCloudSync = Boolean(user && plan.cloudEnabled && !localMode);
-
-  const listCloudConnections = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("cloud_connections")
-      .select("id, name, encrypted_connection, iv, salt, sort_order")
-      .order("sort_order", { ascending: true });
-    if (error) throw error;
-    return Array.isArray(data) ? data : [];
-  }, []);
-
-  const tryBeginCloudSync = (): boolean => {
-    if (!canUseCloudSync || !cloudSyncKeyRef.current) return false;
-    if (cloudSyncInFlightRef.current) return false;
-    cloudSyncInFlightRef.current = true;
-    setCloudSyncLoading(true);
-    setCloudSyncError(null);
-    return true;
-  };
-
-  const pushLocalConnectionsToCloud = useCallback(async () => {
-    if (!tryBeginCloudSync()) return;
-    try {
-      const localConnections = connectionsRef.current;
-      const cloudConnections = await listCloudConnections();
-      const localNames = new Set(localConnections.map((conn) => conn.name));
-      await Promise.all(
-        cloudConnections
-          .filter((row: any) => !localNames.has(row.name))
-          .map((row: any) =>
-            supabase.rpc("delete_cloud_connection", { p_id: row.id }),
-          ),
-      );
-
-      for (let i = 0; i < localConnections.length; i += 1) {
-        const conn = localConnections[i];
-        const { encrypted, iv, salt } = await encryptConnectionString(
-          cloudSyncKeyRef.current!,
-          conn.connectionString,
-        );
-        const { error } = await supabase.rpc("save_cloud_connection", {
-          p_id: null,
-          p_name: conn.name,
-          p_encrypted_connection: encrypted,
-          p_iv: iv,
-          p_salt: salt,
-          p_sort_order: i,
-        });
-        if (error) throw error;
-      }
-      setLastCloudSyncAt(Date.now());
-    } catch (error: any) {
-      reportRendererError("pushLocalConnectionsToCloud", error);
-      setCloudSyncError(fmtErr(error, "Failed to sync connections."));
-    } finally {
-      cloudSyncInFlightRef.current = false;
-      setCloudSyncLoading(false);
-    }
-  }, [canUseCloudSync, listCloudConnections]);
-
-  const pullCloudConnections = useCallback(async () => {
-    if (!tryBeginCloudSync()) return;
-    try {
-      const cloudConnections = await listCloudConnections();
-      const localConnections = connectionsRef.current;
-      const localNames = new Set(localConnections.map((conn) => conn.name));
-      let created = 0;
-      for (const row of cloudConnections) {
-        if (localNames.has(row.name)) continue;
-        const connectionString = await decryptConnectionString(
-          cloudSyncKeyRef.current!,
-          row.encrypted_connection,
-          row.iv,
-          row.salt,
-        );
-        const res = await createConnection({
-          name: row.name,
-          connectionString,
-          connectionType: detectProvider(connectionString, null) ?? undefined,
-          maxConnections: plan.maxConnections,
-        });
-        if (res.success) {
-          created += 1;
-        }
-      }
-      if (created > 0) {
-        await loadConnections();
-      }
-      setLastCloudSyncAt(Date.now());
-    } catch (error: any) {
-      reportRendererError("pullCloudConnections", error);
-      setCloudSyncError(fmtErr(error, "Failed to sync connections."));
-    } finally {
-      cloudSyncInFlightRef.current = false;
-      setCloudSyncLoading(false);
-    }
-  }, [canUseCloudSync, listCloudConnections, plan.maxConnections]);
-
-  const runInitialCloudSync = useCallback(async () => {
-    if (!canUseCloudSync || !cloudSyncKeyRef.current) return;
-    setCloudSyncLoading(true);
-    setCloudSyncError(null);
-    try {
-      const cloudConnections = await listCloudConnections();
-      const localConnections = connectionsRef.current;
-      if (localConnections.length === 0 && cloudConnections.length > 0) {
-        await pullCloudConnections();
-      } else if (localConnections.length > 0 && cloudConnections.length === 0) {
-        await pushLocalConnectionsToCloud();
-      } else if (localConnections.length > 0 && cloudConnections.length > 0) {
-        await pullCloudConnections();
-        await pushLocalConnectionsToCloud();
-      }
-    } catch (error: any) {
-      reportRendererError("runInitialCloudSync", error);
-      setCloudSyncError(fmtErr(error, "Failed to sync connections."));
-    } finally {
-      setCloudSyncLoading(false);
-    }
-  }, [
-    canUseCloudSync,
-    listCloudConnections,
-    pullCloudConnections,
-    pushLocalConnectionsToCloud,
-  ]);
-
-  const queueCloudPush = useCallback(() => {
-    if (!canUseCloudSync || !cloudSyncKeyRef.current) return;
-    if (cloudSyncTimerRef.current) {
-      window.clearTimeout(cloudSyncTimerRef.current);
-    }
-    cloudSyncTimerRef.current = window.setTimeout(() => {
-      void pushLocalConnectionsToCloud();
-    }, 600);
-  }, [canUseCloudSync, pushLocalConnectionsToCloud]);
-
   useEffect(() => {
     connectionsRef.current = connections;
   }, [connections]);
-
-  useEffect(() => {
-    cloudSyncKeyRef.current = cloudSyncKey;
-  }, [cloudSyncKey]);
-
-  useEffect(() => {
-    initStudioAuth()
-      .then(() => {
-        const auth = loadStudioAuth();
-        const active =
-          typeof window !== "undefined" &&
-          window.sessionStorage.getItem("workspace:active") === "1";
-        setWorkspaceMode(!!auth && active);
-      })
-      .catch(() => {
-        // Fall through to non-workspace mode rather than hanging the whole
-        // page's loading gate forever on a failed/unavailable auth check.
-        setWorkspaceMode(false);
-      })
-      .finally(() => {
-        setWorkspaceAuthLoaded(true);
-      });
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.connected !== undefined) {
-        setWorkspaceMode(!!detail.connected);
-        setConnectionScreen("list");
-        if (typeof window !== "undefined") {
-          if (detail.connected) {
-            window.sessionStorage.setItem("workspace:active", "1");
-          } else {
-            window.sessionStorage.removeItem("workspace:active");
-            sidecarFetch("/api/connections/workspace", {
-              method: "DELETE",
-            }).catch(() => {});
-          }
-        }
-      }
-    };
-    window.addEventListener("workspace:changed", handler);
-    return () => window.removeEventListener("workspace:changed", handler);
-  }, []);
-
-  useEffect(() => {
-    if (workspaceAuthLoaded) {
-      void loadConnections();
-      if (workspaceMode) {
-        studioApi
-          .get<{
-            data: { permissions: Array<{ code: string; name: string }> };
-          }>("/auth/me")
-          .then((res) => {
-            setWorkspacePermissions(
-              (res.data?.permissions || []).map((p) => p.code),
-            );
-          })
-          .catch(() => {
-            setWorkspacePermissions([]);
-          });
-      } else {
-        setWorkspacePermissions([]);
-      }
-    }
-  }, [workspaceMode, workspaceAuthLoaded]);
 
   useEffect(() => {
     if (
@@ -2135,167 +1459,6 @@ export function ConnectionManager({
     selectedProvider,
   ]);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const applyLocalFallback = async () => {
-      const profileRes = await getStoredUserProfile();
-      if (!mounted) return;
-
-      setUser(null);
-      setAccessToken(null);
-      setIsSessionActive(false);
-      setLocalMode(true);
-
-      if (profileRes.success && profileRes.data) {
-        const fallbackName = profileRes.data.name || "User";
-        setLocalDisplayName(fallbackName);
-        return;
-      }
-
-      const defaultLocalName =
-        (typeof window !== "undefined" &&
-          window.localStorage.getItem(LOCAL_NAME_STORAGE_KEY)?.trim()) ||
-        "User";
-
-      setLocalDisplayName(defaultLocalName);
-      void activateLocalUserProfile(defaultLocalName).then((localResult) => {
-        if (!mounted) return;
-        if (!localResult.result.success) {
-          console.error(
-            "[AUTH TRACE] failed to activate local profile:",
-            localResult.result.error,
-          );
-        }
-      });
-    };
-
-    const applySessionUser = (sessionUser: User, token?: string | null) => {
-      setUser(sessionUser);
-      setAccessToken(token ?? null);
-      setIsSessionActive(true);
-      setLocalMode(false);
-      void syncAuthenticatedUserProfile(sessionUser).then((syncedProfile) => {
-        if (!mounted) return;
-        if (!syncedProfile.result.success) {
-          console.error(
-            "[AUTH TRACE] failed to sync authenticated profile:",
-            syncedProfile.result.error,
-          );
-          return;
-        }
-        setUser(syncedProfile.user);
-      });
-    };
-
-    const hydrateUser = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (!mounted) return;
-        console.log(
-          "[AUTH TRACE] getSession resolved, session:",
-          !!data.session,
-          "user:",
-          data.session?.user?.email || "null",
-        );
-
-        if (data.session?.user) {
-          applySessionUser(
-            data.session.user,
-            data.session.access_token ?? null,
-          );
-        } else {
-          // Retry once after a short delay to allow async storage to settle
-          console.log(
-            "[AUTH TRACE] getSession returned null, retrying after delay...",
-          );
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          if (!mounted) return;
-          const { data: retryData } = await supabase.auth.getSession();
-          console.log(
-            "[AUTH TRACE] getSession retry resolved, session:",
-            !!retryData.session,
-          );
-
-          if (retryData.session?.user) {
-            applySessionUser(
-              retryData.session.user,
-              retryData.session.access_token ?? null,
-            );
-          } else {
-            await applyLocalFallback();
-          }
-        }
-      } catch (error) {
-        console.error("[AUTH TRACE] getSession failed:", error);
-        await applyLocalFallback();
-      } finally {
-        if (mounted) {
-          setAuthResolved(true);
-        }
-      }
-    };
-
-    void hydrateUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log(
-        "[AUTH TRACE] onAuthStateChange fired, event:",
-        _event,
-        "hasSession:",
-        !!session,
-        "user:",
-        session?.user?.email || "null",
-      );
-      if (!mounted) return;
-      if (session?.user) {
-        applySessionUser(session.user, session.access_token ?? null);
-      } else {
-        await applyLocalFallback();
-      }
-      if (mounted) {
-        setAuthResolved(true);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!canUseCloudSync) {
-      setCloudSyncEnabled(false);
-      setCloudSyncKey(null);
-      return;
-    }
-    if (typeof window === "undefined") return;
-    const enabled = window.sessionStorage.getItem(cloudSyncEnabledKey) === "1";
-    const storedKey = window.sessionStorage.getItem(cloudSyncKeyStorage);
-    if (enabled && storedKey) {
-      setCloudSyncEnabled(true);
-      setCloudSyncKey(storedKey);
-    }
-  }, [canUseCloudSync, cloudSyncEnabledKey, cloudSyncKeyStorage]);
-
-  useEffect(() => {
-    if (!cloudSyncEnabled || !cloudSyncKey || !canUseCloudSync) return;
-    void runInitialCloudSync();
-    const intervalId = window.setInterval(() => {
-      void pullCloudConnections();
-    }, 60_000);
-    return () => window.clearInterval(intervalId);
-  }, [
-    cloudSyncEnabled,
-    cloudSyncKey,
-    canUseCloudSync,
-    pullCloudConnections,
-    runInitialCloudSync,
-  ]);
-
   const validateTursoCandidate = (candidate: string): boolean => {
     if (selectedProvider !== "turso") return true;
     const parsed = parseTursoConnectionString(candidate);
@@ -2308,87 +1471,6 @@ export function ConnectionManager({
       return false;
     }
     return true;
-  };
-
-  const getCloudSyncKeyOrWarn = (): string | null => {
-    // Totally free: cloud sync available to any signed-in user.
-    if (!user || localMode) {
-      toast.error("Sign in to enable cloud sync.");
-      return null;
-    }
-    const key = cloudSyncKeyInput.trim();
-    if (!key) {
-      toast.error("Enter your encryption key.");
-      return null;
-    }
-    return key;
-  };
-
-  const handleEnableCloudSync = async () => {
-    const key = getCloudSyncKeyOrWarn();
-    if (!key) return;
-    try {
-      setCloudSyncKey(key);
-      setCloudSyncEnabled(true);
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(cloudSyncEnabledKey, "1");
-        window.sessionStorage.setItem(cloudSyncKeyStorage, key);
-      }
-      await runInitialCloudSync();
-    } catch (error: any) {
-      reportRendererError("handleEnableCloudSync", error);
-      setCloudSyncError(fmtErr(error, "Failed to enable sync."));
-    }
-  };
-
-  const handleFetchCloudConnections = async () => {
-    const key = getCloudSyncKeyOrWarn();
-    if (!key) return;
-    setCloudSyncError(null);
-    setCloudSyncKey(key);
-    cloudSyncKeyRef.current = key;
-    try {
-      await pullCloudConnections();
-    } catch (error: any) {
-      reportRendererError("handleFetchCloudConnections", error);
-      setCloudSyncError(fmtErr(error, "Failed to fetch connections."));
-    }
-  };
-
-  const handleDisableCloudSync = () => {
-    setCloudSyncEnabled(false);
-    setCloudSyncKey(null);
-    setCloudSyncKeyInput("");
-    setCloudSyncError(null);
-    if (typeof window !== "undefined") {
-      window.sessionStorage.removeItem(cloudSyncEnabledKey);
-      window.sessionStorage.removeItem(cloudSyncKeyStorage);
-    }
-  };
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    const localResult = await activateLocalUserProfile(
-      localDisplayName.trim() || "User",
-    );
-    if (!localResult.result.success) {
-      toast.error(
-        localResult.result.error ||
-          "Signed out, but failed to restore local mode.",
-      );
-      return;
-    }
-
-    setUser(null);
-    setIsSessionActive(false);
-    setLocalMode(true);
-    setLocalDisplayName(localResult.name);
-    toast.success("Signed out.");
   };
 
   const handleOpenSettings = () => {
@@ -2448,191 +1530,6 @@ export function ConnectionManager({
     return res;
   };
 
-  const handleAddSpacetimeDbAccount = useCallback(() => {
-    setSpacetimedbLoginOpen(true);
-  }, []);
-
-  const handleRemoveSpacetimeDbAccount = useCallback((id: string) => {
-    removeSpacetimeDbMgmtAccount(id);
-    const next = getSpacetimeDbMgmtAccounts();
-    setSpacetimedbAccounts(next);
-    setActiveSpacetimeDbAccountId((cur) => {
-      if (cur !== id) return cur;
-      return next[0]?.id ?? null;
-    });
-    if (next.length === 0) {
-      if (onOpenSpacetimedbAccounts) onOpenSpacetimedbAccounts();
-      else setConnectionScreen("spacetimedb-account");
-    }
-  }, [onOpenSpacetimedbAccounts]);
-
-  const handleSpacetimeDbConnectDatabase = async (
-    payload: {
-      name: string;
-      connectionString: string;
-      connectionType: string;
-    },
-    opts?: { silent?: boolean },
-  ) => {
-    const res = await createConnection({
-      name: payload.name,
-      connectionString: payload.connectionString,
-      connectionType: payload.connectionType,
-    });
-    if (res.success) {
-      if (opts?.silent) {
-        if (supabaseImportReloadTimerRef.current) {
-          window.clearTimeout(supabaseImportReloadTimerRef.current);
-        }
-        supabaseImportReloadTimerRef.current = window.setTimeout(() => {
-          supabaseImportReloadTimerRef.current = null;
-          void loadConnections();
-        }, 300);
-      } else {
-        await loadConnections();
-        if (!isSpacetimeDbMode) {
-          setConnectionScreen("list");
-        }
-        toast.success(`Connected to ${payload.name}`);
-      }
-    } else if (!opts?.silent) {
-      toast.error((res as any).error ?? "Failed to create connection.");
-    }
-    return res;
-  };
-
-  const checkNeonCli = useCallback(async () => {
-    setNeonCliChecking(true);
-    try {
-      const result = await detectNeonCli();
-      setNeonCliInstalled(result.installed);
-      return result.installed;
-    } finally {
-      setNeonCliChecking(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void checkNeonCli();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleAddNeonAccount = useCallback(async () => {
-    const installed = neonCliInstalled ?? (await checkNeonCli());
-    if (!installed) {
-      if (onOpenNeonAccounts) onOpenNeonAccounts();
-      else setConnectionScreen("neon-cli");
-      return;
-    }
-    setNeonReconnectProfile(null);
-    setNeonLoginOpen(true);
-  }, [neonCliInstalled, checkNeonCli, onOpenNeonAccounts]);
-
-  const handleReconnectNeonAccount = useCallback(async (profileName: string) => {
-    const installed = neonCliInstalled ?? (await checkNeonCli());
-    if (!installed) {
-      if (onOpenNeonAccounts) onOpenNeonAccounts();
-      else setConnectionScreen("neon-cli");
-      return;
-    }
-    setNeonReconnectProfile(profileName);
-    setNeonLoginOpen(true);
-  }, [neonCliInstalled, checkNeonCli, onOpenNeonAccounts]);
-
-  const handleRemoveNeonAccount = useCallback((id: string) => {
-    removeNeonCliAccount(id);
-    const next = getNeonCliAccounts();
-    setNeonAccounts(next);
-    setActiveNeonAccountId((cur) => {
-      if (cur !== id) return cur;
-      return next[0]?.id ?? null;
-    });
-    if (next.length === 0) {
-      if (onOpenNeonAccounts) onOpenNeonAccounts();
-      else setConnectionScreen("neon-cli");
-    }
-  }, [onOpenNeonAccounts]);
-
-  const handleNeonConnectDatabase = async (
-    payload: { name: string; connectionString: string; connectionType: string },
-    opts?: { silent?: boolean },
-  ) => {
-    const res = await createConnection({
-      name: payload.name,
-      connectionString: payload.connectionString,
-      connectionType: payload.connectionType,
-    });
-    if (res.success) {
-      if (opts?.silent) {
-        if (supabaseImportReloadTimerRef.current) {
-          window.clearTimeout(supabaseImportReloadTimerRef.current);
-        }
-        supabaseImportReloadTimerRef.current = window.setTimeout(() => {
-          supabaseImportReloadTimerRef.current = null;
-          void loadConnections();
-        }, 300);
-      } else {
-        await loadConnections();
-        if (!isNeonCliMode) {
-          setConnectionScreen("list");
-        }
-        toast.success(`Connected to ${payload.name}`);
-      }
-    } else if (!opts?.silent) {
-      toast.error((res as any).error ?? "Failed to create connection.");
-    }
-    return res;
-  };
-
-  const handleAddPlanetscaleAccount = useCallback(() => {
-    setPlanetscaleLoginOpen(true);
-  }, []);
-
-  const handleRemovePlanetscaleAccount = useCallback((id: string) => {
-    removePlanetscaleAccount(id);
-    const next = getPlanetscaleAccounts();
-    setPlanetscaleAccounts(next);
-    setActivePlanetscaleAccountId((cur) => {
-      if (cur !== id) return cur;
-      return next[0]?.id ?? null;
-    });
-    if (next.length === 0) {
-      if (onOpenPlanetscaleAccounts) onOpenPlanetscaleAccounts();
-      else setConnectionScreen("planetscale-account");
-    }
-  }, [onOpenPlanetscaleAccounts]);
-
-  const handlePlanetscaleConnectDatabase = async (
-    payload: { name: string; connectionString: string; connectionType: string },
-    opts?: { silent?: boolean },
-  ) => {
-    const res = await createConnection({
-      name: payload.name,
-      connectionString: payload.connectionString,
-      connectionType: payload.connectionType,
-    });
-    if (res.success) {
-      if (opts?.silent) {
-        if (supabaseImportReloadTimerRef.current) {
-          window.clearTimeout(supabaseImportReloadTimerRef.current);
-        }
-        supabaseImportReloadTimerRef.current = window.setTimeout(() => {
-          supabaseImportReloadTimerRef.current = null;
-          void loadConnections();
-        }, 300);
-      } else {
-        await loadConnections();
-        if (!isPlanetscaleMode) {
-          setConnectionScreen("list");
-        }
-        toast.success(`Connected to ${payload.name}`);
-      }
-    } else if (!opts?.silent) {
-      toast.error((res as any).error ?? "Failed to create connection.");
-    }
-    return res;
-  };
-
   function terminalLog(
     type: "log" | "group" | "groupEnd" | "warn" | "error",
     ...args: any[]
@@ -2642,25 +1539,6 @@ export function ConnectionManager({
     else if (type === "groupEnd") console.groupEnd();
     else if (type === "warn") console.warn(...args);
     else if (type === "error") console.error(...args);
-  }
-
-  async function syncAccessRules(connectionId: number) {
-    if (!workspaceMode || !formAccess || Object.keys(formAccess).length === 0) return;
-    let accessErrors = 0;
-    const entries = Object.entries(formAccess) as [string, AccessType][];
-    for (const [roleId, accessType] of entries) {
-      try {
-        await studioApi.put(`/connections/${connectionId}/access`, {
-          roleId: Number(roleId),
-          accessType,
-        });
-      } catch {
-        accessErrors++;
-      }
-    }
-    if (accessErrors > 0) {
-      toast.error(`${accessErrors} access rule(s) failed to save.`);
-    }
   }
 
   async function handleAdd(e: React.FormEvent) {
@@ -2676,7 +1554,6 @@ export function ConnectionManager({
       "Candidate Connection String:",
       candidateConnectionString,
     );
-    terminalLog("log", "Plan maxConnections:", plan.maxConnections);
     terminalLog("log", "Visible UI connections count:", connections.length);
     terminalLog(
       "log",
@@ -2709,22 +1586,6 @@ export function ConnectionManager({
     }
 
     if (!candidateConnectionString) return;
-
-    // Log before entitlement check
-    terminalLog("group", "[handleAdd] Checking entitlements");
-    terminalLog("log", "Enforce limit:", !editingConnection);
-    const entitlementAllowed = await enforceConnectionEntitlements(
-      candidateConnectionString,
-      selectedProvider,
-      { enforceLimit: !editingConnection },
-    );
-    terminalLog("log", "Entitlement check result:", entitlementAllowed);
-    terminalLog("groupEnd");
-
-    if (!entitlementAllowed) {
-      terminalLog("warn", "[handleAdd] Save blocked by entitlement check");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -2798,12 +1659,10 @@ export function ConnectionManager({
         });
         terminalLog("log", "[handleAdd] updateConnection response:", res);
         if (res.success) {
-          await syncAccessRules(editingConnection.id);
           resetConnectionDraft();
           setConnectionScreen("list");
           setEditingConnection(null);
           await loadConnections();
-          queueCloudPush();
         } else {
           toast.error(res.error ?? "Failed to save connection.");
         }
@@ -2812,7 +1671,6 @@ export function ConnectionManager({
           name: finalName,
           connectionString: normalizedConnectionString,
           connectionType: selectedProvider,
-          maxConnections: plan.maxConnections,
           environment,
           color,
           groups,
@@ -2822,11 +1680,9 @@ export function ConnectionManager({
         });
         terminalLog("log", "[handleAdd] createConnection response:", res);
         if (res.success) {
-          await syncAccessRules((res as any).id);
           resetConnectionDraft();
           setConnectionScreen("list");
           await loadConnections();
-          queueCloudPush();
         } else {
           toast.error(res.error ?? "Failed to save connection.");
         }
@@ -2939,27 +1795,6 @@ export function ConnectionManager({
 
   const handleEdit = (conn: Connection) => {
     populateFormFromConnection(conn, false);
-    if (
-      workspaceMode &&
-      can("connections.manage_access") &&
-      conn.connectionString.startsWith("workspace:")
-    ) {
-      const wsId = conn.connectionString.replace("workspace:", "");
-      (async () => {
-        try {
-          const res = await studioApi.get<{ data: ConnectionAccess[] }>(
-            `/connections/${wsId}/access`,
-          );
-          const access: Record<string, AccessType> = {};
-          for (const a of res.data || []) {
-            access[a.roleId] = a.accessType;
-          }
-          setFormAccess(access);
-        } catch {
-          /* no access data */
-        }
-      })();
-    }
   };
   const handleDuplicate = (conn: Connection) =>
     populateFormFromConnection(conn, true);
@@ -2988,53 +1823,8 @@ export function ConnectionManager({
     }
   }, [newConnectionTrigger, resetConnectionDraft]);
 
-  const fetchConnectionCredentials = useCallback(
-    async (
-      connId: number,
-    ): Promise<{
-      host: string;
-      port: number;
-      database: string;
-      username: string;
-      password: string;
-      connectionString: string;
-    } | null> => {
-      if (!workspaceMode) return null;
-      try {
-        const res = await studioApi.get<{
-          data: {
-            host: string;
-            port: number;
-            database: string;
-            username: string;
-            password: string;
-            connectionString: string;
-          };
-        }>(`/connections/${connId}/credentials`);
-        return res.data ?? null;
-      } catch {
-        return null;
-      }
-    },
-    [workspaceMode],
-  );
-
   const handleCopyDetails = async (conn: Connection) => {
-    if (workspaceMode) {
-      const creds = await fetchConnectionCredentials(conn.id);
-      if (creds?.connectionString) {
-        await navigator.clipboard.writeText(creds.connectionString);
-        toast.success("Connection URI copied (with credentials)");
-        return;
-      }
-    }
-    navigator.clipboard.writeText(conn.connectionString);
-  };
-
-  const handleViewCredentials = async (conn: Connection) => {
-    setCredentialsDialog({ open: true, conn, data: null, loading: true });
-    const creds = await fetchConnectionCredentials(conn.id);
-    setCredentialsDialog({ open: true, conn, data: creds, loading: false });
+    await navigator.clipboard.writeText(conn.connectionString);
   };
 
   const openConnectionFailureDialog = useCallback(
@@ -3068,49 +1858,6 @@ export function ConnectionManager({
       }
       router.push(`/studio?id=${id}`);
     };
-    if (workspaceMode) {
-      const connType = (conn as any).connectionType || "postgresql";
-      const allLocal = await sidecarFetch("/api/connections");
-      const existing = (allLocal?.data || []).find(
-        (c: any) => c.connectionString === conn.connectionString,
-      );
-      let localSave: any;
-      if (existing) {
-        localSave = { success: true, id: existing.id };
-      } else {
-        localSave = await sidecarFetch("/api/connections", {
-          method: "POST",
-          body: JSON.stringify({
-            name: conn.name,
-            connectionString: conn.connectionString,
-            connectionType: connType,
-          }),
-        });
-      }
-      if (localSave?.success && localSave.id) {
-        // Store connection type for proxy SQL generation
-        await sidecarFetch(`/api/studio/ws-type`, {
-          method: "POST",
-          body: JSON.stringify({
-            wsId: (conn.connectionString || "").replace("workspace:", ""),
-            connType:
-              connType === "mysql"
-                ? "mysql"
-                : connType === "jdbc"
-                  ? "jdbc"
-                  : "postgres",
-          }),
-        }).catch(() => {});
-        await openStudioTarget(localSave.id);
-      } else {
-        openConnectionFailureDialog({
-          connectionName: conn.name,
-          error: localSave?.error || "Could not save connection locally",
-          message: `Unable to open "${conn.name}".`,
-        });
-      }
-      return;
-    }
     if (openingConnectionId === conn.id) return;
     setOpeningConnectionId(conn.id);
     const provider = detectProvider(
@@ -3196,7 +1943,6 @@ export function ConnectionManager({
         // Ignore.
       }
       await loadConnections();
-      if (!workspaceMode) queueCloudPush();
     } else {
       toast.error(res.error ?? "Failed to delete connection.");
     }
@@ -3207,7 +1953,6 @@ export function ConnectionManager({
     const res = await updateConnection(conn.id, { isFavorite: nextValue });
     if (res.success) {
       await loadConnections();
-      if (!workspaceMode) queueCloudPush();
       toast.success(
         nextValue ? "Added to favorites" : "Removed from favorites",
       );
@@ -3226,7 +1971,6 @@ export function ConnectionManager({
     const res = await updateConnection(conn.id, { groups: next });
     if (res.success) {
       await loadConnections();
-      if (!workspaceMode) queueCloudPush();
     } else {
       toast.error(res.error ?? "Failed to update folders.");
     }
@@ -3297,7 +2041,6 @@ export function ConnectionManager({
               group: conn.group,
               groups: conn.groups,
               isFavorite: !!conn.isFavorite,
-              maxConnections: plan.maxConnections,
             });
             if (res.success) count++;
           }
@@ -3386,13 +2129,6 @@ export function ConnectionManager({
       );
       return;
     }
-    if (
-      !(await enforceConnectionEntitlements(candidate, selectedProvider, {
-        enforceLimit: false,
-      }))
-    ) {
-      return;
-    }
 
     setTestingConnection(true);
     const res = await testConnection({
@@ -3452,12 +2188,7 @@ export function ConnectionManager({
         .includes(commandMenuQuery.toLowerCase()),
   );
 
-  const maxVisibleConnections =
-    localMode && plan.maxConnections !== null ? plan.maxConnections : null;
-  const visibleConnections =
-    maxVisibleConnections !== null
-      ? filteredConnections.slice(0, maxVisibleConnections)
-      : filteredConnections;
+  const visibleConnections = filteredConnections;
 
   // Grouping logic
   const groupedConnections = visibleConnections.reduce(
@@ -3500,10 +2231,7 @@ export function ConnectionManager({
     });
   };
 
-  const visibleCommandMenuConnections =
-    maxVisibleConnections !== null
-      ? commandMenuConnections.slice(0, maxVisibleConnections)
-      : commandMenuConnections;
+  const visibleCommandMenuConnections = commandMenuConnections;
 
   const dragReorderEnabled =
     connectionScreen === "list" &&
@@ -3520,9 +2248,8 @@ export function ConnectionManager({
         toast.error(result.error ?? "Failed to save connection order.");
         return;
       }
-      queueCloudPush();
     },
-    [dragReorderEnabled, updateConnectionOrder, queueCloudPush],
+    [dragReorderEnabled, updateConnectionOrder],
   );
 
   const reorderConnections = useCallback(
@@ -3607,10 +2334,6 @@ export function ConnectionManager({
 
       if (event.key === "n" || event.key === "N") {
         event.preventDefault();
-        if (!can("connections.create")) {
-          toast.error("You don't have permission to create connections.");
-          return;
-        }
         setConnectionScreen("new-select");
         return;
       }
@@ -3650,7 +2373,6 @@ export function ConnectionManager({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [
-    can,
     commandMenuOpen,
     connectionScreen,
     visibleConnections,
@@ -3748,18 +2470,6 @@ export function ConnectionManager({
     };
   }, [connectionScreen, providerFocusIndex]);
 
-  // fallow-ignore-next-line code-duplication
-  const displayName =
-    (typeof user?.user_metadata?.name === "string" &&
-      user.user_metadata.name.trim()) ||
-    (typeof user?.user_metadata?.full_name === "string" &&
-      user.user_metadata.full_name.trim()) ||
-    (typeof user?.user_metadata?.display_name === "string" &&
-      user.user_metadata.display_name.trim()) ||
-    localDisplayName.trim() ||
-    user?.email?.split("@")[0] ||
-    "User";
-
   const getConnectionTarget = useCallback((conn: Connection) => {
     const raw = conn.connectionString || "";
     if (!raw.trim()) return "untitled";
@@ -3810,7 +2520,7 @@ export function ConnectionManager({
     [],
   );
 
-  if (connectionsLoading || !authResolved || !workspaceAuthLoaded) {
+  if (connectionsLoading || !authResolved) {
     return (
       <div
         className={cn(
@@ -3837,25 +2547,6 @@ export function ConnectionManager({
     setSelectedProvider(card.id);
     setConnectionScreen("new-form");
   };
-
-  const renderAuthMenuItem = (label: string) => (
-    <>
-      <DropdownMenuItem
-        onClick={() => {
-          if (typeof window !== "undefined") {
-            const redirectUrl = encodeURIComponent(
-              window.location.pathname + window.location.search,
-            );
-            window.location.href = `/auth?redirect_to=${redirectUrl}`;
-          }
-        }}
-        className="gap-2 text-xs cursor-pointer"
-      >
-        {label}
-      </DropdownMenuItem>
-      <DropdownMenuSeparator className="bg-studio-border" />
-    </>
-  );
 
   const memCode = (
     <code className="text-xs bg-muted px-1 rounded">:memory:</code>
@@ -4093,8 +2784,7 @@ export function ConnectionManager({
             displayName={displayName}
             showBackButton={
               connectionScreen === "settings" ||
-              connectionScreen === "supabase" ||
-              connectionScreen === "neon-cli"
+              connectionScreen === "supabase"
             }
             onBack={() => setConnectionScreen("list")}
             onCommandSearchClick={() => setCommandMenuOpen(true)}
@@ -4112,26 +2802,6 @@ export function ConnectionManager({
               setConnectionScreen(
                 connectionScreen === "supabase" ? "list" : "supabase",
               )
-            }
-            spacetimedbActive={connectionScreen === "spacetimedb-account"}
-            onSpacetimedbClick={() =>
-              setConnectionScreen(
-                connectionScreen === "spacetimedb-account" ? "list" : "spacetimedb-account",
-              )
-            }
-            neonActive={connectionScreen === "neon-cli"}
-            onNeonClick={() =>
-              setConnectionScreen(
-                connectionScreen === "neon-cli" ? "list" : "neon-cli",
-              )
-            }
-            avatarDropdownChildren={
-              <>
-                {!isSessionActive &&
-                  user &&
-                  renderAuthMenuItem("Sign In Again")}
-                {localMode && !user && renderAuthMenuItem("Sign In")}
-              </>
             }
           />
         )}
@@ -4286,93 +2956,6 @@ export function ConnectionManager({
                 Got it
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Credentials Dialog */}
-        <Dialog
-          open={credentialsDialog.open}
-          onOpenChange={(open) =>
-            setCredentialsDialog((prev) => ({ ...prev, open }))
-          }
-        >
-          <DialogContent className="sm:max-w-[500px] bg-studio-bg border-studio-border">
-            <DialogHeader>
-              <DialogTitle>
-                Credentials: {credentialsDialog.conn?.name}
-              </DialogTitle>
-              <DialogDescription>
-                {credentialsDialog.loading
-                  ? "Fetching credentials..."
-                  : "Real-time credentials fetched from workspace."}
-              </DialogDescription>
-            </DialogHeader>
-            {credentialsDialog.loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="h-5 w-5 rounded-lg border-2 border-primary border-t-transparent" />
-              </div>
-            ) : credentialsDialog.data ? (
-              <div className="space-y-3 py-2">
-                <div className="rounded-lg border border-border/60 bg-muted/30 overflow-hidden">
-                  <table className="w-full text-xs">
-                    <tbody>
-                      {[
-                        { label: "Host", value: credentialsDialog.data.host },
-                        { label: "Port", value: credentialsDialog.data.port },
-                        {
-                          label: "Database",
-                          value: credentialsDialog.data.database,
-                        },
-                        {
-                          label: "Username",
-                          value: credentialsDialog.data.username,
-                        },
-                        {
-                          label: "Password",
-                          value: credentialsDialog.data.password,
-                        },
-                      ].map((row) => (
-                        <tr
-                          key={row.label}
-                          className="border-b border-border/30 last:border-b-0"
-                        >
-                          <td className="px-3 py-2 text-muted-foreground font-medium w-24">
-                            {row.label}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-foreground">
-                            {String(row.value)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                  <p className="text-xs text-muted-foreground mb-1 font-medium">
-                    Connection String
-                  </p>
-                  <pre className="whitespace-pre-wrap break-all font-mono text-xs text-foreground">
-                    {credentialsDialog.data.connectionString}
-                  </pre>
-                </div>
-                <Button
-                  size="sm"
-                  className="w-full gap-2 text-xs"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(
-                      credentialsDialog.data!.connectionString,
-                    );
-                    toast.success("Connection URI copied");
-                  }}
-                >
-                  <Copy className="w-3.5 h-3.5" /> Copy Connection String
-                </Button>
-              </div>
-            ) : (
-              <div className="py-6 text-center text-sm text-destructive">
-                Failed to load credentials.
-              </div>
-            )}
           </DialogContent>
         </Dialog>
 
@@ -4552,10 +3135,8 @@ export function ConnectionManager({
                       updateState={updateState}
                       installing={installing}
                       dismissed={dismissed}
-                      updatesExpired={entitlement.updatesExpired}
                       onDownload={() => void handleDownload()}
                       onInstall={() => void handleInstall()}
-                      onRenew={() => void handleRenewOtl()}
                     />
                     {supabaseAccounts.length > 0 && (
                       <button
@@ -4574,62 +3155,6 @@ export function ConnectionManager({
                         <SupabaseLogo className="h-4 w-4" />
                       </button>
                     )}
-                    {spacetimedbAccounts.length > 0 && (
-                      <button
-                        onClick={() => {
-                          if (onOpenSpacetimedbAccounts) onOpenSpacetimedbAccounts();
-                          else setConnectionScreen("spacetimedb-account");
-                        }}
-                        title={
-                          spacetimedbAccounts.length === 1
-                            ? "SpacetimeDB — 1 account"
-                            : `SpacetimeDB — ${spacetimedbAccounts.length} accounts`
-                        }
-                        aria-label="Open SpacetimeDB accounts"
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-studio-border bg-background/15 hover:bg-background/25 no-drag"
-                      >
-                        <SpacetimeDbLogo className="h-4 w-4 text-foreground/80" />
-                      </button>
-                    )}
-                    {neonAccounts.length > 0 && (
-                      <button
-                        onClick={() => {
-                          if (onOpenNeonAccounts) onOpenNeonAccounts();
-                          else setConnectionScreen("neon-cli");
-                        }}
-                        title={
-                          neonAccounts.length === 1
-                            ? `Neon — ${neonAccounts[0]?.label || neonAccounts[0]?.profileName || "1 account"}`
-                            : `Neon — ${neonAccounts.length} accounts`
-                        }
-                        aria-label="Open Neon accounts"
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-studio-border bg-background/15 hover:bg-background/25 no-drag"
-                      >
-                        <NeonLogo className="h-4 w-4" />
-                      </button>
-                    )}
-                    {PLANETSCALE_LOGIN_ENABLED &&
-                      planetscaleAccounts.length > 0 && (
-                        <button
-                          onClick={() => {
-                            if (onOpenPlanetscaleAccounts)
-                              onOpenPlanetscaleAccounts();
-                            else setConnectionScreen("planetscale-account");
-                          }}
-                          title={
-                            planetscaleAccounts.length === 1
-                              ? `PlanetScale — ${planetscaleAccounts[0]?.email || planetscaleAccounts[0]?.name || "1 account"}`
-                              : `PlanetScale — ${planetscaleAccounts.length} accounts`
-                          }
-                          aria-label="Open PlanetScale accounts"
-                          className="flex h-7 w-7 items-center justify-center rounded-full border border-studio-border bg-background/15 hover:bg-background/25 no-drag"
-                        >
-                          <ProviderLogo
-                            type="planetscale"
-                            className="h-4 w-4"
-                          />
-                        </button>
-                      )}
                     <button
                       onClick={() => setConnectionScreen("settings")}
                       title="Settings"
@@ -4640,7 +3165,7 @@ export function ConnectionManager({
                     </button>
                     <NavUser
                       name={displayName}
-                      email={user?.email ?? undefined}
+                      email={profileEmail ?? undefined}
                       dropdownAlign="end"
                       dropdownSide="bottom"
                     />
@@ -4759,18 +3284,16 @@ export function ConnectionManager({
                   </DropdownMenu>
 
                   <div className="ml-auto">
-                    {can("connections.create") && (
-                      <button
-                        onClick={() => {
-                          resetConnectionDraft();
-                          setConnectionScreen("new-select");
-                        }}
-                        className="h-9 px-3 rounded-lg border border-border bg-background text-sm flex items-center gap-2 focus:outline-none"
-                      >
-                        <Plus className="w-4 h-4 text-muted-foreground/70" />
-                        New Connection
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        resetConnectionDraft();
+                        setConnectionScreen("new-select");
+                      }}
+                      className="h-9 px-3 rounded-lg border border-border bg-background text-sm flex items-center gap-2 focus:outline-none"
+                    >
+                      <Plus className="w-4 h-4 text-muted-foreground/70" />
+                      New Connection
+                    </button>
                   </div>
                 </div>
 
@@ -4966,38 +3489,32 @@ export function ConnectionManager({
                                           >
                                             Open
                                           </DropdownMenuItem>
-                                          {can("connections.update") && (
-                                            <DropdownMenuItem
-                                              onClick={() => handleEdit(conn)}
-                                              className="gap-2 focus:bg-muted/50"
-                                            >
-                                              {" "}
-                                              Edit
-                                            </DropdownMenuItem>
-                                          )}
-                                          {can("connections.create") && (
-                                            <DropdownMenuItem
-                                              onClick={() =>
-                                                handleDuplicate(conn)
-                                              }
-                                              className="gap-2 focus:bg-muted/50"
-                                            >
-                                              {" "}
-                                              Duplicate
-                                            </DropdownMenuItem>
-                                          )}
-                                          {can("connections.update") && (
-                                            <DropdownMenuItem
-                                              onClick={() =>
-                                                void toggleFavorite(conn)
-                                              }
-                                              className="gap-2 focus:bg-muted/50"
-                                            >
-                                              {(conn as any).isFavorite
-                                                ? "Remove from Favorites"
-                                                : "Add to Favorites"}
-                                            </DropdownMenuItem>
-                                          )}
+                                          <DropdownMenuItem
+                                            onClick={() => handleEdit(conn)}
+                                            className="gap-2 focus:bg-muted/50"
+                                          >
+                                            {" "}
+                                            Edit
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              handleDuplicate(conn)
+                                            }
+                                            className="gap-2 focus:bg-muted/50"
+                                          >
+                                            {" "}
+                                            Duplicate
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() =>
+                                              void toggleFavorite(conn)
+                                            }
+                                            className="gap-2 focus:bg-muted/50"
+                                          >
+                                            {(conn as any).isFavorite
+                                              ? "Remove from Favorites"
+                                              : "Add to Favorites"}
+                                          </DropdownMenuItem>
                                           <DropdownMenuItem
                                             onClick={() =>
                                               void handleCopyDetails(conn)
@@ -5007,21 +3524,7 @@ export function ConnectionManager({
                                             {" "}
                                             Copy URI
                                           </DropdownMenuItem>
-                                          {!workspaceMode && renderFolderSubmenu(conn)}
-                                          {workspaceMode && (
-                                            <>
-                                              <DropdownMenuItem
-                                                onClick={() =>
-                                                  void handleViewCredentials(
-                                                    conn,
-                                                  )
-                                                }
-                                                className="gap-2 focus:bg-muted/50"
-                                              >
-                                                View Credentials
-                                              </DropdownMenuItem>
-                                            </>
-                                          )}
+                                          {renderFolderSubmenu(conn)}
                                           {onViewAnalytics && (
                                             <DropdownMenuItem
                                               onClick={(event) => {
@@ -5033,20 +3536,18 @@ export function ConnectionManager({
                                               View Analytics
                                             </DropdownMenuItem>
                                           )}
-                                          {can("connections.delete") && (
-                                            <>
-                                              <DropdownMenuSeparator className="bg-border/60" />
-                                              <DropdownMenuItem
-                                                onClick={(event) => {
-                                                  event.stopPropagation();
-                                                  void handleDelete(conn.id);
-                                                }}
-                                                className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                              >
-                                                Delete
-                                              </DropdownMenuItem>
-                                            </>
-                                          )}
+                                          <>
+                                            <DropdownMenuSeparator className="bg-border/60" />
+                                            <DropdownMenuItem
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                void handleDelete(conn.id);
+                                              }}
+                                              className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                            >
+                                              Delete
+                                            </DropdownMenuItem>
+                                          </>
                                         </DropdownMenuContent>
                                       </DropdownMenu>
                                     </div>
@@ -5215,41 +3716,35 @@ export function ConnectionManager({
                                             >
                                               Open
                                             </DropdownMenuItem>
-                                            {can("connections.update") && (
-                                              <DropdownMenuItem
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleEdit(conn);
-                                                }}
-                                                className="gap-2 text-xs focus:bg-muted/50"
-                                              >
-                                                Edit
-                                              </DropdownMenuItem>
-                                            )}
-                                            {can("connections.create") && (
-                                              <DropdownMenuItem
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleDuplicate(conn);
-                                                }}
-                                                className="gap-2 text-xs focus:bg-muted/50"
-                                              >
-                                                Duplicate
-                                              </DropdownMenuItem>
-                                            )}
-                                            {can("connections.update") && (
-                                              <DropdownMenuItem
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  void toggleFavorite(conn);
-                                                }}
-                                                className="gap-2 text-xs focus:bg-muted/50"
-                                              >
-                                                {(conn as any).isFavorite
-                                                  ? "Unfavorite"
-                                                  : "Favorite"}
-                                              </DropdownMenuItem>
-                                            )}
+                                            <DropdownMenuItem
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(conn);
+                                              }}
+                                              className="gap-2 text-xs focus:bg-muted/50"
+                                            >
+                                              Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDuplicate(conn);
+                                              }}
+                                              className="gap-2 text-xs focus:bg-muted/50"
+                                            >
+                                              Duplicate
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                void toggleFavorite(conn);
+                                              }}
+                                              className="gap-2 text-xs focus:bg-muted/50"
+                                            >
+                                              {(conn as any).isFavorite
+                                                ? "Unfavorite"
+                                                : "Favorite"}
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem
                                               onClick={(e) => {
                                                 e.stopPropagation();
@@ -5259,35 +3754,19 @@ export function ConnectionManager({
                                             >
                                               Copy URI
                                             </DropdownMenuItem>
-                                            {!workspaceMode && renderFolderSubmenu(conn, "3")}
-                                            {workspaceMode && (
+                                            {renderFolderSubmenu(conn, "3")}
+                                            <>
+                                              <DropdownMenuSeparator className="bg-border/60" />
                                               <DropdownMenuItem
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  void handleViewCredentials(
-                                                    conn,
-                                                  );
+                                                  void handleDelete(conn.id);
                                                 }}
-                                                className="gap-2 text-xs focus:bg-muted/50"
+                                                className="gap-2 text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
                                               >
-                                                <Eye className="w-3 h-3" /> View
-                                                Credentials
+                                                Delete
                                               </DropdownMenuItem>
-                                            )}
-                                            {can("connections.delete") && (
-                                              <>
-                                                <DropdownMenuSeparator className="bg-border/60" />
-                                                <DropdownMenuItem
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    void handleDelete(conn.id);
-                                                  }}
-                                                  className="gap-2 text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                                >
-                                                  Delete
-                                                </DropdownMenuItem>
-                                              </>
-                                            )}
+                                            </>
                                           </DropdownMenuContent>
                                         </DropdownMenu>
                                       </td>
@@ -5313,7 +3792,7 @@ export function ConnectionManager({
                           ? "Try a different search term."
                           : "Add a database connection to get started."}
                       </p>
-                      {!searchQuery && can("connections.create") && (
+                      {!searchQuery && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -5329,109 +3808,6 @@ export function ConnectionManager({
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
-          ) : connectionScreen === "cloud-sync" ? (
-            <div className="flex flex-col h-full w-full max-w-3xl mx-auto px-6 py-8 text-foreground">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                    onClick={() => setConnectionScreen("list")}
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </Button>
-                  <div>
-                    <h2 className="text-sm font-bold tracking-tight">
-                      Cloud Sync
-                    </h2>
-                    <p className="text-muted-foreground text-sm mt-1">
-                      Encrypted sync across devices.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-studio-border/60 bg-studio-bg/40 p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold">
-                      Cloud Sync (Encrypted)
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Connections stay local unless you enable encrypted sync.
-                      We never store your key.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={cloudSyncEnabled}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        void handleEnableCloudSync();
-                      } else {
-                        handleDisableCloudSync();
-                      }
-                    }}
-                    disabled={!plan.cloudEnabled}
-                  />
-                </div>
-                {plan.cloudEnabled && !cloudSyncEnabled && (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Input
-                      type="password"
-                      value={cloudSyncKeyInput}
-                      onChange={(event) =>
-                        setCloudSyncKeyInput(event.target.value)
-                      }
-                      placeholder="Encryption key"
-                      className="h-9 text-sm border-border/60 bg-background"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-9 border-border/60"
-                        onClick={() => void handleFetchCloudConnections()}
-                      >
-                        Get Connections
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-9 bg-primary text-primary-foreground hover:bg-primary/90"
-                        onClick={() => void handleEnableCloudSync()}
-                      >
-                        Enable Sync
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {cloudSyncEnabled && (
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-muted-foreground">
-                      {cloudSyncLoading
-                        ? "Syncing..."
-                        : lastCloudSyncAt
-                          ? `Last synced ${new Date(lastCloudSyncAt).toLocaleTimeString()}`
-                          : "Syncing enabled."}
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs border-border/60"
-                      onClick={() => void runInitialCloudSync()}
-                    >
-                      Sync now
-                    </Button>
-                  </div>
-                )}
-                {cloudSyncError && (
-                  <p className="text-xs text-destructive">{cloudSyncError}</p>
-                )}
               </div>
             </div>
           ) : connectionScreen === "compare" ? (
@@ -5455,7 +3831,6 @@ export function ConnectionManager({
                 <div className="flex h-full min-h-0">
                   <div className="flex-1 min-w-0">
                     <AppSettingsView
-                      planCode={plan.code}
                       onOpenThemeCreator={handleOpenThemeCreator}
                       onOpenIconThemeCreator={handleOpenIconThemeCreator}
                     />
@@ -5511,98 +3886,8 @@ export function ConnectionManager({
                   existingConnectionStrings={connections.map(
                     (c) => c.connectionString,
                   )}
-                  maxConnections={plan.maxConnections}
+                  maxConnections={null}
                   onConnectProject={handleSupabaseConnectProject}
-                />
-              </div>
-            </div>
-          ) : connectionScreen === "spacetimedb-account" ? (
-            <div className="h-full min-h-0 w-full overflow-y-auto scrollbar-hide">
-              <div className="mx-auto w-full max-w-5xl px-6 py-6">
-                {!isSpacetimeDbMode && (
-                  <div className="mb-4 flex items-center">
-                    <Button
-                      variant="ghost"
-                      onClick={() => setConnectionScreen("list")}
-                      className="h-8 gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Back
-                    </Button>
-                  </div>
-                )}
-                <SpacetimeDbAccountsScreen
-                  accounts={spacetimedbAccounts}
-                  activeAccountId={activeSpacetimeDbAccountId}
-                  onSwitchAccount={setActiveSpacetimeDbAccountId}
-                  onRemoveAccount={handleRemoveSpacetimeDbAccount}
-                  onAddAccount={handleAddSpacetimeDbAccount}
-                  canAddAccount
-                  existingConnectionStrings={connections.map(
-                    (c) => c.connectionString,
-                  )}
-                  maxConnections={plan.maxConnections}
-                  onConnectDatabase={handleSpacetimeDbConnectDatabase}
-                />
-              </div>
-            </div>
-          ) : connectionScreen === "neon-cli" ? (
-            <div className="h-full min-h-0 w-full overflow-y-auto scrollbar-hide">
-              <div className="mx-auto w-full max-w-5xl px-6 py-6">
-                {!isNeonCliMode && (
-                  <div className="mb-4 flex items-center">
-                    <Button
-                      variant="ghost"
-                      onClick={() => setConnectionScreen("list")}
-                      className="h-8 gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Back
-                    </Button>
-                  </div>
-                )}
-                <NeonAccountsScreen
-                  accounts={neonAccounts}
-                  activeAccountId={activeNeonAccountId}
-                  onSwitchAccount={setActiveNeonAccountId}
-                  onRemoveAccount={handleRemoveNeonAccount}
-                  onAddAccount={() => void handleAddNeonAccount()}
-                  canAddAccount
-                  existingConnectionStrings={connections.map(
-                    (c) => c.connectionString,
-                  )}
-                  cliInstalled={neonCliInstalled}
-                  checkingCli={neonCliChecking}
-                  onRecheckCli={() => void checkNeonCli()}
-                  onConnectDatabase={handleNeonConnectDatabase}
-                  onReconnectAccount={(profileName) => void handleReconnectNeonAccount(profileName)}
-                  reloadSignal={neonReloadSignal}
-                />
-              </div>
-            </div>
-          ) : connectionScreen === "planetscale-account" ? (
-            <div className="h-full min-h-0 w-full overflow-y-auto scrollbar-hide">
-              <div className="mx-auto w-full max-w-5xl px-6 py-6">
-                {!isPlanetscaleMode && (
-                  <div className="mb-4 flex items-center">
-                    <Button
-                      variant="ghost"
-                      onClick={() => setConnectionScreen("list")}
-                      className="h-8 gap-2 rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      Back
-                    </Button>
-                  </div>
-                )}
-                <PlanetscaleAccountsScreen
-                  accounts={planetscaleAccounts}
-                  activeAccountId={activePlanetscaleAccountId}
-                  onSwitchAccount={setActivePlanetscaleAccountId}
-                  onRemoveAccount={handleRemovePlanetscaleAccount}
-                  onAddAccount={handleAddPlanetscaleAccount}
-                  canAddAccount
-                  onConnectDatabase={handlePlanetscaleConnectDatabase}
                 />
               </div>
             </div>
@@ -5693,105 +3978,6 @@ export function ConnectionManager({
                         </div>
                       </div>
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (spacetimedbAccounts.length > 0) {
-                          if (onOpenSpacetimedbAccounts) onOpenSpacetimedbAccounts();
-                          else setConnectionScreen("spacetimedb-account");
-                        } else {
-                          handleAddSpacetimeDbAccount();
-                        }
-                      }}
-                      className="w-full min-w-0 flex items-center gap-3 rounded-lg border border-studio-border/60 bg-studio-bg/60 p-3 text-left hover:border-studio-border hover:bg-studio-row-hover/80"
-                    >
-                      <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-muted/60 flex items-center justify-center">
-                        <SpacetimeDbLogo className="h-[26px] w-[26px] text-foreground/80" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">
-                          SpacetimeDB Account
-                        </div>
-                        <div className="text-xs text-muted-foreground line-clamp-2">
-                          {spacetimedbAccounts.length === 0
-                            ? "Log in to browse and connect your databases"
-                            : spacetimedbAccounts.length === 1
-                              ? `Logged in as ${
-                                  spacetimedbAccounts[0]?.identity
-                                    ? `${spacetimedbAccounts[0].identity.slice(0, 8)}…`
-                                    : "SpacetimeDB account"
-                                }`
-                              : `${spacetimedbAccounts.length} accounts linked`}
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (neonAccounts.length > 0) {
-                          if (onOpenNeonAccounts) onOpenNeonAccounts();
-                          else setConnectionScreen("neon-cli");
-                        } else {
-                          void handleAddNeonAccount();
-                        }
-                      }}
-                      className="w-full min-w-0 flex items-center gap-3 rounded-lg border border-studio-border/60 bg-studio-bg/60 p-3 text-left hover:border-studio-border hover:bg-studio-row-hover/80"
-                    >
-                      <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-muted/60 flex items-center justify-center">
-                        <NeonLogo className="h-7 w-7" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">
-                          Neon Account
-                        </div>
-                        <div className="text-xs text-muted-foreground line-clamp-2">
-                          {neonAccounts.length === 0
-                            ? "Sign in (via Neon CLI) to browse and connect your projects"
-                            : neonAccounts.length === 1
-                              ? `Signed in as ${
-                                  neonAccounts[0]?.label || neonAccounts[0]?.profileName
-                                }`
-                              : `${neonAccounts.length} accounts linked`}
-                        </div>
-                      </div>
-                    </button>
-
-                    {PLANETSCALE_LOGIN_ENABLED && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (planetscaleAccounts.length > 0) {
-                            if (onOpenPlanetscaleAccounts) onOpenPlanetscaleAccounts();
-                            else setConnectionScreen("planetscale-account");
-                          } else {
-                            handleAddPlanetscaleAccount();
-                          }
-                        }}
-                        className="w-full min-w-0 flex items-center gap-3 rounded-lg border border-studio-border/60 bg-studio-bg/60 p-3 text-left hover:border-studio-border hover:bg-studio-row-hover/80"
-                      >
-                        <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-muted/60 flex items-center justify-center">
-                          <ProviderLogo type="planetscale" className="h-7 w-7" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            PlanetScale Account
-                          </div>
-                          <div className="text-xs text-muted-foreground line-clamp-2">
-                            {planetscaleAccounts.length === 0
-                              ? "Log in to browse and connect your databases"
-                              : planetscaleAccounts.length === 1
-                                ? `Logged in as ${
-                                    planetscaleAccounts[0]?.email ||
-                                    planetscaleAccounts[0]?.name ||
-                                    "PlanetScale account"
-                                  }`
-                                : `${planetscaleAccounts.length} accounts linked`}
-                          </div>
-                        </div>
-                      </button>
-                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -6068,66 +4254,6 @@ export function ConnectionManager({
                             onCheckedChange={setIsFavorite}
                           />
                         </div>
-
-                        {workspaceMode &&
-                          roles.length > 0 &&
-                          can("connections.manage_access") && (
-                            <div className="border-t border-border/40 pt-3 space-y-3">
-                              <Label className="text-sm font-medium">
-                                Role Access
-                              </Label>
-                              <p className="text-xs text-muted-foreground -mt-1">
-                                Control which roles can access this connection
-                              </p>
-                              <div className="space-y-2">
-                                {roles.map((role) => (
-                                  <div
-                                    key={role.id}
-                                    className="flex items-center gap-3"
-                                  >
-                                    <span className="text-xs truncate w-24 shrink-0">
-                                      {role.name}
-                                    </span>
-                                    <div className="relative flex-1">
-                                      <SearchableSelect
-                                        value={formAccess[role.id] || ""}
-                                        onValueChange={(val) => {
-                                          setFormAccess((prev) => {
-                                            const next = { ...prev };
-                                            if (val) {
-                                              next[role.id] = val as AccessType;
-                                            } else {
-                                              delete next[role.id];
-                                            }
-                                            return next;
-                                          });
-                                        }}
-                                        placeholder="No access"
-                                        searchThreshold={0}
-                                        className="h-10 w-full text-sm font-normal border-border/60"
-                                        options={[
-                                          { value: "", label: "No access" },
-                                          {
-                                            value: "READ_ONLY",
-                                            label: "Read only",
-                                          },
-                                          {
-                                            value: "READ_AND_REQUEST",
-                                            label: "Read & request",
-                                          },
-                                          {
-                                            value: "FULL_ACCESS",
-                                            label: "Full access",
-                                          },
-                                        ]}
-                                      />
-                                      <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 shrink-0 opacity-50 pointer-events-none" />
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
                     </Card>
 
@@ -6792,7 +4918,7 @@ export function ConnectionManager({
           void registerActiveSupabaseProjects(
             token,
             connectionsRef.current.map((c) => c.connectionString),
-            plan.maxConnections,
+            null,
             { listProjects, createConnection },
           ).then((result) => {
             const totalActive =
@@ -6801,7 +4927,6 @@ export function ConnectionManager({
               result.skippedLimit;
             if (result.imported > 0) {
               void loadConnections();
-              queueCloudPush();
               if (result.skippedLimit > 0) {
                 toast.warning(
                   `Imported ${result.imported} of ${totalActive} active projects — ${result.skippedLimit} skipped by connection limit`,
@@ -6821,88 +4946,6 @@ export function ConnectionManager({
               toast.info("No active projects to import.");
             }
           });
-        }}
-      />
-
-      <SpacetimeDbLoginDialog
-        open={spacetimedbLoginOpen}
-        onOpenChange={setSpacetimedbLoginOpen}
-        onLoginComplete={(token, account) => {
-          setSpacetimedbAccounts((prev) => {
-            const exists = prev.some((a) => a.id === account.id);
-            return exists ? prev : [...prev, account];
-          });
-          setActiveSpacetimeDbAccountId(account.id);
-          if (onOpenSpacetimedbAccounts) onOpenSpacetimedbAccounts();
-          else setConnectionScreen("spacetimedb-account");
-          void registerSpacetimeDbDatabases(
-            token,
-            account.host || "",
-            connectionsRef.current.map((c) => c.connectionString),
-            plan.maxConnections,
-            { listDatabases: listSpacetimeDbDatabases, createConnection },
-          ).then((result) => {
-            const total =
-              result.imported +
-              result.alreadyRegistered +
-              result.skippedLimit +
-              result.skippedNameless;
-            if (result.imported > 0) {
-              void loadConnections();
-              queueCloudPush();
-              if (result.skippedLimit > 0) {
-                toast.warning(
-                  `Imported ${result.imported} of ${total} databases — ${result.skippedLimit} skipped by connection limit`,
-                );
-              } else {
-                toast.success(
-                  `Imported ${result.imported} of ${total} databases`,
-                );
-              }
-            } else if (result.skippedLimit > 0) {
-              toast.warning("Some databases were skipped by the connection limit");
-            } else if (result.alreadyRegistered > 0) {
-              toast.info("All databases are already connected.");
-            } else if (result.failed > 0) {
-              toast.error("Failed to import databases.");
-            } else {
-              toast.info("No databases to import.");
-            }
-          });
-        }}
-      />
-
-      <NeonLoginDialog
-        open={neonLoginOpen}
-        reconnectProfile={neonReconnectProfile}
-        onOpenChange={(nextOpen) => {
-          setNeonLoginOpen(nextOpen);
-          if (!nextOpen) setNeonReconnectProfile(null);
-        }}
-        onLoginComplete={(account) => {
-          setNeonAccounts((prev) => {
-            const exists = prev.some((a) => a.id === account.id);
-            return exists ? prev : [...prev, account];
-          });
-          setActiveNeonAccountId(account.id);
-          setNeonReconnectProfile(null);
-          setNeonReloadSignal((n) => n + 1);
-          if (onOpenNeonAccounts) onOpenNeonAccounts();
-          else setConnectionScreen("neon-cli");
-        }}
-      />
-
-      <PlanetscaleLoginDialog
-        open={planetscaleLoginOpen}
-        onOpenChange={setPlanetscaleLoginOpen}
-        onLoginComplete={(account) => {
-          setPlanetscaleAccounts((prev) => {
-            const exists = prev.some((a) => a.id === account.id);
-            return exists ? prev : [...prev, account];
-          });
-          setActivePlanetscaleAccountId(account.id);
-          if (onOpenPlanetscaleAccounts) onOpenPlanetscaleAccounts();
-          else setConnectionScreen("planetscale-account");
         }}
       />
     </div>
@@ -6992,16 +5035,6 @@ export function ConnectionManager({
           <DropdownMenuSeparator className="bg-border/60" />
           <DropdownMenuItem
             onClick={() => {
-              setConnectionScreen("cloud-sync");
-              setManageMenuOpen(false);
-            }}
-            className="gap-2 focus:bg-muted/50"
-          >
-            <ShieldCheck className="w-4 h-4" /> Cloud Sync
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-border/60" />
-          <DropdownMenuItem
-            onClick={() => {
               handleExport();
               setManageMenuOpen(false);
             }}
@@ -7028,11 +5061,6 @@ export function ConnectionManager({
       <Button
         size="sm"
         className="h-9 gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-        disabled={
-          !planLoading &&
-          plan.maxConnections !== null &&
-          connections.length >= plan.maxConnections
-        }
         onClick={() => {
           resetConnectionDraft();
           setConnectionScreen("new-select");

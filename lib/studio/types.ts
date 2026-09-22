@@ -342,39 +342,3 @@ export interface QueryValidationShapeResult {
   reason?: string;
 }
 
-export type PermissionAction = "read" | "write_value" | "manage_permissions" | "delete";
-export type GranteeType = "user" | "role" | "team" | "studio" | "public";
-
-export interface KVPermission {
-  action: PermissionAction;
-  granteeType: GranteeType;
-  granteeId: string | null;
-}
-
-export const PERMISSION_LABELS: Record<PermissionAction, string> = {
-  read: "Can view",
-  write_value: "Can edit",
-  manage_permissions: "Can manage",
-  delete: "Can delete",
-};
-
-export const PERMISSION_LEVELS = [
-  { value: "view", label: "Can view", actions: ["read"] as PermissionAction[] },
-  { value: "edit", label: "Can edit", actions: ["read", "write_value"] as PermissionAction[] },
-  { value: "manage", label: "Can manage", actions: ["read", "write_value", "manage_permissions"] as PermissionAction[] },
-  { value: "full", label: "Full control", actions: ["read", "write_value", "manage_permissions", "delete"] as PermissionAction[] },
-] as const;
-
-export type PermissionLevel = (typeof PERMISSION_LEVELS)[number]["value"];
-
-export function actionsToLevel(actions: PermissionAction[]): PermissionLevel {
-  const sorted = [...new Set(actions)].sort();
-  for (const level of PERMISSION_LEVELS) {
-    if (sorted.join(",") === [...level.actions].sort().join(",")) return level.value;
-  }
-  return "view";
-}
-
-export function levelToActions(level: PermissionLevel): PermissionAction[] {
-  return PERMISSION_LEVELS.find((l) => l.value === level)?.actions ?? ["read"];
-}

@@ -15,7 +15,6 @@ import type { QueryExecutionContext } from "@/lib/studio/table-permissions";
 import { startSshTunnelIfNeeded, type TunnelHandle } from "./ssh-tunnel";
 import { normalizePgConnectionString, validateSslMode, recoverPgCredentials } from "./pg-connection";
 import { quotePgIdentifier } from "./quote-identifier";
-import { resolveEffectiveConnectionString } from "./neon-cli-client";
 type ExecuteQueryOptions = {
   queryId?: string;
   executionContext?: QueryExecutionContext | null;
@@ -145,8 +144,7 @@ function getPgSslConfig(connectionString: string) {
 
 
 
-async function getPgPoolEntry(rawConnectionString: string) {
-  const connectionString = await resolveEffectiveConnectionString(rawConnectionString);
+async function getPgPoolEntry(connectionString: string) {
   const config = parsePgConfig(connectionString);
   const cacheKey = `${config.host}:${config.port}:${config.database}:${config.username}:${config.password}`;
 
@@ -511,12 +509,11 @@ export async function deleteRows(connectionString: string, schema: string, table
 }
 
 export async function updateRows(
-  rawConnectionString: string,
+  connectionString: string,
   schema: string,
   table: string,
   updates: Array<{ where: Record<string, any>, set: Record<string, any> }>
 ) {
-  const connectionString = await resolveEffectiveConnectionString(rawConnectionString);
   const tunnel = await startSshTunnelIfNeeded(connectionString, 5432, normalizePgConnectionString);
   const effectiveConnectionString = tunnel.connectionString;
   

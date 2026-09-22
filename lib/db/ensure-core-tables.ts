@@ -69,23 +69,6 @@ export async function ensureCoreTables() {
       { column: "shared_entry_id", statement: "ALTER TABLE snippets ADD COLUMN shared_entry_id TEXT" },
     ]),
     ensureColumns("users", userColumnMigrations as any),
-    ensureColumns("user_entitlements", [
-      { column: "payload_json", statement: "ALTER TABLE user_entitlements ADD COLUMN payload_json TEXT NOT NULL DEFAULT ''" },
-      { column: "signature", statement: "ALTER TABLE user_entitlements ADD COLUMN signature TEXT NOT NULL DEFAULT ''" },
-      { column: "entitlement_plan_code", statement: "ALTER TABLE user_entitlements ADD COLUMN entitlement_plan_code TEXT NOT NULL DEFAULT 'free'" },
-      { column: "last_paid_plan_code", statement: "ALTER TABLE user_entitlements ADD COLUMN last_paid_plan_code TEXT" },
-      { column: "status", statement: "ALTER TABLE user_entitlements ADD COLUMN status TEXT NOT NULL DEFAULT 'none'" },
-      { column: "cloud_enabled", statement: "ALTER TABLE user_entitlements ADD COLUMN cloud_enabled INTEGER NOT NULL DEFAULT 0" },
-      { column: "max_connections", statement: "ALTER TABLE user_entitlements ADD COLUMN max_connections INTEGER" },
-      { column: "max_workspaces", statement: "ALTER TABLE user_entitlements ADD COLUMN max_workspaces INTEGER" },
-      { column: "access_ends_at", statement: "ALTER TABLE user_entitlements ADD COLUMN access_ends_at INTEGER" },
-      { column: "grace_ends_at", statement: "ALTER TABLE user_entitlements ADD COLUMN grace_ends_at INTEGER" },
-      { column: "updates_until", statement: "ALTER TABLE user_entitlements ADD COLUMN updates_until INTEGER" },
-      { column: "issued_at", statement: "ALTER TABLE user_entitlements ADD COLUMN issued_at INTEGER NOT NULL DEFAULT 0" },
-      { column: "refresh_after", statement: "ALTER TABLE user_entitlements ADD COLUMN refresh_after INTEGER NOT NULL DEFAULT 0" },
-      { column: "last_observed_at", statement: "ALTER TABLE user_entitlements ADD COLUMN last_observed_at INTEGER NOT NULL DEFAULT 0" },
-      { column: "synced_at", statement: "ALTER TABLE user_entitlements ADD COLUMN synced_at INTEGER NOT NULL DEFAULT (strftime('%s','now')*1000)" },
-    ]),
     createTableIfNotExists("ai_chats", [
       { name: "id", type: "TEXT", constraints: "PRIMARY KEY NOT NULL" },
       { name: "connection_id", type: "INTEGER", constraints: "NOT NULL REFERENCES connections(id) ON DELETE CASCADE" },
@@ -355,24 +338,6 @@ export async function ensureCoreTables() {
     { name: "plan_status", type: "TEXT", constraints: "NOT NULL DEFAULT 'none'" },
     { name: "plan_synced_at", type: "INTEGER" },
     { name: "plan_period_end", type: "INTEGER" },
-  ]);
-  await createTableIfNotExists("user_entitlements", [
-    { name: "user_id", type: "TEXT", constraints: "PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE" },
-    { name: "payload_json", type: "TEXT", constraints: "NOT NULL" },
-    { name: "signature", type: "TEXT", constraints: "NOT NULL" },
-    { name: "entitlement_plan_code", type: "TEXT", constraints: "NOT NULL" },
-    { name: "last_paid_plan_code", type: "TEXT" },
-    { name: "status", type: "TEXT", constraints: "NOT NULL" },
-    { name: "cloud_enabled", type: "INTEGER", constraints: "NOT NULL DEFAULT 0" },
-    { name: "max_connections", type: "INTEGER" },
-    { name: "max_workspaces", type: "INTEGER" },
-    { name: "access_ends_at", type: "INTEGER" },
-    { name: "grace_ends_at", type: "INTEGER" },
-    { name: "updates_until", type: "INTEGER" },
-    { name: "issued_at", type: "INTEGER", constraints: "NOT NULL" },
-    { name: "refresh_after", type: "INTEGER", constraints: "NOT NULL" },
-    { name: "last_observed_at", type: "INTEGER", constraints: "NOT NULL DEFAULT 0" },
-    { name: "synced_at", type: "INTEGER", constraints: "NOT NULL DEFAULT (strftime('%s','now')*1000)" },
   ]);
 
   await Promise.all(coreMigrationPromises());

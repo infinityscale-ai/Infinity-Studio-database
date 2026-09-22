@@ -15,10 +15,6 @@ import {
 } from "@/lib/icon-theme/lucide-react";
 import { Folder, FolderOpen } from "@/lib/icon-theme/solar-icons";
 import { Input } from "@/components/ui/input";
-import type {
-  TableActionHandler,
-  ExportDataHandler,
-} from "@/lib/studio-backend/types";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -66,6 +62,9 @@ import {
   getTableDerivedValues,
 } from "@/lib/studio/table-utils";
 import { TableContextMenuItems } from "./table-utils";
+
+type TableActionHandler = (table: string, schema: string) => void;
+type ExportDataHandler = (format: "json" | "csv" | "sql", table?: string, schema?: string) => void;
 
 function ExplorerTagRow({
   table,

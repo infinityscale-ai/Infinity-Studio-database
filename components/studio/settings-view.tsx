@@ -11,20 +11,10 @@ import {
   Eye,
   GripVertical,
   Check,
-  ExternalLink,
   Globe,
   Upload,
   Code,
-  Server,
-  Key,
-  User,
-  CheckCircle2,
   ArrowRight,
-  LogOut,
-  Loader2,
-  XCircle,
-  Shield,
-  Trash2,
   Search,
   SearchX,
 } from "@/lib/icon-theme/lucide-react";
@@ -58,28 +48,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { useAuthState } from "@/hooks/use-auth-state";
-import { useEntitlementState } from "@/hooks/use-entitlement-state";
-import { buildEntitlementCacheMessage } from "@/lib/billing/entitlement-display";
-import {
-  initStudioAuth,
-  loadStudioAuth,
-  saveStudioAuth,
-  setStudioConfig,
-  clearAllStudioData,
-  getStudioUrl,
-  setStudioUrl,
-  addWorkspace,
-  disconnectStudioWorkspace,
-  listWorkspaces,
-  switchWorkspace,
-  removeWorkspace,
-  type WorkspaceInfo,
-} from "@/lib/studio-backend/auth-store";
-import { studioApi, StudioApiError } from "@/lib/studio-backend/api-client";
 import {
   createThemeId,
   parseThemeJson,
@@ -331,8 +300,6 @@ interface StudioSettingsModel {
   setTuiTheme: (value: "auto" | "light" | "dark") => void;
   commandMenuSections: CommandMenuSection[];
   setCommandMenuSections: Dispatch<SetStateAction<CommandMenuSection[]>>;
-  planCode: string;
-
   glassmorphicHeaders: boolean;
   setGlassmorphicHeaders: (value: boolean) => void;
   gridAnimations: boolean;
@@ -645,7 +612,6 @@ const SETTINGS_SEARCH_SECTION_ORDER: SettingsSectionId[] = [
   "security",
   "keybindings",
   "advanced",
-  "workspace",
 ];
 
 function SettingsSearchResults({
@@ -884,13 +850,6 @@ export function SettingsView({
     setSqlFormatNewlineBeforeSemicolon,
   } = pickCommonSettings(studio);
 
-  const { accessToken, user, isSessionActive } = useAuthState();
-  const { entitlement } = useEntitlementState({
-    userId: isSessionActive ? (user?.id ?? null) : null,
-    accessToken,
-    isSessionActive,
-  });
-
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const dragOverIndex = useRef<number | null>(null);
   const {
@@ -898,7 +857,6 @@ export function SettingsView({
     setUpdateState,
     installing: installingUpdate,
     setInstalling: setInstallingUpdate,
-    handleRenewOtl,
     checkForUpdates,
     handleDownload,
     handleInstall,
@@ -907,27 +865,6 @@ export function SettingsView({
   const [themeNameInput, setThemeNameInput] = useState("");
   const [themeJsonInput, setThemeJsonInput] = useState("");
   const [themeFileName, setThemeFileName] = useState<string | null>(null);
-  const [workspaceAuth, setWorkspaceAuth] = useState<{
-    userId: string;
-    studioToken: string;
-  } | null>(null);
-  const [workspaceActive, setWorkspaceActive] = useState(false);
-  const [workspaceUrl, setWorkspaceUrl] = useState("http://localhost:3000");
-  const [workspaceToken, setWorkspaceToken] = useState("");
-  const [workspaceName, setWorkspaceName] = useState("");
-  const [workspaceEmail, setWorkspaceEmail] = useState("");
-  const [workspaceConnecting, setWorkspaceConnecting] = useState(false);
-  const [workspaceAuthLoaded, setWorkspaceAuthLoaded] = useState(false);
-  const [workspaceLoginMode, setWorkspaceLoginMode] = useState<
-    "invite" | "login"
-  >("invite");
-  const [workspaceLoginEmail, setWorkspaceLoginEmail] = useState("");
-  const [workspaceLoginPassword, setWorkspaceLoginPassword] = useState("");
-  const [workspaceTempToken, setWorkspaceTempToken] = useState("");
-  const [workspaceTotpCode, setWorkspaceTotpCode] = useState("");
-  const [workspaceLoginStep, setWorkspaceLoginStep] = useState<"form" | "totp">(
-    "form",
-  );
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(
     studio.settingsInitialSection ?? "general",
   );
@@ -963,102 +900,6 @@ export function SettingsView({
   useEffect(() => {
     if (activeSection !== "ai") setShowProviders(false);
   }, [activeSection]);
-  const [workspaceLoggingIn, setWorkspaceLoggingIn] = useState(false);
-  const [savedWorkspaces, setSavedWorkspaces] = useState<WorkspaceInfo[]>([]);
-  const [workspacesLoading, setWorkspacesLoading] = useState(false);
-  const [switchingWs, setSwitchingWs] = useState<string | null>(null);
-  const [removingWs, setRemovingWs] = useState<string | null>(null);
-
-  const loadSavedWorkspaces = useCallback(async () => {
-    setWorkspacesLoading(true);
-    const list = await listWorkspaces();
-    setSavedWorkspaces(list);
-    setWorkspacesLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (activeSection === "workspace") {
-      loadSavedWorkspaces();
-    }
-  }, [activeSection, loadSavedWorkspaces]);
-
-  const activateWorkspace = useCallback(
-    async (
-      url: string,
-      studioToken: string,
-      userId: string,
-      successMessage: string,
-    ) => {
-      setWorkspaceActive(true);
-      if (typeof window !== "undefined")
-        window.sessionStorage.setItem("workspace:active", "1");
-      window.dispatchEvent(
-        new CustomEvent("workspace:changed", { detail: { connected: true } }),
-      );
-      let wsName = url;
-      try {
-        const sr = await studioApi.get<{ data: { name: string } }>("/studio");
-        wsName = sr?.data?.name || url;
-      } catch {}
-      const added = await addWorkspace({
-        studioUrl: url,
-        studioToken,
-        userId,
-        name: wsName,
-      });
-      if (!added)
-        toast.warning("Connected but failed to save to workspace list");
-      toast.success(successMessage);
-    },
-    [],
-  );
-
-  const loginSuccess = useCallback(async (url: string, studioToken: string) => {
-    await saveStudioAuth({ userId: "", studioToken });
-    const me = await studioApi.get<{ data: { id: string } }>("/auth/me");
-    await setStudioConfig({
-      studioUrl: url,
-      userId: me.data.id,
-      studioToken,
-    });
-    setWorkspaceAuth({
-      userId: me.data.id,
-      studioToken,
-    });
-    await activateWorkspace(
-      url,
-      studioToken,
-      me.data.id,
-      "Connected to workspace via sign-in!",
-    );
-  }, []);
-
-  useEffect(() => {
-    initStudioAuth().then(() => {
-      const auth = loadStudioAuth();
-      setWorkspaceAuth(auth);
-      setWorkspaceAuthLoaded(true);
-      const stored =
-        typeof window !== "undefined" &&
-        window.sessionStorage.getItem("workspace:active") === "1";
-      if (auth && stored) {
-        setWorkspaceActive(true);
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.connected !== undefined) {
-        setWorkspaceActive(!!detail.connected);
-      }
-      loadSavedWorkspaces();
-    };
-    window.addEventListener("workspace:changed", handler);
-    return () => window.removeEventListener("workspace:changed", handler);
-  }, [loadSavedWorkspaces]);
-
   useEffect(() => {
     if (studio.settingsInitialSection) {
       setActiveSection(studio.settingsInitialSection);
@@ -1278,64 +1119,6 @@ export function SettingsView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditorThemeDialogOpen, editorThemeId, customEditorThemes]);
 
-  const handleWorkspaceLogin = async () => {
-    const email = workspaceLoginEmail.trim().toLowerCase();
-    if (!email || !workspaceLoginPassword) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-    setWorkspaceLoggingIn(true);
-    try {
-      const url = workspaceUrl.trim().replace(/\/+$/, "");
-      await setStudioUrl(url);
-      const res = await studioApi.post<{
-        data: { studioToken?: string; step?: string; tempToken?: string };
-      }>("/auth/login", {
-        email,
-        password: workspaceLoginPassword,
-      });
-      if (res.data?.step === "totp" && res.data.tempToken) {
-        setWorkspaceTempToken(res.data.tempToken);
-        setWorkspaceTotpCode("");
-        setWorkspaceLoginStep("totp");
-      } else if (res.data?.studioToken) {
-        await loginSuccess(url, res.data.studioToken);
-      } else {
-        toast.error("Unexpected login response.");
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Login failed");
-    } finally {
-      setWorkspaceLoggingIn(false);
-    }
-  };
-
-  const handleWorkspaceTotp = async () => {
-    if (!workspaceTotpCode.trim()) return;
-    setWorkspaceLoggingIn(true);
-    try {
-      const url = workspaceUrl.trim().replace(/\/+$/, "");
-      const res = await studioApi.post<{
-        data: { studioToken: string };
-      }>("/auth/login/totp", {
-        tempToken: workspaceTempToken,
-        code: workspaceTotpCode.trim(),
-      });
-      if (res.data?.studioToken) {
-        await loginSuccess(url, res.data.studioToken);
-      } else {
-        toast.error("Unexpected TOTP response.");
-      }
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "TOTP verification failed",
-      );
-    } finally {
-      setWorkspaceLoggingIn(false);
-    }
-  };
-
   const handleCheckUpdates = async () => {
     toast.success("Checking for updates...");
     await checkForUpdates();
@@ -1365,11 +1148,6 @@ export function SettingsView({
     }
     toast.success("Installing update and restarting...");
   };
-
-
-  const updatesUntil = entitlement.updatesUntil;
-  const updatesExpired = entitlement.updatesExpired;
-  const entitlementNotice = buildEntitlementCacheMessage(entitlement);
 
   return (
     <div className="flex-1 overflow-auto bg-background text-foreground h-full">
@@ -2005,8 +1783,6 @@ export function SettingsView({
               setAppThemeId={setAppThemeId}
               customEditorThemes={customEditorThemes}
               setCustomEditorThemes={setCustomEditorThemes}
-              user={user}
-              isSessionActive={isSessionActive}
               onOpenEditorThemeDialog={() => setIsEditorThemeDialogOpen(true)}
               onOpenThemeCreator={onOpenThemeCreator}
               onOpenIconThemeCreator={onOpenIconThemeCreator}
@@ -2051,433 +1827,6 @@ export function SettingsView({
             <div data-setting-id="mcp-enable">
               <McpSettingsSection />
             </div>
-          ) : null}
-
-          {!isSearching && activeSection === "workspace" ? (
-            <section className="space-y-4">
-              <div data-setting-id="workspace-connect" className="space-y-1">
-                <h2 className="text-sm font-semibold">Workspace</h2>
-                <p className="text-xs text-muted-foreground">
-                  Connect to a rexadb-studio workspace to manage shared
-                  connections.
-                </p>
-              </div>
-              {!workspaceAuthLoaded ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading...
-                </div>
-              ) : workspaceAuth && workspaceActive ? (
-                <Card className="p-4 border-studio-border bg-studio-bg/50 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                    <span className="text-sm font-medium">Connected</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>URL: {getStudioUrl()}</p>
-                    <p>User ID: {workspaceAuth.userId}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setWorkspaceActive(false);
-                        disconnectStudioWorkspace();
-                        toast.success("Switched to local connections");
-                      }}
-                      className="flex-1"
-                    >
-                      <LogOut className="w-3.5 h-3.5 mr-1" />
-                      Deactivate
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={async () => {
-                        await clearAllStudioData();
-                        setWorkspaceAuth(null);
-                        setWorkspaceActive(false);
-                        setWorkspaceLoginMode("invite");
-                        setWorkspaceLoginStep("form");
-                        if (typeof window !== "undefined")
-                          window.sessionStorage.removeItem("workspace:active");
-                        window.dispatchEvent(
-                          new CustomEvent("workspace:changed", {
-                            detail: { connected: false },
-                          }),
-                        );
-                        toast.success("Forgotten workspace credentials");
-                      }}
-                    >
-                      Forget
-                    </Button>
-                  </div>
-                </Card>
-              ) : workspaceAuth && !workspaceActive ? (
-                <Card className="p-4 border-studio-border bg-studio-bg/50 space-y-3">
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <p>URL: {getStudioUrl()}</p>
-                    <p>User ID: {workspaceAuth.userId}</p>
-                    <p className="text-foreground/60 italic">
-                      Saved credentials found
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => {
-                        setWorkspaceActive(true);
-                        if (typeof window !== "undefined")
-                          window.sessionStorage.setItem(
-                            "workspace:active",
-                            "1",
-                          );
-                        window.dispatchEvent(
-                          new CustomEvent("workspace:changed", {
-                            detail: { connected: true },
-                          }),
-                        );
-                        toast.success("Reconnected to workspace");
-                      }}
-                      className="flex-1"
-                    >
-                      <ArrowRight className="w-3.5 h-3.5 mr-1" />
-                      Reconnect
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={async () => {
-                        await clearAllStudioData();
-                        setWorkspaceAuth(null);
-                        setWorkspaceLoginMode("invite");
-                        setWorkspaceLoginStep("form");
-                        if (typeof window !== "undefined")
-                          window.sessionStorage.removeItem("workspace:active");
-                        toast.success("Forgotten workspace credentials");
-                      }}
-                    >
-                      Forget
-                    </Button>
-                  </div>
-                </Card>
-              ) : workspaceLoginStep === "totp" ? (
-                <Card className="p-4 border-studio-border bg-studio-bg/50 space-y-4">
-                  <div className="space-y-2 text-center">
-                    <Shield className="w-8 h-8 text-primary mx-auto" />
-                    <h3 className="text-sm font-semibold">
-                      Two-Factor Authentication
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Enter the 6-digit code from your authenticator app
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Input
-                      placeholder="000000"
-                      value={workspaceTotpCode}
-                      onChange={(e) =>
-                        setWorkspaceTotpCode(
-                          e.target.value.replace(/\D/g, "").slice(0, 6),
-                        )
-                      }
-                      className="bg-background/70 border-border/60 h-10 text-center text-sm font-mono tracking-[0.3em]"
-                      maxLength={6}
-                      autoFocus
-                    />
-                  </div>
-                  <Button
-                    disabled={
-                      workspaceLoggingIn || workspaceTotpCode.length !== 6
-                    }
-                    onClick={handleWorkspaceTotp}
-                    className="w-full"
-                  >
-                    {workspaceLoggingIn ? "Verifying..." : "Verify & Connect"}
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWorkspaceLoginStep("form");
-                      setWorkspaceTempToken("");
-                      setWorkspaceTotpCode("");
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground w-full text-center"
-                  >
-                    Back to sign in
-                  </button>
-                </Card>
-              ) : (
-                <Card className="p-4 border-studio-border bg-studio-bg/50 space-y-4">
-                  <div className="flex items-center gap-1 rounded-lg bg-muted/40 p-1">
-                    <button
-                      onClick={() => setWorkspaceLoginMode("invite")}
-                      className={cn(
-                        "flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-                        workspaceLoginMode === "invite"
-                          ? "bg-background text-foreground border border-border/40 shadow-sm"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      Accept Invite
-                    </button>
-                    <button
-                      onClick={() => setWorkspaceLoginMode("login")}
-                      className={cn(
-                        "flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-                        workspaceLoginMode === "login"
-                          ? "bg-background text-foreground border border-border/40 shadow-sm"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      Sign In
-                    </button>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                      Workspace URL
-                    </Label>
-                    <Input
-                      placeholder="http://localhost:3000"
-                      value={workspaceUrl}
-                      onChange={(e) => setWorkspaceUrl(e.target.value)}
-                      className="bg-background/70 border-border/60 h-10"
-                    />
-                  </div>
-
-                  {workspaceLoginMode === "invite" ? (
-                    <>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">
-                          Invite Token
-                        </Label>
-                        <Input
-                          placeholder="64-character hex token"
-                          value={workspaceToken}
-                          onChange={(e) => setWorkspaceToken(e.target.value)}
-                          className="bg-background/70 border-border/60 h-10 font-mono text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">
-                          Name
-                        </Label>
-                        <Input
-                          placeholder="John Doe"
-                          value={workspaceName}
-                          onChange={(e) => setWorkspaceName(e.target.value)}
-                          className="bg-background/70 border-border/60 h-10"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">
-                          Email
-                        </Label>
-                        <Input
-                          type="email"
-                          placeholder="john@example.com"
-                          value={workspaceEmail}
-                          onChange={(e) => setWorkspaceEmail(e.target.value)}
-                          className="bg-background/70 border-border/60 h-10"
-                        />
-                      </div>
-                      <Button
-                        disabled={
-                          workspaceConnecting ||
-                          !workspaceToken.trim() ||
-                          !workspaceName.trim() ||
-                          !workspaceEmail.trim()
-                        }
-                        onClick={async () => {
-                          setWorkspaceConnecting(true);
-                          try {
-                            const url = workspaceUrl.trim().replace(/\/+$/, "");
-                            const res = await studioApi.post<{
-                              data: { userId: string; studioToken: string };
-                            }>("/invites/accept", {
-                              token: workspaceToken.trim(),
-                              name: workspaceName.trim(),
-                              email: workspaceEmail.trim().toLowerCase(),
-                            });
-                            await setStudioConfig({
-                              studioUrl: url,
-                              userId: res.data.userId,
-                              studioToken: res.data.studioToken,
-                            });
-                            setWorkspaceAuth({
-                              userId: res.data.userId,
-                              studioToken: res.data.studioToken,
-                            });
-                            await activateWorkspace(
-                              url,
-                              res.data.studioToken,
-                              res.data.userId,
-                              "Connected to workspace!",
-                            );
-                          } catch (err) {
-                            toast.error(
-                              err instanceof Error
-                                ? err.message
-                                : "Failed to connect",
-                            );
-                          } finally {
-                            setWorkspaceConnecting(false);
-                          }
-                        }}
-                        className="w-full"
-                      >
-                        {workspaceConnecting
-                          ? "Connecting..."
-                          : "Connect to Workspace"}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">
-                          Email
-                        </Label>
-                        <Input
-                          type="email"
-                          placeholder="john@example.com"
-                          value={workspaceLoginEmail}
-                          onChange={(e) =>
-                            setWorkspaceLoginEmail(e.target.value)
-                          }
-                          className="bg-background/70 border-border/60 h-10"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">
-                          Password
-                        </Label>
-                        <Input
-                          type="password"
-                          placeholder="Your password"
-                          value={workspaceLoginPassword}
-                          onChange={(e) =>
-                            setWorkspaceLoginPassword(e.target.value)
-                          }
-                          className="bg-background/70 border-border/60 h-10"
-                        />
-                      </div>
-                      <Button
-                        disabled={
-                          workspaceLoggingIn ||
-                          !workspaceLoginEmail.trim() ||
-                          !workspaceLoginPassword
-                        }
-                        onClick={handleWorkspaceLogin}
-                        className="w-full"
-                      >
-                        {workspaceLoggingIn
-                          ? "Signing in..."
-                          : "Sign In & Connect"}
-                      </Button>
-                    </>
-                  )}
-                </Card>
-              )}
-
-              <div
-                data-setting-id="workspace-saved"
-                className="pt-4 border-t border-studio-border"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-muted-foreground">
-                    Saved Workspaces
-                  </h3>
-                  {workspacesLoading && (
-                    <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-                  )}
-                </div>
-                {savedWorkspaces.length === 0 ? (
-                  <p className="text-xs text-muted-foreground/50">
-                    No workspaces saved yet.
-                  </p>
-                ) : (
-                  <div className="space-y-1">
-                    {savedWorkspaces.map((ws) => {
-                      const isActiveWs =
-                        workspaceAuth !== null &&
-                        ws.studioUrl === getStudioUrl();
-                      return (
-                        <div
-                          key={ws.studioUrl}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg border border-studio-border bg-studio-bg/30 group hover:bg-muted/10 transition-colors"
-                        >
-                          <div
-                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActiveWs ? "bg-emerald-500" : "bg-muted-foreground/20"}`}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium truncate">
-                                {ws.name}
-                              </span>
-                              {isActiveWs && (
-                                <span className="text-[10px] px-1 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-medium shrink-0">
-                                  Active
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground/50 truncate font-mono">
-                              {ws.studioUrl}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {!isActiveWs && (
-                              <button
-                                onClick={async () => {
-                                  setSwitchingWs(ws.studioUrl);
-                                  const ok = await switchWorkspace(
-                                    ws.studioUrl,
-                                  );
-                                  setSwitchingWs(null);
-                                  if (ok) {
-                                    toast.success("Switched workspace");
-                                    if (typeof window !== "undefined")
-                                      window.location.href = "/";
-                                  } else {
-                                    toast.error("Failed to switch workspace");
-                                  }
-                                }}
-                                disabled={switchingWs === ws.studioUrl}
-                                className="h-6 px-2 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-                              >
-                                {switchingWs === ws.studioUrl ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  "Switch"
-                                )}
-                              </button>
-                            )}
-                            <button
-                              onClick={async () => {
-                                setRemovingWs(ws.studioUrl);
-                                await removeWorkspace(ws.studioUrl);
-                                setRemovingWs(null);
-                                loadSavedWorkspaces();
-                              }}
-                              disabled={removingWs === ws.studioUrl}
-                              className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground/30 hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                            >
-                              {removingWs === ws.studioUrl ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-3 h-3" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
           ) : null}
 
           {!isSearching && activeSection === "advanced" ? (
@@ -2689,75 +2038,54 @@ export function SettingsView({
                       : ""}
                   </span>
                 </div>
-                {updatesExpired ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      Updates expired on{" "}
-                      {updatesUntil
-                        ? new Date(updatesUntil).toLocaleDateString()
-                        : "your last renewal date"}
-                      . Your license is perpetual — only updates are gated.
-                    </p>
-                    <Button size="sm" onClick={handleRenewOtl}>
-                      Renew License
-                      <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <button
-                      onClick={handleCheckUpdates}
-                      disabled={
-                        updateState.checking ||
-                        updateState.downloading ||
-                        installingUpdate
-                      }
-                      className="h-7 rounded-lg border border-border bg-secondary/40 px-2.5 text-xs font-medium text-foreground hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {updateState.checking
-                        ? "Checking..."
-                        : "Check for Updates"}
-                    </button>
-                    <button
-                      onClick={handleDownloadUpdate}
-                      disabled={
-                        !updateState.updateAvailable ||
-                        updateState.downloading ||
-                        updateState.updateDownloaded ||
-                        installingUpdate
-                      }
-                      className="h-7 rounded-lg border border-border bg-secondary/40 px-2.5 text-xs font-medium text-foreground hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {updateState.downloading
-                        ? `Downloading${typeof updateState.progressPercent === "number" ? ` ${Math.round(updateState.progressPercent)}%` : "..."}`
-                        : updateState.updateDownloaded
-                          ? "Downloaded"
-                          : "Download Update"}
-                    </button>
-                    <button
-                      onClick={handleInstallUpdate}
-                      disabled={
-                        !updateState.updateDownloaded || installingUpdate
-                      }
-                      className="h-7 rounded-lg bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {installingUpdate
-                        ? "Installing..."
-                        : "Install and Restart"}
-                    </button>
-                  </div>
-                )}
-                {entitlementNotice ? (
-                  <p className="text-xs text-muted-foreground">
-                    {entitlementNotice}
-                  </p>
-                ) : null}
-                {!updateState.enabled && !updatesExpired ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    onClick={handleCheckUpdates}
+                    disabled={
+                      updateState.checking ||
+                      updateState.downloading ||
+                      installingUpdate
+                    }
+                    className="h-7 rounded-lg border border-border bg-secondary/40 px-2.5 text-xs font-medium text-foreground hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {updateState.checking
+                      ? "Checking..."
+                      : "Check for Updates"}
+                  </button>
+                  <button
+                    onClick={handleDownloadUpdate}
+                    disabled={
+                      !updateState.updateAvailable ||
+                      updateState.downloading ||
+                      updateState.updateDownloaded ||
+                      installingUpdate
+                    }
+                    className="h-7 rounded-lg border border-border bg-secondary/40 px-2.5 text-xs font-medium text-foreground hover:bg-secondary/60 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {updateState.downloading
+                      ? `Downloading${typeof updateState.progressPercent === "number" ? ` ${Math.round(updateState.progressPercent)}%` : "..."}`
+                      : updateState.updateDownloaded
+                        ? "Downloaded"
+                        : "Download Update"}
+                  </button>
+                  <button
+                    onClick={handleInstallUpdate}
+                    disabled={
+                      !updateState.updateDownloaded || installingUpdate
+                    }
+                    className="h-7 rounded-lg bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {installingUpdate
+                      ? "Installing..."
+                      : "Install and Restart"}
+                  </button>
+                </div>
+                {!updateState.enabled ? (
                   <p className="text-xs text-muted-foreground">
                     Automatic updates are not configured for this build.
                   </p>
                 ) : null}
-                {updateState.error && !updatesExpired ? (
+                {updateState.error ? (
                   <p className="text-xs text-red-500">{updateState.error}</p>
                 ) : null}
               </div>

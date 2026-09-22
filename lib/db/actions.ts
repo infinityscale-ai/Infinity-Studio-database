@@ -54,9 +54,6 @@ import {
   deleteUserProfile as _deleteUserProfile,
   clearAllUsers as _clearAllUsers,
   getAllUsers as _getAllUsers,
-  updateUserPlan as _updateUserPlan,
-  getStoredUserEntitlement as _getStoredUserEntitlement,
-  upsertUserEntitlement as _upsertUserEntitlement,
   getStudioFolders as _getStudioFolders,
   saveStudioFolders as _saveStudioFolders,
   getStudioSnippets as _getStudioSnippets,
@@ -130,27 +127,6 @@ async function clearAllUsers() {
 }
 async function getAllUsers() {
   return _getAllUsers();
-}
-async function updateUserPlan(payload: {
-  id: string;
-  planType: string;
-  planStatus?: string | null;
-  planSyncedAt?: number | string | Date | null;
-  planPeriodEnd?: number | string | Date | null;
-}) {
-  return _updateUserPlan(payload);
-}
-async function getStoredUserEntitlement(id?: string | null) {
-  return _getStoredUserEntitlement(id);
-}
-async function upsertUserEntitlement(payload: {
-  userId?: string | null;
-  payload?: Record<string, unknown> | null;
-  payloadJson?: string | null;
-  signature?: string | null;
-  lastObservedAt?: number | string | Date | null;
-}) {
-  return _upsertUserEntitlement(payload);
 }
 async function getStudioFolders(connectionId: number) {
   return _getStudioFolders(connectionId);
@@ -352,8 +328,7 @@ async function applyPostgresSchemaToTarget(
       return { success: true, data: { appliedCount: 0 } };
     }
 
-    const { resolveEffectiveConnectionString } = await import("./neon-cli-client");
-    const effectiveTargetConnectionString = await resolveEffectiveConnectionString(targetConnectionString);
+    const effectiveTargetConnectionString = targetConnectionString;
 
     const { Client } = (globalThis as any).__pg || (await import("pg")).default;
     const client = new Client({
@@ -963,127 +938,5 @@ async function getUserAnalytics(): Promise<{
       success: false,
       error: error.message || "Failed to get user analytics",
     };
-  }
-}
-
-const STUDIO_BACKEND_CONFIG_KEY = "studio_backend_config";
-
-export async function getStudioBackendConfig() {
-  try {
-    const { db } = await import("./index");
-    const { sql } = await import("drizzle-orm");
-
-    await ensureAppStorageTables();
-    const rows = await db.all<{ value: string | null }>(sql`
-      SELECT value
-      FROM app_settings
-      WHERE key = ${STUDIO_BACKEND_CONFIG_KEY}
-      LIMIT 1
-    `);
-
-    const savedValue = rows[0]?.value?.trim();
-    if (!savedValue) {
-      return {
-        success: true,
-        data: null as {
-          studioUrl: string;
-          studioToken: string;
-          userId: string;
-        } | null,
-      };
-    }
-
-    return { success: true, data: JSON.parse(savedValue) };
-  } catch (error: any) {
-    console.error("Failed to fetch studio backend config:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-export async function saveStudioBackendConfig(config: {
-  studioUrl: string;
-  studioToken: string;
-  userId: string;
-}) {
-  try {
-    const { db } = await import("./index");
-    const { sql } = await import("drizzle-orm");
-
-    await ensureAppStorageTables();
-    await db.run(sql`
-      INSERT INTO app_settings (key, value, updated_at)
-      VALUES (${STUDIO_BACKEND_CONFIG_KEY}, ${JSON.stringify(config)}, ${Date.now()})
-      ON CONFLICT(key) DO UPDATE SET
-        value = excluded.value,
-        updated_at = excluded.updated_at
-    `);
-
-    return { success: true };
-  } catch (error: any) {
-    console.error("Failed to save studio backend config:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-export async function clearStudioBackendConfig() {
-  try {
-    const { db } = await import("./index");
-    const { sql } = await import("drizzle-orm");
-
-    await ensureAppStorageTables();
-    await db.run(sql`
-      DELETE FROM app_settings WHERE key = ${STUDIO_BACKEND_CONFIG_KEY}
-    `);
-
-    return { success: true };
-  } catch (error: any) {
-    console.error("Failed to clear studio backend config:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-const WORKSPACE_LIST_KEY = "workspace_list";
-
-export interface WorkspaceEntry {
-  studioUrl: string;
-  studioToken: string;
-  userId: string;
-  name: string;
-}
-
-export async function getWorkspaceList(): Promise<{
-  success: boolean;
-  data: WorkspaceEntry[];
-  error?: string;
-}> {
-  try {
-    const { db } = await import("./index");
-    const { sql } = await import("drizzle-orm");
-    await ensureAppStorageTables();
-    const rows = await db.all<{ value: string | null }>(sql`
-      SELECT value FROM app_settings WHERE key = ${WORKSPACE_LIST_KEY} LIMIT 1
-    `);
-    const saved = rows[0]?.value?.trim();
-    return { success: true, data: saved ? JSON.parse(saved) : [] };
-  } catch (error: any) {
-    return { success: false, data: [], error: error.message };
-  }
-}
-
-export async function saveWorkspaceList(
-  list: WorkspaceEntry[],
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { db } = await import("./index");
-    const { sql } = await import("drizzle-orm");
-    await ensureAppStorageTables();
-    await db.run(sql`
-      INSERT INTO app_settings (key, value, updated_at)
-      VALUES (${WORKSPACE_LIST_KEY}, ${JSON.stringify(list)}, ${Date.now()})
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-    `);
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
   }
 }

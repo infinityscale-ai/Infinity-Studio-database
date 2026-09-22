@@ -145,15 +145,7 @@ const TAB_DRAG_ICON_COLORS: Record<string, string> = {
   dashboard: "text-cyan-500",
   analytics: "text-cyan-500",
   advisor: "text-cyan-500",
-  "manage-workspaces": "text-purple-500",
   "diff-table": "text-purple-500",
-  "connect-studio": "text-purple-500",
-  "payments-plans": "text-blue-500",
-  "payments-customers": "text-cyan-500",
-  "payments-subscriptions": "text-purple-500",
-  "payments-revenue": "text-green-500",
-  "payments-webhooks": "text-yellow-500",
-  "payments-setup": "text-muted-foreground",
 };
 
 function TabIcon({

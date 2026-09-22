@@ -1,10 +1,8 @@
 "use client";
 
-import { Download, CheckCircle2, Loader2, ExternalLink } from "@/lib/icon-theme/lucide-react";
+import { Download, CheckCircle2, Loader2 } from "@/lib/icon-theme/lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppUpdateContext } from "@/components/providers/app-update-context";
-import { useAuthState } from "@/hooks/use-auth-state";
-import { useEntitlementState } from "@/hooks/use-entitlement-state";
 
 type Variant = "modern" | "command";
 
@@ -30,19 +28,10 @@ export function UpdateHeaderBadge({
     setDismissed,
     handleDownload,
     handleInstall,
-    handleRenewOtl,
   } = useAppUpdateContext();
 
   const { checking, updateAvailable, downloading, updateDownloaded, progressPercent } =
     updateState;
-
-  const { accessToken, user, isSessionActive } = useAuthState();
-  const { entitlement } = useEntitlementState({
-    userId: isSessionActive ? user?.id ?? null : null,
-    accessToken,
-    isSessionActive,
-  });
-  const updatesExpired = entitlement.updatesExpired;
 
   if (!updateState.enabled) return null;
   if (checking) return null;
@@ -60,28 +49,6 @@ export function UpdateHeaderBadge({
       );
 
   const iconClasses = isModern ? "size-3 shrink-0" : sleekLayout ? "w-3 h-3 shrink-0" : "w-3.5 h-3.5 shrink-0";
-
-  // Expired -> Renew (amber tint but same shell)
-  if (updatesExpired && updateAvailable) {
-    return (
-      <div className={cn("flex items-center gap-1.5", className)}>
-        <button
-          onClick={() => void handleRenewOtl()}
-          className={cn(baseClasses, "border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/15 hover:border-amber-500/40 hover:text-amber-300")}
-        >
-          <ExternalLink className={iconClasses} />
-          <span className="truncate">Renew to update{updateState.latestVersion ? ` · v${updateState.latestVersion}` : ""}</span>
-        </button>
-        <button
-          aria-label="Dismiss"
-          onClick={() => setDismissed(true)}
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 hover:text-foreground hover:bg-white/10 no-drag"
-        >
-          ×
-        </button>
-      </div>
-    );
-  }
 
   if (updateDownloaded) {
     return (

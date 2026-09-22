@@ -1,5 +1,4 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
-import { getWorkspaceSnippets, getWorkspaceHistory } from "@/lib/supabase/workspace";
 import {
   getStudioFolders, getStudioSnippets, getStudioHistory, getStudioTags, getStudioTableTags, getStudioTabs, getStudioSettings, getKeybindingsFile
 } from "@/lib/api/actions-client";
@@ -9,15 +8,10 @@ import { createDefaultSplitLayout } from "@/lib/studio/split-layout";
 import { QueryHistory, Snippet, Folder, type SqlEditorEngine, type StudioSplitViewState } from "@/lib/studio/types";
 import type { CustomAppTheme } from "@/lib/studio/app-themes";
 import type { SidebarBehavior } from "@/lib/studio/sidebar-behavior";
-import { mergeById } from "@/lib/studio/general-utils";
-import { normalizeCloudFolders, normalizeCloudSnippets, mapStudioSnippet } from "@/lib/studio/cloud-sync-utils";
-import { subscribeSettingsSyncApplied } from "@/lib/studio/settings-sync-events";
+import { mapStudioSnippet } from "@/lib/studio/cloud-sync-utils";
 
 interface UseInitialStudioDataProps {
   connection: Connection;
-  storageMode?: "local" | "cloud";
-  workspaceId?: string | null;
-  accessToken?: string | null;
   setFolders: Dispatch<SetStateAction<Folder[]>>;
   setSnippets: Dispatch<SetStateAction<Snippet[]>>;
   setQueryHistory: (history: QueryHistory[]) => void;
@@ -34,15 +28,11 @@ interface UseInitialStudioDataProps {
   setSplitView: (view: StudioSplitViewState) => void;
   setIsDataLoaded: (isLoaded: boolean) => void;
   setIsHistoryLoaded: (loaded: boolean) => void;
-  setIsSharedSnippetsLoaded?: (loaded: boolean) => void;
   delayedUiRestoreBlockedRef: React.MutableRefObject<boolean>;
 }
 
 export function useInitialStudioData({
   connection,
-  storageMode = "local",
-  workspaceId,
-  accessToken,
   setFolders,
   setSnippets,
   setQueryHistory,
@@ -59,7 +49,6 @@ export function useInitialStudioData({
   setSplitView,
   setIsDataLoaded,
   setIsHistoryLoaded,
-  setIsSharedSnippetsLoaded,
   delayedUiRestoreBlockedRef,
 }: UseInitialStudioDataProps) {
   // Reset history synchronously the moment connection changes — before any async load
@@ -71,28 +60,12 @@ export function useInitialStudioData({
     setIsDataLoaded(false);
   }, [connection.id]);
 
-  // Paid-plan settings sync can update keybindings while studio is open.
-  useEffect(() => {
-    return subscribeSettingsSyncApplied((detail) => {
-      const remote = detail.payload.keybindings;
-      if (!remote || typeof remote !== "object") return;
-      setKeybindings(
-        normalizeKeybindingsForPlatform(
-          withMissingDefaultKeybindings(remote as Record<string, any>),
-        ),
-      );
-    });
-  }, [setKeybindings]);
-
   useEffect(() => {
     let cancelled = false;
 
     async function loadInitialData() {
       setIsDataLoaded(false);
       setIsHistoryLoaded(false);
-
-      const useCloudHistory = storageMode === "cloud" && workspaceId && accessToken;
-      const canLoadCloudSnippets = storageMode === "cloud" && Boolean(workspaceId && accessToken);
 
       const [tagsRes, tableTagsRes, tabsRes, settingsRes, keybindingsRes] = await Promise.all([
         getStudioTags(connection.id),
@@ -117,7 +90,6 @@ export function useInitialStudioData({
         getStudioFolders(connection.id),
         getStudioSnippets(connection.id),
       ]);
-      setIsSharedSnippetsLoaded?.(false);
 
       console.log("[rexadb] useInitialStudioData: loaded local snippets", {
         connectionId: connection.id,
@@ -125,8 +97,6 @@ export function useInitialStudioData({
         snippetCount: snippetsRes?.data?.length ?? 0,
         snippetIds: (snippetsRes?.data ?? []).map((s: any) => s.id),
         snippetNames: (snippetsRes?.data ?? []).map((s: any) => s.name),
-        storageMode,
-        canLoadCloudSnippets,
       });
 
       if (foldersRes?.success && foldersRes.data) {
@@ -136,118 +106,42 @@ export function useInitialStudioData({
         setSnippets(snippetsRes.data.map(mapStudioSnippet));
       }
 
-      if (useCloudHistory) {
-        const { history: cloudHistoryData, error: historyErr } = await getWorkspaceHistory();
-        historyRes = {
-          success: !historyErr,
-          data: { history: cloudHistoryData },
-        };
-      } else {
-        historyRes = await getStudioHistory(connection.id);
-      }
+      historyRes = await getStudioHistory(connection.id);
 
-      if (useCloudHistory) {
-        const cloudHistory = Array.isArray(historyRes?.data?.history) ? historyRes.data.history : [];
-
-        const loadedCloudHistory = cloudHistory.map((h: any) => ({
-          id: String(h.id),
+      if (historyRes?.success && historyRes.data) {
+        const loadedHistory = historyRes.data.map((h: any) => ({
+          id: h.id,
           query: h.query,
-          executedAt: h.executed_at ? new Date(h.executed_at).getTime() : Date.now(),
-          duration: h.duration_ms ?? h.duration ?? 0,
+          executedAt: h.executedAt,
+          duration: h.duration,
           status: h.status as 'success' | 'error',
           error: h.error || undefined,
-          rowsCount: h.rows_count ?? undefined,
+          rowsCount: h.rowsCount || undefined,
           caller: h.caller as 'user' | 'system',
-          executedBy: h.executed_by || undefined,
-          executedByName: h.executed_by_name || undefined,
-          connectionName: h.connection_name || undefined,
+          executedBy: h.executedBy || undefined,
+          executedByName: h.executedByName || undefined,
+          connectionName: h.connectionName || undefined,
         }));
         
-        console.log("[rexadb] useInitialStudioData: loading cloud history", {
+        console.log("[rexadb] useInitialStudioData: loading history", {
           connectionId: connection.id,
-          historyCount: loadedCloudHistory.length,
-          firstEntry: loadedCloudHistory[0]?.id,
-          lastEntry: loadedCloudHistory[loadedCloudHistory.length - 1]?.id,
+          historyCount: loadedHistory.length,
+          firstEntry: loadedHistory[0]?.id,
+          lastEntry: loadedHistory[loadedHistory.length - 1]?.id,
         });
         
         if (cancelled) return;
-        setQueryHistory(loadedCloudHistory);
-        setIsHistoryLoaded(true);
+        setQueryHistory(loadedHistory);
       } else {
-        if (historyRes?.success && historyRes.data) {
-          const loadedHistory = historyRes.data.map((h: any) => ({
-            id: h.id,
-            query: h.query,
-            executedAt: h.executedAt,
-            duration: h.duration,
-            status: h.status as 'success' | 'error',
-            error: h.error || undefined,
-            rowsCount: h.rowsCount || undefined,
-            caller: h.caller as 'user' | 'system',
-            executedBy: h.executedBy || undefined,
-            executedByName: h.executedByName || undefined,
-            connectionName: h.connectionName || undefined,
-          }));
-          
-          console.log("[rexadb] useInitialStudioData: loading history", {
-            connectionId: connection.id,
-            historyCount: loadedHistory.length,
-            firstEntry: loadedHistory[0]?.id,
-            lastEntry: loadedHistory[loadedHistory.length - 1]?.id,
-          });
-          
-          if (cancelled) return;
-          setQueryHistory(loadedHistory);
-        } else {
-          console.log("[rexadb] useInitialStudioData: no history found", {
-            connectionId: connection.id,
-            success: historyRes?.success,
-          });
-          if (cancelled) return;
-          setQueryHistory([]);
-        }
-        setIsHistoryLoaded(true);
-      }
-
-      if (canLoadCloudSnippets && workspaceId) {
-        console.log("[rexadb] useInitialStudioData: loading cloud snippets", { workspaceId });
-        const { folders: cloudFoldersData, snippets: cloudSnippetsData, error: snippetsErr } = await getWorkspaceSnippets();
-        console.log("[rexadb] useInitialStudioData: cloud snippets response", {
-          error: snippetsErr,
-          folderCount: cloudFoldersData?.length ?? 0,
-          snippetCount: cloudSnippetsData?.length ?? 0,
-          snippetIds: (cloudSnippetsData ?? []).map((s: any) => s.id),
-          snippetNames: (cloudSnippetsData ?? []).map((s: any) => s.name),
+        console.log("[rexadb] useInitialStudioData: no history found", {
+          connectionId: connection.id,
+          success: historyRes?.success,
         });
-        const cloudSnippetsRes = {
-          success: !snippetsErr,
-          data: { folders: cloudFoldersData, snippets: cloudSnippetsData },
-        };
-        if (cloudSnippetsRes.success) {
-          console.log("[rexadb] useInitialStudioData: merging cloud snippets into local state");
-          const cloudFolders = Array.isArray(cloudSnippetsRes?.data?.folders) ? cloudSnippetsRes.data.folders : [];
-          const cloudSnippets = Array.isArray(cloudSnippetsRes?.data?.snippets) ? cloudSnippetsRes.data.snippets : [];
-
-          const normalizedFolders = normalizeCloudFolders(cloudFolders);
-
-          setFolders((prev) => mergeById(prev, normalizedFolders, (existing, incoming) => ({
-            ...existing, ...incoming, createdAt: existing.createdAt ?? incoming.createdAt,
-          })));
-
-          const folderIdSet = new Set(normalizedFolders.map((f) => f.id));
-          const normalizedSnippets = normalizeCloudSnippets(cloudSnippets, folderIdSet);
-          setSnippets((prev) => mergeById(prev, normalizedSnippets, (existing, incoming) => ({
-            ...existing, ...incoming, isShared: true,
-          })));
-
-          setIsSharedSnippetsLoaded?.(true);
-        } else {
-          console.log("[rexadb] useInitialStudioData: cloud snippets fetch failed", { error: snippetsErr });
-          setIsSharedSnippetsLoaded?.(false);
-        }
-      } else {
-        console.log("[rexadb] useInitialStudioData: skipping cloud snippets", { storageMode, workspaceId: !!workspaceId, accessToken: !!accessToken });
+        if (cancelled) return;
+        setQueryHistory([]);
       }
+      setIsHistoryLoaded(true);
+
       if (tagsRes.success && tagsRes.data) {
         setTags(tagsRes.data.map((t: { name: string; color: string }) => ({ name: t.name, color: t.color })));
       }
@@ -296,7 +190,7 @@ export function useInitialStudioData({
         }
         if (
           !delayedUiRestoreBlockedRef.current &&
-          (settings.sidebarView === "dashboard" || settings.sidebarView === "tables" || settings.sidebarView === "sql" || settings.sidebarView === "database" || settings.sidebarView === "import-export" || settings.sidebarView === "auth" || settings.sidebarView === "payments" || settings.sidebarView === "storage" || settings.sidebarView === "edge-functions" || settings.sidebarView === "themes" || settings.sidebarView === "workflows" || settings.sidebarView === "agents" || settings.sidebarView === "erd")
+          (settings.sidebarView === "dashboard" || settings.sidebarView === "tables" || settings.sidebarView === "sql" || settings.sidebarView === "database" || settings.sidebarView === "import-export" || settings.sidebarView === "auth" || settings.sidebarView === "storage" || settings.sidebarView === "edge-functions" || settings.sidebarView === "themes" || settings.sidebarView === "workflows" || settings.sidebarView === "agents" || settings.sidebarView === "erd")
         ) {
           setSidebarView(settings.sidebarView);
         }
@@ -344,5 +238,5 @@ export function useInitialStudioData({
     }
     loadInitialData();
     return () => { cancelled = true; };
-  }, [connection.id, storageMode, workspaceId, accessToken]);
+  }, [connection.id]);
 }

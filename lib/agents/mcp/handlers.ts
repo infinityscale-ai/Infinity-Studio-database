@@ -184,8 +184,8 @@ async function resolveEdgeAccessForMcp(
   const row = all.find((r) => Number(r.id) === Number(meta.id));
   const connectionString = row?.connectionString || ctx.connectionString;
   // Prefer the saved connectionType when available, otherwise fall back to
-  // detection (supabase-mgmt:// -> supabase-mgmt, postgres URLs -> postgres
-  // which resolvePaymentsConnection then maps via host inference).
+  // detection (supabase-mgmt:// -> supabase-mgmt, postgres URLs -> postgres,
+  // which resolveEdgeAccess then maps via host inference).
   const connectionType =
     row?.connectionType || detectConnectionDbType(connectionString, ctx.dbType);
   const { access, error } = await resolveEdgeAccess(connectionType, connectionString);

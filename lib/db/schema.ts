@@ -230,25 +230,6 @@ export const users = sqliteTable("users", {
   planPeriodEnd: integer("plan_period_end", { mode: "timestamp" }),
 });
 
-export const userEntitlements = sqliteTable("user_entitlements", {
-  userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
-  payloadJson: text("payload_json").notNull(),
-  signature: text("signature").notNull(),
-  entitlementPlanCode: text("entitlement_plan_code").notNull(),
-  lastPaidPlanCode: text("last_paid_plan_code"),
-  status: text("status").notNull(),
-  cloudEnabled: integer("cloud_enabled", { mode: "boolean" }).default(false).notNull(),
-  maxConnections: integer("max_connections"),
-  maxWorkspaces: integer("max_workspaces"),
-  accessEndsAt: integer("access_ends_at", { mode: "timestamp" }),
-  graceEndsAt: integer("grace_ends_at", { mode: "timestamp" }),
-  updatesUntil: integer("updates_until", { mode: "timestamp" }),
-  issuedAt: integer("issued_at", { mode: "timestamp" }).notNull(),
-  refreshAfter: integer("refresh_after", { mode: "timestamp" }).notNull(),
-  lastObservedAt: integer("last_observed_at", { mode: "timestamp" }).default(new Date(0)).notNull(),
-  syncedAt: integer("synced_at", { mode: "timestamp" }).$defaultFn(() => new Date()).notNull(),
-});
-
 export const connectionGroupMembers = sqliteTable("connection_group_members", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   connectionId: integer("connection_id").notNull().references(() => connections.id, { onDelete: "cascade" }),
@@ -279,7 +260,6 @@ export type OpenTab = typeof openTabs.$inferSelect;
 export type ConnectionSettings = typeof connectionSettings.$inferSelect;
 export type DashboardState = typeof dashboardState.$inferSelect;
 export type User = typeof users.$inferSelect;
-export type UserEntitlement = typeof userEntitlements.$inferSelect;
 export type AiChat = typeof aiChats.$inferSelect;
 export type AiChatMessageRow = typeof aiChatMessages.$inferSelect;
 export type UserAiSettingsRow = typeof userAiSettings.$inferSelect;
@@ -423,16 +403,8 @@ export const noteStateRelations = relations(noteState, ({ one }) => ({
   }),
 }));
 
-export const usersRelations = relations(users, ({ many, one }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
   aiChats: many(aiChats),
-  entitlement: one(userEntitlements),
-}));
-
-export const userEntitlementsRelations = relations(userEntitlements, ({ one }) => ({
-  user: one(users, {
-    fields: [userEntitlements.userId],
-    references: [users.id],
-  }),
 }));
 
 export const aiChatsRelations = relations(aiChats, ({ one, many }) => ({
