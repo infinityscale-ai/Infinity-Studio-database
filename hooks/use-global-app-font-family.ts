@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { readInitialAppearance } from "@/lib/studio/general-utils";
+import { isEmbedMode } from "@/lib/embed/session";
 import { getAppFontFamily, saveAppFontFamily } from "@/lib/api/actions-client";
 
 import { useAppFontFamily } from "./use-app-font-family";
@@ -36,7 +37,7 @@ export function useGlobalAppFontFamily(persist = false) {
   useAppFontFamily(customFontFamily, isLoaded);
 
   useEffect(() => {
-    if (!persist || !isLoaded) return;
+    if (!persist || !isLoaded || isEmbedMode()) return;
     void saveAppFontFamily(customFontFamily);
   }, [customFontFamily, isLoaded, persist]);
 

@@ -67,6 +67,7 @@ import { SqlEditorEngineSetting } from "@/components/studio/settings/sql-editor-
 import { ZoomSetting } from "@/components/studio/settings/zoom-setting";
 import {
   SettingsSidebar,
+  isSettingsSectionAvailable,
   type SettingsSectionId,
 } from "@/components/studio/settings/settings-sidebar";
 import {
@@ -865,15 +866,16 @@ export function SettingsView({
   const [themeNameInput, setThemeNameInput] = useState("");
   const [themeJsonInput, setThemeJsonInput] = useState("");
   const [themeFileName, setThemeFileName] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>(
-    studio.settingsInitialSection ?? "general",
-  );
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(() => {
+    const initial: SettingsSectionId = studio.settingsInitialSection ?? "general";
+    return isSettingsSectionAvailable(initial) ? initial : "general";
+  });
   const [showProviders, setShowProviders] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
 
   const searchResults = useMemo(
-    () => filterSettingsSearch(searchQuery),
+    () => filterSettingsSearch(searchQuery).filter((entry) => isSettingsSectionAvailable(entry.section)),
     [searchQuery],
   );
   const isSearching = searchQuery.trim().length > 0;

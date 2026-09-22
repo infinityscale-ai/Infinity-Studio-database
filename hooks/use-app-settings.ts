@@ -5,6 +5,7 @@ import { useGlobalStudioSettings } from "@/hooks/use-global-studio-settings";
 import { useGlobalEditorTheme } from "@/hooks/use-global-editor-theme";
 import { useGlobalAppTheme } from "@/hooks/use-global-app-theme";
 import { useGlobalAppFontFamily } from "@/hooks/use-global-app-font-family";
+import { isEmbedMode } from "@/lib/embed/session";
 import {
   getDefaultKeybindings,
   normalizeKeybindingsForPlatform,
@@ -51,7 +52,7 @@ export function useAppSettings(planCode = "free") {
       keybindingsDidMountRef.current = true;
       return;
     }
-    void saveKeybindingsFile(keybindings).catch(() => {});
+    if (!isEmbedMode()) void saveKeybindingsFile(keybindings).catch(() => {});
   }, [keybindings]);
 
   return {

@@ -88,17 +88,27 @@ const ALLOWED_ORIGINS = [
   ...(cfg.consoleOrigin ? [cfg.consoleOrigin] : []),
 ];
 
-const corsMiddleware = cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (server-to-server, curl, Tauri)
-    if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    console.warn(`[cors] Blocked request from origin: ${origin}`);
-    callback(new Error('Not allowed by CORS'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'User-Agent', 'X-Supabase-Authorization'],
-});
+// Reports whether an Origin header names this server itself: a browser sends one on every same-origin POST.
+function isOwnOrigin(req: express.Request, origin: string): boolean {
+  const host = req.headers.host;
+  if (!host) return false;
+  return origin === `${req.protocol}://${host}` || origin === `https://${host}`;
+}
+
+// CORS per request so the SPA served from INFSTUDIO_STATIC_DIR is allowed whatever host it is reached on.
+function corsMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (server-to-server, curl, Tauri)
+      if (!origin) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes(origin) || isOwnOrigin(req, origin)) return callback(null, true);
+      console.warn(`[cors] Blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'User-Agent', 'X-Supabase-Authorization'],
+  })(req, res, next);
+}
 
 app.use(corsMiddleware);
 
@@ -143,11 +153,11 @@ function bearerMatchesApiKey(authHeader: string | undefined): boolean {
   return presented.length === expected.length && crypto.timingSafeEqual(presented, expected);
 }
 
-// API key authentication; without a key, only loopback or INFSTUDIO_ALLOW_UNAUTHENTICATED lets requests through.
+// API key authentication; without a key, only loopback (never in embed mode) or INFSTUDIO_ALLOW_UNAUTHENTICATED lets requests through.
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (req.embed || isPublicRequest(req)) return next();
   if (!cfg.apiKey) {
-    if (cfg.allowUnauthenticated || isLoopback(cfg.bind)) return next();
+    if (cfg.allowUnauthenticated || (isLoopback(cfg.bind) && !cfg.embedMode)) return next();
     return res.status(401).json({ success: false, error: 'Unauthorized. This server accepts no unauthenticated requests.' });
   }
   if (!bearerMatchesApiKey(req.headers.authorization)) {

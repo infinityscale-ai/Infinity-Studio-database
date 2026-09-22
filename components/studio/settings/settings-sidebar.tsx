@@ -16,6 +16,7 @@ import {
   Server as ServerIcon,
 } from "@/lib/icon-theme/lucide-react";
 import { filterSettingsSearch } from "@/components/studio/settings/settings-search";
+import { isEmbedMode } from "@/lib/embed/session";
 
 export type SettingsSectionId =
   | "general"
@@ -26,6 +27,14 @@ export type SettingsSectionId =
   | "advanced"
   | "themes"
   | "keybindings";
+
+// The sections an embedded session may open: appearance and editing only, never AI, MCP, security or app internals.
+const EMBED_SECTIONS: ReadonlySet<SettingsSectionId> = new Set(["general", "editor", "themes", "keybindings"]);
+
+// Reports whether a settings section is offered in the current mode.
+export function isSettingsSectionAvailable(id: SettingsSectionId): boolean {
+  return !isEmbedMode() || EMBED_SECTIONS.has(id);
+}
 
 const items: Array<{
   id: SettingsSectionId;
@@ -57,12 +66,13 @@ export function SettingsSidebar({
   const showSearch = onSearchChange !== undefined;
 
   const visibleItems = useMemo(() => {
+    const offered = items.filter(({ id }) => isSettingsSectionAvailable(id));
     const q = query.trim().toLowerCase();
-    if (!q) return items;
+    if (!q) return offered;
     const matchingSections = new Set(
       filterSettingsSearch(q).map((entry) => entry.section),
     );
-    return items.filter(
+    return offered.filter(
       ({ id, label }) =>
         label.toLowerCase().includes(q) || matchingSections.has(id),
     );

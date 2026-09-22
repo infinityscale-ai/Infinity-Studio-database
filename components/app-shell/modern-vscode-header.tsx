@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ModernUISearchBar } from "@/components/app-shell/modern-ui-search";
 import { ModernConnectionDropdown } from "@/components/app-shell/modern-connection-dropdown";
+import { isEmbedMode } from "@/lib/embed/session";
 import { UpdateHeaderBadge } from "@/components/providers/update-header-badge";
 import { Settings, Bell } from "@/lib/icon-theme/lucide-react";
 import { AltArrowLeft, AltArrowRight } from "@/lib/icon-theme/solar-icons";
@@ -170,6 +171,7 @@ export function ModernVscodeHeader({
           <ModernConnectionDropdown
             connection={connection}
             onSelectConnection={onSelectConnection}
+            readOnly={isEmbedMode()}
           />
           <ModernUISearchBar onOpen={onOpenSearch} keybindings={keybindings} />
           <UpdateHeaderBadge />

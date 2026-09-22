@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "@/components/providers/theme-provider";
+import { isEmbedMode } from "@/lib/embed/session";
 
 import { readInitialAppearance } from "@/lib/studio/general-utils";
 import { saveGlobalAppThemeSettings, getGlobalAppThemeSettings } from "@/lib/api/actions-client";
@@ -243,7 +244,7 @@ export function useGlobalAppTheme(persist = false) {
   }, [selectedAppTheme, isLoaded]);
 
   useEffect(() => {
-    if (!persist || !isLoaded) return;
+    if (!persist || !isLoaded || isEmbedMode()) return;
     void saveGlobalAppThemeSettings({
       appThemeId,
       customAppThemes: JSON.stringify(customAppThemes),

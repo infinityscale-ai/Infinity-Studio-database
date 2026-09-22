@@ -71,7 +71,7 @@ interface CommandMenuProps {
   onCreateEnum: () => void;
   onCreateIndex: () => void;
   onCreateTrigger: () => void;
-  onNewConnection: () => void;
+  onNewConnection?: () => void;
   onToggleSidebar: () => void;
   onOpenHistory: () => void;
   onOpenSnapshots: () => void;
@@ -398,7 +398,7 @@ export function CommandMenu({
       });
     }
 
-    if (sectionVisibility.get("connections") !== false) {
+    if (sectionVisibility.get("connections") !== false && onNewConnection) {
       groups.push({
         id: "connections",
         title: "Connections",

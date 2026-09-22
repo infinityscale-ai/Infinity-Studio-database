@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { readInitialAppearance } from "@/lib/studio/general-utils";
+import { isEmbedMode } from "@/lib/embed/session";
 import { getGlobalEditorThemeSettings, saveGlobalEditorThemeSettings } from "@/lib/api/actions-client";
 import { type CustomEditorTheme } from "@/lib/studio/editor-themes";
 
@@ -57,7 +58,7 @@ export function useGlobalEditorTheme(persist = false) {
   }, []);
 
   useEffect(() => {
-    if (!persist || !isLoaded) return;
+    if (!persist || !isLoaded || isEmbedMode()) return;
     void saveGlobalEditorThemeSettings({
       editorThemeId,
       customEditorThemes: JSON.stringify(customEditorThemes),

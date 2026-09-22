@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { type Snippet, type Folder, type DashboardWidgetType, type DashboardConditionOperator, type DashboardConditionActionType, type DashboardFolder, type Dashboard, type AgentGeneratedWidgetType, type AgentGeneratedWidgetPlan, type AgentDashboardPlan, type AgentChatMessage, type AgentChatHistoryMessage, type SchemaContextTable, type QueryValidationShapeResult, type SqlEditorEngine, type StudioSplitViewState } from "@/lib/studio/types";
 import type { SidebarBehavior } from "@/lib/studio/sidebar-behavior";
 import { saveKeybindingsFile } from "@/lib/api/actions-client";
+import { isEmbedMode } from "@/lib/embed/session";
 
 interface UseStudioDataPersistenceProps {
   connectionId: number;
@@ -126,7 +127,7 @@ export function useStudioDataPersistence({
   useEffect(() => {
     if (!isDataLoaded) return;
     if (keybindingsDidMountRef.current) {
-      void saveKeybindingsFile(keybindings);
+      if (!isEmbedMode()) void saveKeybindingsFile(keybindings);
     } else {
       keybindingsDidMountRef.current = true;
     }

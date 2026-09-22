@@ -7,6 +7,7 @@ import {
   PROFILE_CHANGED_EVENT,
   resolveLocalUserProfile,
 } from "@/lib/auth/user-profile";
+import { getEmbedSession, isEmbedMode } from "@/lib/embed/session";
 
 export interface AuthState {
   authResolved: boolean;
@@ -22,9 +23,16 @@ const INITIAL_AUTH_STATE: AuthState = {
   userId: LOCAL_USER_ID,
 };
 
-// Exposes the single local user profile and re-reads it whenever the profile is saved.
+// Builds the auth state of an embedded session: the console's user, never the local profile; null outside embed mode.
+function embedAuthState(): AuthState | null {
+  const session = getEmbedSession();
+  if (!session) return null;
+  return { authResolved: true, displayName: session.displayName, email: null, userId: session.externalId };
+}
+
+// Exposes the single local user profile and re-reads it whenever the profile is saved; embed sessions carry their own.
 export function useAuthState(): AuthState {
-  const [state, setState] = useState<AuthState>(INITIAL_AUTH_STATE);
+  const [state, setState] = useState<AuthState>(() => embedAuthState() ?? INITIAL_AUTH_STATE);
 
   const hydrate = useCallback(async () => {
     const profile = await resolveLocalUserProfile();
@@ -37,6 +45,7 @@ export function useAuthState(): AuthState {
   }, []);
 
   useEffect(() => {
+    if (isEmbedMode()) return;
     let mounted = true;
     const run = () => {
       void hydrate().catch(() => {

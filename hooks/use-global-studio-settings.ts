@@ -16,6 +16,7 @@ import type {
   SqlFormatSettingsRequired,
 } from "@/lib/studio/types";
 import { pickCommonSettings } from "@/lib/studio/settings-common";
+import { isEmbedMode } from "@/lib/embed/session";
 
 export const ZOOM_UPDATED_EVENT = "infinity-studio-zoom-updated";
 
@@ -321,7 +322,7 @@ export function useGlobalStudioSettings(persist = false) {
   }, []);
 
   useEffect(() => {
-    if (!persist || !isLoaded) return;
+    if (!persist || !isLoaded || isEmbedMode()) return;
     void saveGlobalStudioSettings({
       appZoom,
       executionMode,

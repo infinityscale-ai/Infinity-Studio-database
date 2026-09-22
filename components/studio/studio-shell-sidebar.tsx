@@ -48,6 +48,7 @@ import { ProviderLogo } from "@/components/shared/provider-logo";
 import { getTabIcon } from "@/lib/studio/tab-registry";
 import { isPostgresCatalogDbType } from "@/lib/db/connection-type";
 import { getConnections } from "@/lib/api/actions-client";
+import { isEmbedMode } from "@/lib/embed/session";
 import type { Connection } from "@/lib/db/schema";
 import { useConfirm } from "@/hooks/use-confirm";
 import {
@@ -302,6 +303,7 @@ export function StudioShellSidebar({
   }, [studio.sidebarView]);
 
   useEffect(() => {
+    if (isEmbedMode()) return;
     let active = true;
     getConnections()
       .then((rows) => {
@@ -370,9 +372,9 @@ export function StudioShellSidebar({
         studio.connection?.connectionString,
       ),
     },
-    { id: "workflows", label: "Workflows", Icon: Workflow },
+    { id: "workflows", label: "Workflows", Icon: Workflow, show: !isEmbedMode() },
     { id: "erd", label: "ERD Designer", Icon: GitFork },
-    { id: "extensions", label: "Extensions", Icon: Puzzle },
+    { id: "extensions", label: "Extensions", Icon: Puzzle, show: !isEmbedMode() },
   ];
 
   const title = section
@@ -463,6 +465,8 @@ function ConnectionSwitcher({
   const current = studio.connection;
   const [menuOpen, setMenuOpen] = useState(false);
   const [switchingToId, setSwitchingToId] = useState<number | null>(null);
+  // The embedded studio shows its one connection as a label: nothing to switch to, nothing to create.
+  const embedded = isEmbedMode();
 
   function handleOpenChange(open: boolean) {
     // Keep the menu open while a connection switch is in progress.
@@ -480,6 +484,12 @@ function ConnectionSwitcher({
   return (
     <div className="flex items-center gap-1 px-0.5 pt-1.5 pb-1 select-none">
       <div className="min-w-0 flex-1 pr-6">
+      {embedded ? (
+        <div className="flex h-8 w-full items-center gap-2 rounded-lg px-1 text-sm">
+          <ProviderLogo type={current?.connectionType} className="size-5 shrink-0" />
+          <span className="truncate font-medium text-foreground">{current?.name ?? "Connection"}</span>
+        </div>
+      ) : (
       <DropdownMenu open={menuOpen} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger asChild>
           <button
@@ -547,6 +557,7 @@ function ConnectionSwitcher({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      )}
       </div>
 
       <button

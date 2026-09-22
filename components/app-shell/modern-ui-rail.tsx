@@ -25,6 +25,7 @@ import { shouldShowStorage } from "@/lib/studio/storage-utils";
 import { shouldShowEdgeFunctions } from "@/lib/studio/edge-functions-utils";
 import { NavigationRailItem } from "@/components/studio/navigation-rail-item";
 import { NavUser } from "@/components/navigation/nav-user";
+import { isEmbedMode } from "@/lib/embed/session";
 import { Sortable, SortableItem, SortableItemHandle } from "@/components/reui/sortable";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
@@ -40,6 +41,9 @@ export type ModernUIRailItem = {
   icon: React.ReactNode;
   onClick: () => void;
 };
+
+// Rail entries that open features the embedded studio cannot use (workflows and extensions need their APIs).
+const EMBED_HIDDEN_RAIL_ITEMS: ReadonlySet<string> = new Set(["workflows", "extensions"]);
 
 export function ModernUIRail({
   studio,
@@ -71,6 +75,8 @@ export function ModernUIRail({
   user?: { name?: string; email?: string } | null;
 }) {
   const router = useRouter();
+  // The embedded studio has one database and no account: no Home, no workflows, no extensions, no user menu.
+  const embedded = isEmbedMode();
   
   // Persist rail item order in localStorage
   const [savedRailOrder, setSavedRailOrder] = useLocalStorage<string[]>(
@@ -246,12 +252,16 @@ export function ModernUIRail({
       ...extensionRailEntries,
     ];
 
+  const visiblePrimaryItems = embedded
+    ? primaryItems.filter((item) => !EMBED_HIDDEN_RAIL_ITEMS.has(item.id))
+    : primaryItems;
+
   // Apply saved order to primary items if available
   const orderedPrimaryItems = (() => {
-    if (savedRailOrder.length === 0) return primaryItems;
+    if (savedRailOrder.length === 0) return visiblePrimaryItems;
     
     // Create a map for quick lookup
-    const itemMap = new Map(primaryItems.map(item => [item.id, item]));
+    const itemMap = new Map(visiblePrimaryItems.map(item => [item.id, item]));
     
     // Sort based on saved order, keeping any new items at the end
     const sorted: ModernUIRailItem[] = [];
@@ -265,7 +275,7 @@ export function ModernUIRail({
     }
     
     // Add any items not in the saved order
-    for (const item of primaryItems) {
+    for (const item of visiblePrimaryItems) {
       if (!seen.has(item.id)) {
         sorted.push(item);
       }
@@ -280,7 +290,7 @@ export function ModernUIRail({
     onClick: () => void;
     active?: boolean;
   }> = [
-    ...(showHome
+    ...(showHome && !embedded
       ? [
           {
             label: "Home",
@@ -342,7 +352,7 @@ export function ModernUIRail({
               active={active}
             />
           ))}
-          {user && (
+          {user && !embedded && (
             <>
               <div className="mx-1 h-px shrink-0 bg-border/50" />
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent transition-colors hover:border-border/70 hover:bg-muted/20">

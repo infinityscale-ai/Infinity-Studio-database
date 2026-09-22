@@ -35,12 +35,25 @@ type CurrentConnection = {
  * Pass `onSelectConnection` for surfaces that should switch locally only
  * (e.g. the Agents window) without navigating the main studio.
  */
+// The switcher's trigger look without a menu: the one connection an embedded session can see.
+function ConnectionBadge({ connection }: { connection: CurrentConnection }) {
+  return (
+    <div className="flex h-[22px] max-w-[160px] select-none items-center gap-1.5 rounded-[4px] border border-border bg-sidebar px-2 text-[11px] leading-none text-muted-foreground">
+      <ProviderLogo type={connection.connectionType} className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate text-left font-medium">{connection.name}</span>
+    </div>
+  );
+}
+
 export function ModernConnectionDropdown({
   connection,
   onSelectConnection,
+  readOnly = false,
 }: {
   connection?: CurrentConnection | null;
   onSelectConnection?: (conn: Connection) => void | Promise<void>;
+  /** Renders the current connection as a badge with no list and no fetch (the embedded studio). */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -49,6 +62,7 @@ export function ModernConnectionDropdown({
   const { openConnectionsInNewWindow } = useGlobalStudioSettings();
 
   useEffect(() => {
+    if (readOnly) return;
     let cancelled = false;
     getConnections()
       .then((list) => {
@@ -60,7 +74,7 @@ export function ModernConnectionDropdown({
     return () => {
       cancelled = true;
     };
-  }, [connection?.id]);
+  }, [connection?.id, readOnly]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
@@ -151,6 +165,7 @@ export function ModernConnectionDropdown({
   );
 
   if (!connection) return null;
+  if (readOnly) return <ConnectionBadge connection={connection} />;
 
   return (
     <DropdownMenu open={menuOpen} onOpenChange={handleOpenChange}>

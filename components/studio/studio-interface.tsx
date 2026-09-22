@@ -71,6 +71,7 @@ import {
 } from "@/lib/studio/app-themes";
 import type { CustomIconTheme } from "@/lib/icon-theme/types";
 import { useAuthState } from "@/hooks/use-auth-state";
+import { isEmbedMode } from "@/lib/embed/session";
 
 interface StudioInterfaceProps {
   connection: Connection;
@@ -83,6 +84,8 @@ export function StudioInterface({
 }: StudioInterfaceProps) {
   const studio = useStudio({ connection, initialUiState });
   const { displayName, email: authEmail } = useAuthState();
+  // The embedded studio keeps to its one database: no AI or agents (their settings are denied), no account, no other connections.
+  const embedded = isEmbedMode();
   const [isGlobalSqlSheetOpen, setIsGlobalSqlSheetOpen] = useState(false);
   const [isUniversalSearchOpen, setIsUniversalSearchOpen] = useState(false);
   const [isAiSheetOpen, setIsAiSheetOpen] = useState(false);
@@ -801,7 +804,7 @@ export function StudioInterface({
         onCreateEnum={studio.openCreateEnumTab}
         onCreateIndex={studio.openCreateIndexTab}
         onCreateTrigger={studio.openCreateTriggerTab}
-        onNewConnection={openManageConnections}
+        onNewConnection={embedded ? undefined : openManageConnections}
         onToggleSidebar={() => studio.toggleSidebar?.()}
         onOpenHistory={studio.openHistoryTab}
         onOpenSnapshots={studio.openSnapshotsTab}
@@ -984,12 +987,12 @@ export function StudioInterface({
     sidebarContent: <StudioShellSidebar studio={studio} />,
     sidebarOpen: studio.isSidebarVisible,
     onSidebarOpenChange: studio.setIsSidebarVisible,
-    onAskAI: handleToggleAiSheet,
+    onAskAI: embedded ? undefined : handleToggleAiSheet,
     isAskAIOpen: aiSidebarOpen,
     askAIActive: isAiSheetOpen,
-    onAgentsClick: handleToggleAgentsPanel,
+    onAgentsClick: embedded ? undefined : handleToggleAgentsPanel,
     onQueryHistory: studio.openHistoryTab,
-    user: { name: displayName, email: authEmail ?? undefined },
+    user: embedded ? undefined : { name: displayName, email: authEmail ?? undefined },
     noiseBgEnabled: studio.noiseBgEnabled,
     noiseBgOpacity: studio.noiseBgOpacity,
     noiseBgSize: studio.noiseBgSize,
