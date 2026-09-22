@@ -6,7 +6,7 @@ import { ChevronDown, Check } from "@/lib/icon-theme/lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import type { AgentMode } from "@/lib/agents/provider-types";
-import type { RexaAgentAppMode } from "@/lib/agents/app-modes";
+import type { StudioAgentAppMode } from "@/lib/agents/app-modes";
 
 export function AgentsModePicker({
   modes,
@@ -19,7 +19,7 @@ export function AgentsModePicker({
   modes: AgentMode[];
   selectedMode: string;
   onSelectMode: (mode: string) => void;
-  appModes?: RexaAgentAppMode[];
+  appModes?: StudioAgentAppMode[];
   selectedAppModeId?: string;
   onSelectAppMode?: (id: string) => void;
 }) {
@@ -68,7 +68,7 @@ export function AgentsModePicker({
       >
         {appModes.length > 0 && onSelectAppMode && (
           <AppModeGroup
-            title="RexaDB"
+            title="Infinity Studio"
             modes={appModes}
             selectedId={activeApp?.id}
             onSelect={(id) => {
@@ -111,7 +111,7 @@ function AppModeGroup({
   onSelect,
 }: {
   title?: string;
-  modes: RexaAgentAppMode[];
+  modes: StudioAgentAppMode[];
   selectedId?: string;
   onSelect: (id: string) => void;
 }) {

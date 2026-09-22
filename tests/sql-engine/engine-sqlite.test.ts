@@ -6,7 +6,7 @@ import path from "node:path";
 import { loadSqlEngine, verifyReferencedRecordAndMutate } from "./load-sql-engine";
 
 function createTempDbPath() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rexadb-tests-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "infinity-studio-tests-"));
   const dbPath = path.join(dir, "engine.sqlite");
   return {
     dir,

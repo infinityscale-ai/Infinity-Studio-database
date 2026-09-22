@@ -30,8 +30,8 @@ test("sqlite client resolves sqlite paths", async () => {
   const sqliteUri = resolveSqlitePath("sqlite://data/app.sqlite");
   assert.equal(sqliteUri, path.resolve(process.cwd(), "data/app.sqlite"));
 
-  const fileUri = resolveSqlitePath("file:/tmp/rexadb-test.sqlite");
-  assert.equal(fileUri, "/tmp/rexadb-test.sqlite");
+  const fileUri = resolveSqlitePath("file:/tmp/infinity-studio-test.sqlite");
+  assert.equal(fileUri, "/tmp/infinity-studio-test.sqlite");
 
   assert.throws(() => resolveSqlitePath("sqlite:"), /SQLite file path is missing/);
 });

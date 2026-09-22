@@ -2,7 +2,7 @@ import { LogicalPosition } from "@tauri-apps/api/dpi";
 
 /**
  * Open the Agents panel in a dedicated Tauri window.
- * Matches the main RexaDB window styling and size.
+ * Matches the main Infinity Studio window styling and size.
  * Falls back to window.open() when not running inside Tauri.
  */
 export async function openAgentsWindow(connectionId: number): Promise<void> {
@@ -20,7 +20,7 @@ export async function openAgentsWindow(connectionId: number): Promise<void> {
 
     new WebviewWindow(label, {
       url: `/studio/${connectionId}/agents`,
-      title: "RexaDB — Agents",
+      title: "Infinity Studio — Agents",
       width: 1200,
       height: 800,
       minWidth: 800,

@@ -13,7 +13,7 @@ import {
   loadSelectedAppModeId,
   saveSelectedAppModeId,
   resolveProviderModeForAppMode,
-  type RexaAgentAppMode,
+  type StudioAgentAppMode,
 } from "@/lib/agents/app-modes";
 import { describeToolUse } from "@/lib/agents/work-log";
 
@@ -38,18 +38,18 @@ export function useAgentHarness(input: {
   const [activeProvider, setActiveProviderRaw] = useState<AgentProviderId>(() => {
     try {
       const stored = localStorage.getItem(
-        `rexa-agent-provider-${input.connectionId}`,
+        `infinity-agent-provider-${input.connectionId}`,
       );
       if (stored) return stored as AgentProviderId;
     } catch {}
-    return "rexadb";
+    return "infinity-studio";
   });
   const setActiveProvider = useCallback(
     (provider: AgentProviderId) => {
       setActiveProviderRaw(provider);
       try {
         localStorage.setItem(
-          `rexa-agent-provider-${input.connectionId}`,
+          `infinity-agent-provider-${input.connectionId}`,
           provider,
         );
       } catch {}
@@ -62,7 +62,7 @@ export function useAgentHarness(input: {
       setSelectedModeRaw(mode);
       try {
         localStorage.setItem(
-          `rexa-agent-mode-${input.connectionId}-${activeProvider}`,
+          `infinity-agent-mode-${input.connectionId}-${activeProvider}`,
           mode,
         );
       } catch {}
@@ -83,7 +83,7 @@ export function useAgentHarness(input: {
     },
     [input.connectionId, activeProvider, setSelectedMode],
   );
-  const appMode: RexaAgentAppMode = getAppMode(input.connectionId, appModeId);
+  const appMode: StudioAgentAppMode = getAppMode(input.connectionId, appModeId);
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
   const [workLog, setWorkLog] = useState<AgentWorkLogEntry[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -102,7 +102,7 @@ export function useAgentHarness(input: {
   const loadedThreadKeyRef = useRef<string | null>(null);
 
   const threadStorageKey = input.threadId
-    ? `rexa-agent-chat-${input.connectionId}:${input.threadId}`
+    ? `infinity-agent-chat-${input.connectionId}:${input.threadId}`
     : null;
 
   const persistThread = useCallback(
@@ -150,15 +150,15 @@ export function useAgentHarness(input: {
       workLog: AgentWorkLogEntry[];
     } => {
       const keys = [
-        `rexa-agent-chat-${input.connectionId}:${threadId}`,
-        `rexa-agent-chat-0:${threadId}`,
+        `infinity-agent-chat-${input.connectionId}:${threadId}`,
+        `infinity-agent-chat-0:${threadId}`,
       ];
       try {
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
           if (
             k &&
-            k.startsWith("rexa-agent-chat-") &&
+            k.startsWith("infinity-agent-chat-") &&
             k.endsWith(`:${threadId}`) &&
             !keys.includes(k)
           ) {
@@ -199,7 +199,7 @@ export function useAgentHarness(input: {
   /** Load a stored conversation into the harness (sidebar resume). */
   const loadThread = useCallback(
     (threadId: string) => {
-      const key = `rexa-agent-chat-${input.connectionId}:${threadId}`;
+      const key = `infinity-agent-chat-${input.connectionId}:${threadId}`;
       const prevKey = loadedThreadKeyRef.current;
 
       if (prevKey && prevKey !== key) {
@@ -322,7 +322,7 @@ export function useAgentHarness(input: {
     try {
       stored =
         localStorage.getItem(
-          `rexa-agent-mode-${input.connectionId}-${activeProvider}`,
+          `infinity-agent-mode-${input.connectionId}-${activeProvider}`,
         ) || "";
     } catch {}
     const next =

@@ -1,15 +1,15 @@
 import type { AgentProviderId } from "./provider-types";
 
 /**
- * RexaDB app-local agent modes — not global Claude/OpenCode roles.
+ * Infinity Studio app-local agent modes — not global Claude/OpenCode roles.
  * These control SQL permissions, prompt rules, and optional CLI mode mapping.
  */
-export type RexaAgentAppModeKind = "plan" | "build" | "custom";
+export type StudioAgentAppModeKind = "plan" | "build" | "custom";
 
-export type RexaAgentAppMode = {
+export type StudioAgentAppMode = {
   id: string;
   label: string;
-  kind: RexaAgentAppModeKind;
+  kind: StudioAgentAppModeKind;
   description?: string;
   allowSqlRead: boolean;
   allowSqlWrite: boolean;
@@ -19,15 +19,15 @@ export type RexaAgentAppMode = {
   mapsToProviderMode?: Partial<Record<AgentProviderId, string>>;
 };
 
-export const REXADB_PLAN_MODE: RexaAgentAppMode = {
-  id: "rexadb-plan",
+export const INFSTUDIO_PLAN_MODE: StudioAgentAppMode = {
+  id: "infinity-studio-plan",
   label: "Plan",
   kind: "plan",
   description: "Inspect and propose changes; no mutating SQL",
   allowSqlRead: true,
   allowSqlWrite: false,
   promptRules: [
-    "You are in RexaDB PLAN mode.",
+    "You are in Infinity Studio PLAN mode.",
     "You may inspect the live database with tools (list tables, schema, read-only queries).",
     "You must NOT execute INSERT/UPDATE/DELETE/DDL or any mutating SQL.",
     "When proposing schema changes, ALWAYS emit a fenced ```schema-plan block (language tag must be schema-plan, NOT json) so the UI can render a green/red table gateway.",
@@ -64,15 +64,15 @@ export const REXADB_PLAN_MODE: RexaAgentAppMode = {
   },
 };
 
-export const REXADB_BUILD_MODE: RexaAgentAppMode = {
-  id: "rexadb-build",
+export const INFSTUDIO_BUILD_MODE: StudioAgentAppMode = {
+  id: "infinity-studio-build",
   label: "Build",
   kind: "build",
   description: "Inspect and run SQL against the connected database",
   allowSqlRead: true,
   allowSqlWrite: true,
   promptRules: [
-    "You are in RexaDB BUILD mode.",
+    "You are in Infinity Studio BUILD mode.",
     "You may inspect the live database and run SQL (including writes) via tools when appropriate.",
     "Prefer confirming destructive DDL with the user before running it.",
     "For schema change proposals, still prefer a ```schema-plan block so the UI can show added/removed columns.",
@@ -86,13 +86,13 @@ export const REXADB_BUILD_MODE: RexaAgentAppMode = {
   },
 };
 
-export const BUILTIN_APP_MODES: RexaAgentAppMode[] = [
-  REXADB_PLAN_MODE,
-  REXADB_BUILD_MODE,
+export const BUILTIN_APP_MODES: StudioAgentAppMode[] = [
+  INFSTUDIO_PLAN_MODE,
+  INFSTUDIO_BUILD_MODE,
 ];
 
-const STORAGE_PREFIX = "rexa-agent-app-modes";
-const SELECTION_PREFIX = "rexa-agent-app-mode";
+const STORAGE_PREFIX = "infinity-agent-app-modes";
+const SELECTION_PREFIX = "infinity-agent-app-mode";
 
 function customKey(connectionId: number) {
   return `${STORAGE_PREFIX}-${connectionId}`;
@@ -102,7 +102,7 @@ function selectionKey(connectionId: number) {
   return `${SELECTION_PREFIX}-${connectionId}`;
 }
 
-export function loadCustomAppModes(connectionId: number): RexaAgentAppMode[] {
+export function loadCustomAppModes(connectionId: number): StudioAgentAppMode[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(customKey(connectionId));
@@ -110,7 +110,7 @@ export function loadCustomAppModes(connectionId: number): RexaAgentAppMode[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (m): m is RexaAgentAppMode =>
+      (m): m is StudioAgentAppMode =>
         m &&
         typeof m.id === "string" &&
         typeof m.label === "string" &&
@@ -123,34 +123,34 @@ export function loadCustomAppModes(connectionId: number): RexaAgentAppMode[] {
 
 export function saveCustomAppModes(
   connectionId: number,
-  modes: RexaAgentAppMode[],
+  modes: StudioAgentAppMode[],
 ) {
   if (typeof window === "undefined") return;
   localStorage.setItem(customKey(connectionId), JSON.stringify(modes));
 }
 
-export function listAppModes(connectionId: number): RexaAgentAppMode[] {
+export function listAppModes(connectionId: number): StudioAgentAppMode[] {
   return [...BUILTIN_APP_MODES, ...loadCustomAppModes(connectionId)];
 }
 
 export function getAppMode(
   connectionId: number,
   modeId?: string | null,
-): RexaAgentAppMode {
+): StudioAgentAppMode {
   const modes = listAppModes(connectionId);
   if (modeId) {
     const found = modes.find((m) => m.id === modeId);
     if (found) return found;
   }
-  return REXADB_PLAN_MODE;
+  return INFSTUDIO_PLAN_MODE;
 }
 
 export function loadSelectedAppModeId(connectionId: number): string {
-  if (typeof window === "undefined") return REXADB_PLAN_MODE.id;
+  if (typeof window === "undefined") return INFSTUDIO_PLAN_MODE.id;
   try {
-    return localStorage.getItem(selectionKey(connectionId)) || REXADB_PLAN_MODE.id;
+    return localStorage.getItem(selectionKey(connectionId)) || INFSTUDIO_PLAN_MODE.id;
   } catch {
-    return REXADB_PLAN_MODE.id;
+    return INFSTUDIO_PLAN_MODE.id;
   }
 }
 
@@ -160,7 +160,7 @@ export function saveSelectedAppModeId(connectionId: number, modeId: string) {
 }
 
 export function resolveProviderModeForAppMode(
-  appMode: RexaAgentAppMode,
+  appMode: StudioAgentAppMode,
   providerId: AgentProviderId,
 ): string | undefined {
   return appMode.mapsToProviderMode?.[providerId];

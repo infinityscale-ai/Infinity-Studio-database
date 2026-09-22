@@ -14,7 +14,7 @@ use tauri_plugin_updater;
 
 fn rust_log(msg: &str) {
     let line = format!("[{}] [rust] {}\n", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0), msg);
-    let _ = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/rexadb-rust.log")
+    let _ = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/infinity-studio-rust.log")
         .and_then(|mut f| f.write_all(line.as_bytes()));
 }
 
@@ -416,29 +416,29 @@ fn remove_jdbc_driver(app: tauri::AppHandle, name: String) -> Result<(), String>
 static SETTINGS_FILE_LOCK: Mutex<()> = Mutex::new(());
 
 // Deliberately independent of get_app_data_dir() above — settings.json has
-// always lived in the OS-standard config dir ("Rexa DB", matching
+// always lived in the OS-standard config dir ("Infinity Studio", matching
 // file-settings.ts's getAppDataDirSync()), not the legacy Electron/Tauri
 // app-data dir that auth-storage.json and keybindings.json use.
 fn get_desktop_settings_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
     #[cfg(target_os = "macos")]
     {
-        PathBuf::from(home).join("Library/Application Support/Rexa DB")
+        PathBuf::from(home).join("Library/Application Support/Infinity Studio")
     }
     #[cfg(target_os = "windows")]
     {
         let appdata = std::env::var("APPDATA")
             .unwrap_or_else(|_| format!("{}\\AppData\\Roaming", home));
-        PathBuf::from(appdata).join("Rexa DB")
+        PathBuf::from(appdata).join("Infinity Studio")
     }
     #[cfg(target_os = "linux")]
     {
         let xdg = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| format!("{}/.config", home));
-        PathBuf::from(xdg).join("Rexa DB")
+        PathBuf::from(xdg).join("Infinity Studio")
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
-        PathBuf::from(".").join("Rexa DB")
+        PathBuf::from(".").join("Infinity Studio")
     }
 }
 
@@ -614,8 +614,8 @@ fn settings_save_studio_settings(settings: serde_json::Value) -> Result<bool, St
 }
 
 // Keybindings live in the legacy app-data dir (get_app_data_dir), not the
-// "Rexa DB" settings dir — same file resolveDbPath("keybindings.json")
-// resolves to on the sidecar, since REXADB_USER_DATA_DIR is set from
+// "Infinity Studio" settings dir — same file resolveDbPath("keybindings.json")
+// resolves to on the sidecar, since INFSTUDIO_USER_DATA_DIR is set from
 // get_app_data_dir() when the sidecar is spawned below.
 fn get_keybindings_path(app: &tauri::AppHandle) -> PathBuf {
     get_app_data_dir(app).join("keybindings.json")
@@ -692,8 +692,8 @@ fn spawn_sidecar(app: &tauri::AppHandle) {
     let resource_dir = app.path().resource_dir().ok();
     let mut sidecar_command = app.shell().sidecar("rexadb-server")
         .expect("failed to create sidecar command")
-        .env("REXADB_USER_DATA_DIR", data_dir.to_string_lossy().as_ref())
-        .env("REXADB_JDBC_DRIVERS_DIR", jdbc_drivers_dir.to_string_lossy().as_ref());
+        .env("INFSTUDIO_USER_DATA_DIR", data_dir.to_string_lossy().as_ref())
+        .env("INFSTUDIO_JDBC_DRIVERS_DIR", jdbc_drivers_dir.to_string_lossy().as_ref());
     if let Some(rd) = &resource_dir {
         sidecar_command = sidecar_command.env("RESOURCEDIR", rd.to_string_lossy().as_ref());
     }

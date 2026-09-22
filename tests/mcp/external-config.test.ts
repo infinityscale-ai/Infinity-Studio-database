@@ -14,7 +14,7 @@ import {
   toPublicConnectionList,
   type ConnectionDep,
 } from "../../lib/agents/mcp/registry";
-import { REXADB_PLAN_MODE, REXADB_BUILD_MODE } from "../../lib/agents/app-modes";
+import { INFSTUDIO_PLAN_MODE, INFSTUDIO_BUILD_MODE } from "../../lib/agents/app-modes";
 
 const rows: ConnectionDep[] = [
   { id: 1, name: "Analytics", connectionString: "postgres://u:pw@host:5432/analytics", connectionType: "postgres" },
@@ -36,9 +36,9 @@ test("sanitizeMcpExternalConfig fills defaults and strips bad ids", () => {
 });
 
 test("resolveMcpMode returns builtin plan/build and falls back to plan", () => {
-  assert.equal(resolveMcpMode({ modeId: "rexadb-plan", customModes: [] }).id, REXADB_PLAN_MODE.id);
-  assert.equal(resolveMcpMode({ modeId: "rexadb-build", customModes: [] }).id, REXADB_BUILD_MODE.id);
-  assert.equal(resolveMcpMode({ modeId: "missing", customModes: [] }).id, REXADB_PLAN_MODE.id);
+  assert.equal(resolveMcpMode({ modeId: "infinity-studio-plan", customModes: [] }).id, INFSTUDIO_PLAN_MODE.id);
+  assert.equal(resolveMcpMode({ modeId: "infinity-studio-build", customModes: [] }).id, INFSTUDIO_BUILD_MODE.id);
+  assert.equal(resolveMcpMode({ modeId: "missing", customModes: [] }).id, INFSTUDIO_PLAN_MODE.id);
 });
 
 test("resolveMcpMode supports custom modes", () => {
@@ -71,7 +71,7 @@ test("parseConnectionRef handles ids, names and blanks", () => {
 });
 
 test("resolveToolConnection defaults to first exposed and enforces allow-list", async () => {
-  const opts = { enabled: true, exposedIds: [1, 2], mode: REXADB_PLAN_MODE, all: rows };
+  const opts = { enabled: true, exposedIds: [1, 2], mode: INFSTUDIO_PLAN_MODE, all: rows };
   const first = await resolveToolConnection(undefined, opts);
   assert.equal(first.meta.id, 1);
   assert.equal(first.ctx.connectionName, "Analytics");
@@ -93,7 +93,7 @@ test("resolveToolConnection defaults to first exposed and enforces allow-list", 
 });
 
 test("workspace pointers are never exposed", async () => {
-  const opts = { enabled: true, exposedIds: [3], mode: REXADB_BUILD_MODE, all: rows };
+  const opts = { enabled: true, exposedIds: [3], mode: INFSTUDIO_BUILD_MODE, all: rows };
   await assert.rejects(() => resolveToolConnection(undefined, opts), /No connections are exposed/);
   const list = toPublicConnectionList(rows, [1, 3]);
   assert.ok(list.every((c) => !c.dsnHint.includes("workspace:abc") || true));

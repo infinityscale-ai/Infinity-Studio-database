@@ -116,7 +116,7 @@ export async function appendMcpAudit(draft: McpAuditDraft): Promise<void> {
     // Fire-and-forget retention trim (keep the table bounded).
     void trimMcpAuditLog().catch(() => {});
   } catch (e) {
-    console.warn("[rexadb-mcp] audit log write failed:", e instanceof Error ? e.message : e);
+    console.warn("[infinity-studio-mcp] audit log write failed:", e instanceof Error ? e.message : e);
   }
 }
 

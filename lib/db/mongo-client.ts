@@ -82,7 +82,7 @@ async function withMongoClient<T>(
   const client = new MongoClient(connectionString, {
     serverSelectionTimeoutMS: DEFAULT_TIMEOUT_MS,
     connectTimeoutMS: DEFAULT_TIMEOUT_MS,
-    appName: "RexaDB",
+    appName: "Infinity Studio",
   });
 
   try {
@@ -710,7 +710,7 @@ export async function createMongoDatabase(
 ) {
   return withMongoClient(connectionString, async (client) => {
     const db = client.db(dbName);
-    const tempCollection = "__rexadb_init__";
+    const tempCollection = "__infstudio_init__";
     await db.createCollection(tempCollection);
     await db
       .collection(tempCollection)

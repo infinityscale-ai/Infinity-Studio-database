@@ -9,7 +9,7 @@ export function useAgentChatMessages({ connectionId }: UseAgentChatMessagesProps
   const [agentChatMessages, setAgentChatMessages] = useState<AgentChatMessage[]>([]);
 
   useEffect(() => {
-    const storageKey = `rexa-db-agent-chat-${connectionId}`;
+    const storageKey = `infinity-studio-agent-chat-${connectionId}`;
     try {
       const raw = localStorage.getItem(storageKey);
       if (!raw) {
@@ -36,7 +36,7 @@ export function useAgentChatMessages({ connectionId }: UseAgentChatMessagesProps
   }, [connectionId]);
 
   useEffect(() => {
-    const storageKey = `rexa-db-agent-chat-${connectionId}`;
+    const storageKey = `infinity-studio-agent-chat-${connectionId}`;
     localStorage.setItem(storageKey, JSON.stringify(agentChatMessages));
   }, [agentChatMessages, connectionId]);
 

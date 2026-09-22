@@ -59,7 +59,7 @@ const ALL_THEME_VAR_KEYS = [
   "--syntax-function", "--syntax-variable", "--syntax-comment", "--syntax-type",
 ];
 
-const DEFAULT_DARK_THEME_ID = "rexadb-dark";
+const DEFAULT_DARK_THEME_ID = "infinity-studio-dark";
 
 // The resolved theme CSS variables only get applied to `document.documentElement`
 // from a `useEffect` here, once this hook has mounted and (often) loaded the
@@ -68,7 +68,7 @@ const DEFAULT_DARK_THEME_ID = "rexadb-dark";
 // last-applied variables lets the blocking inline script in app/layout.tsx's
 // <head> (which already does this for plain light/dark) apply them before
 // the very first paint instead.
-const APP_THEME_VARS_STORAGE_KEY = "rexa-db-app-theme-vars";
+const APP_THEME_VARS_STORAGE_KEY = "infinity-studio-app-theme-vars";
 
 function getSystemColorScheme(): "light" | "dark" {
   if (typeof window === "undefined") return "dark";
@@ -188,7 +188,7 @@ export function useGlobalAppTheme(persist = false) {
     if (typeof window === "undefined") return;
     // `appThemeId`/`customAppThemes` start from readInitialThemeAppearance(),
     // which currently always resolves to the hardcoded defaults (nothing
-    // populates the #rexadb-initial-appearance template it reads) — so
+    // populates the #infinity-studio-initial-appearance template it reads) — so
     // `selectedAppTheme` is the *default* theme, not the user's real one,
     // until the async load below resolves. Applying it before `isLoaded`
     // would stomp over the correct colors the boot script in app/layout.tsx

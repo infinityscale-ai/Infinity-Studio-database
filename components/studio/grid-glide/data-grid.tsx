@@ -20,11 +20,11 @@ import {
   type DrawHeaderCallback,
   type Rectangle,
 } from "@glideapps/glide-data-grid";
-import { RexaContextMenu, type RexaContextMenuItem } from "./context-menu";
+import { StudioContextMenu, type StudioContextMenuItem } from "./context-menu";
 import type { DataGridProps } from "./types";
 import { useGlideGridTheme, useGlideHoverColors } from "./theme";
 import { computeAutoColumnWidths, buildGridColumns } from "./columns";
-import { REXA_HEADER_ICONS, HEADER_ICON_KEYS } from "./header-icons";
+import { STUDIO_HEADER_ICONS, HEADER_ICON_KEYS } from "./header-icons";
 import { NoResultsState, WhimsicalEmptyState } from "./states";
 import { PaginationFooter } from "./pagination-footer";
 import {
@@ -38,15 +38,15 @@ import {
   getSortLabels,
   isRowPendingDelete,
   resolveEnumOptions,
-  type RexaCellData,
-  type RexaCellKind,
+  type StudioCellData,
+  type StudioCellKind,
 } from "./cell-content";
 import {
-  rexaCellRenderer,
-  type RexaCell,
+  studioCellRenderer,
+  type StudioCell,
   FK_PREVIEW_BUTTON_SIZE,
   FK_PREVIEW_BUTTON_MARGIN,
-} from "./rexa-cell-renderer";
+} from "./studio-cell-renderer";
 import { AddColumnSheet } from "../grid/add-column-sheet";
 import { EditColumnSheet } from "../grid/edit-column-sheet";
 import {
@@ -70,7 +70,7 @@ import { applyColumnDecorator } from "@/lib/dictionary/helpers";
 
 const HEADER_MENU_ZONE_WIDTH = 30;
 
-const CUSTOM_RENDERERS = [rexaCellRenderer];
+const CUSTOM_RENDERERS = [studioCellRenderer];
 const ROW_MARKER_WIDTH = 44;
 const HEADER_HEIGHT = 40; // matches legacy grid's h-10 header cells
 const ADD_COLUMN_WIDTH = 150;
@@ -91,7 +91,7 @@ const ADD_COLUMN_WIDTH = 150;
 // cells (no row structure) instead of the "accepted tradeoff" of visible
 // rows underneath that an earlier, unpatched version of this component
 // had. Renaming this constant means updating the patch file too.
-const ADD_COLUMN_ID = "__rexa_add_column__";
+const ADD_COLUMN_ID = "__studio_add_column__";
 
 /**
  * `headerIcons` is how we get the app's exact lucide icon set into
@@ -494,7 +494,7 @@ export const DataGrid = React.memo(function DataGrid({
   // canvas grid: instead of a React.MouseEvent (whose `currentTarget` was
   // a real DOM button), this takes the FK preview button's own screen rect
   // directly — computed in onCellClicked below from Glide's `event.bounds`
-  // (see rexa-cell-renderer.tsx's FK_PREVIEW_BUTTON_SIZE/MARGIN, which
+  // (see studio-cell-renderer.tsx's FK_PREVIEW_BUTTON_SIZE/MARGIN, which
   // that computation and the canvas draw call both key off, so the
   // clickable zone and the drawn button can never drift apart).
   const handleToggleFKPreview = useCallback(
@@ -799,13 +799,13 @@ export const DataGrid = React.memo(function DataGrid({
   }, [multiSelection, selectedCell, columns]);
 
   const getCellContent = useCallback(
-    (item: Item): RexaCell => {
+    (item: Item): StudioCell => {
       const [col, row] = item;
       const field = columns[col];
       const columnName = (field?.id as string) ?? "";
       const rowData = fields.length ? rows[row] : undefined;
 
-      const empty: RexaCellData = {
+      const empty: StudioCellData = {
         value: "",
         displayValue: "",
         kind: "text",
@@ -859,7 +859,7 @@ export const DataGrid = React.memo(function DataGrid({
       const isEnum = !!enumOptions?.length;
       const jsonInfo = detectJsonInfo(value, richJsonInspector);
 
-      let kind: RexaCellKind;
+      let kind: StudioCellKind;
       if (value === null || value === undefined) kind = "null";
       else if (isBoolean) kind = "boolean";
       else if (isEnum) kind = "enum";
@@ -933,7 +933,7 @@ export const DataGrid = React.memo(function DataGrid({
       const relativeDateLabel =
         kind === "date" && relativeDates ? computeRelativeDateLabel(value) : null;
 
-      const data: RexaCellData = {
+      const data: StudioCellData = {
         value,
         displayValue,
         kind,
@@ -1020,7 +1020,7 @@ export const DataGrid = React.memo(function DataGrid({
   const onCellEdited = useCallback(
     (item: Item, newValue: EditableGridCell) => {
       if (newValue.kind !== GridCellKind.Custom) return;
-      const rexaValue = newValue as RexaCell;
+      const studioValue = newValue as StudioCell;
       const [col, row] = item;
       const field = columns[col];
       const rowData = rows[row];
@@ -1037,7 +1037,7 @@ export const DataGrid = React.memo(function DataGrid({
         ? pendingChanges[rowId][columnName].old
         : rowData[columnName];
 
-      const newVal = rexaValue.data.value;
+      const newVal = studioValue.data.value;
       void handleUpdateRow(rowId, columnName, oldValue, newVal, columnType);
     },
     [columns, rows, getRowId, tableStructByName, pendingChanges, handleUpdateRow],
@@ -1117,7 +1117,7 @@ export const DataGrid = React.memo(function DataGrid({
       const struct = tableStructByName.get(columnName);
       const dataType = String(struct?.data_type || struct?.type || "text");
       const sortLabels = getSortLabels(dataType);
-      const items: RexaContextMenuItem[] = [
+      const items: StudioContextMenuItem[] = [
         {
           key: "sort-asc",
           label: sortLabels.asc,
@@ -1257,7 +1257,7 @@ export const DataGrid = React.memo(function DataGrid({
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    items: RexaContextMenuItem[];
+    items: StudioContextMenuItem[];
   } | null>(null);
 
   const toggleRowSelected = useCallback(
@@ -1394,7 +1394,7 @@ export const DataGrid = React.memo(function DataGrid({
       const value = pending ? pending.new : rowData[columnName];
       if (value === null || value === undefined) return;
 
-      // Same right-edge zone rexa-cell-renderer.tsx draws the FK preview
+      // Same right-edge zone studio-cell-renderer.tsx draws the FK preview
       // button in — see FK_PREVIEW_BUTTON_SIZE/MARGIN there.
       const zoneWidth = FK_PREVIEW_BUTTON_SIZE + FK_PREVIEW_BUTTON_MARGIN;
       if (event.localEventX < event.bounds.width - zoneWidth) return;
@@ -1435,7 +1435,7 @@ export const DataGrid = React.memo(function DataGrid({
       const value = columnName ? rowData[columnName] : undefined;
       const isRowSelected = selectedRows.has(row);
 
-      const items: RexaContextMenuItem[] = [
+      const items: StudioContextMenuItem[] = [
         {
           key: "select-row",
           label: isRowSelected ? "Deselect row" : "Select row",
@@ -1608,7 +1608,7 @@ export const DataGrid = React.memo(function DataGrid({
           rowHeight={rowHeight}
           headerHeight={HEADER_HEIGHT}
           theme={theme}
-          headerIcons={REXA_HEADER_ICONS}
+          headerIcons={STUDIO_HEADER_ICONS}
           drawHeader={onDrawHeader}
           overscrollX={0}
           overscrollY={0}
@@ -1700,7 +1700,7 @@ export const DataGrid = React.memo(function DataGrid({
           </AlertDialog>
         ) : null}
         {contextMenu ? (
-          <RexaContextMenu
+          <StudioContextMenu
             x={contextMenu.x}
             y={contextMenu.y}
             items={contextMenu.items}

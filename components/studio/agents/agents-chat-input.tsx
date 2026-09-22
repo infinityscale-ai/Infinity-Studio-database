@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { AgentProvider, AgentProviderId } from "@/lib/agents/provider-types";
-import type { RexaAgentAppMode } from "@/lib/agents/app-modes";
+import type { StudioAgentAppMode } from "@/lib/agents/app-modes";
 import { AgentsModelPicker } from "./agents-model-picker";
 import { AgentsModePicker } from "./agents-mode-picker";
 
@@ -39,10 +39,10 @@ export function AgentsChatInput({
   onSelectModel: (model: string) => void;
   selectedMode: string;
   onSelectMode: (mode: string) => void;
-  appModes?: RexaAgentAppMode[];
+  appModes?: StudioAgentAppMode[];
   selectedAppModeId?: string;
   onSelectAppMode?: (id: string) => void;
-  appMode?: RexaAgentAppMode;
+  appMode?: StudioAgentAppMode;
   isDetecting: boolean;
 }) {
   const [input, setInput] = useState("");

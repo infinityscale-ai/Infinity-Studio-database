@@ -91,7 +91,7 @@ export function useInitialStudioData({
         getStudioSnippets(connection.id),
       ]);
 
-      console.log("[rexadb] useInitialStudioData: loaded local snippets", {
+      console.log("[infinity-studio] useInitialStudioData: loaded local snippets", {
         connectionId: connection.id,
         folderCount: foldersRes?.data?.length ?? 0,
         snippetCount: snippetsRes?.data?.length ?? 0,
@@ -123,7 +123,7 @@ export function useInitialStudioData({
           connectionName: h.connectionName || undefined,
         }));
         
-        console.log("[rexadb] useInitialStudioData: loading history", {
+        console.log("[infinity-studio] useInitialStudioData: loading history", {
           connectionId: connection.id,
           historyCount: loadedHistory.length,
           firstEntry: loadedHistory[0]?.id,
@@ -133,7 +133,7 @@ export function useInitialStudioData({
         if (cancelled) return;
         setQueryHistory(loadedHistory);
       } else {
-        console.log("[rexadb] useInitialStudioData: no history found", {
+        console.log("[infinity-studio] useInitialStudioData: no history found", {
           connectionId: connection.id,
           success: historyRes?.success,
         });
@@ -197,7 +197,7 @@ export function useInitialStudioData({
         if (settings.sidebarVisible !== undefined && settings.sidebarVisible !== null) {
           setIsSidebarVisible((currentVisible: boolean) => {
             if (delayedUiRestoreBlockedRef.current) return currentVisible;
-            const hasLocalStorageValue = typeof window !== "undefined" && window.localStorage.getItem(`rexa-db-sidebar-visible-${connection.id}`) !== null;
+            const hasLocalStorageValue = typeof window !== "undefined" && window.localStorage.getItem(`infinity-studio-sidebar-visible-${connection.id}`) !== null;
             if (hasLocalStorageValue) return currentVisible;
             return !!settings.sidebarVisible;
           });

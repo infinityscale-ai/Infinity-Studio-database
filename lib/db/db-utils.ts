@@ -4,7 +4,7 @@ import os from "os";
 import { Database } from "bun:sqlite";
 
 export function resolveDbPath(dbName: string) {
-  const envDir = process.env.REXADB_USER_DATA_DIR;
+  const envDir = process.env.INFSTUDIO_USER_DATA_DIR;
   if (envDir) {
     fs.mkdirSync(envDir, { recursive: true });
     return path.join(envDir, dbName);
@@ -12,7 +12,7 @@ export function resolveDbPath(dbName: string) {
 
   const home = os.homedir();
   if (home) {
-    const appDir = path.join(home, ".rexadb");
+    const appDir = path.join(home, ".infinity-studio");
     fs.mkdirSync(appDir, { recursive: true });
     return path.join(appDir, dbName);
   }

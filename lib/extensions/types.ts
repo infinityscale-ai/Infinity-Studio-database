@@ -1,7 +1,7 @@
 /**
- * RexaDB Extensions — manifest + contribution model.
+ * Infinity Studio Extensions — manifest + contribution model.
  *
- * RexaDB-native API inspired by VS Code's extension model (`package.json`
+ * Infinity Studio-native API inspired by VS Code's extension model (`package.json`
  * `contributes`), tailored to database workflows. Extensions run in a Web
  * Worker sandbox (see `extension-host.ts`) and declare everything statically
  * in the manifest so the UI can render commands/views/themes without running
@@ -27,7 +27,7 @@ export type ExtensionCapability =
   | "storage";
 
 export interface ExtensionCommandContribution {
-  /** Unique id, e.g. `my-ext.say-hello`. Invoked via rexa.commands.executeCommand. */
+  /** Unique id, e.g. `my-ext.say-hello`. Invoked via infinityStudio.commands.executeCommand. */
   command: string;
   title: string;
   /** Optional Cmd+K grouping, defaults to extension displayName. */
@@ -54,7 +54,7 @@ export interface ExtensionViewContainerContribution {
    * list when this container's standalone sidebar is open. This is how an
    * extension builds whatever it wants (table-explorer-like, dashboard-like)
    * rather than a stack of declared views. Runtime alternative:
-   * `rexa.window.registerSidebarPage(containerId, html)`.
+   * `infinityStudio.window.registerSidebarPage(containerId, html)`.
    */
   html?: string;
 }
@@ -112,9 +112,9 @@ export interface ExtensionLanguageContribution {
   extensions?: string[];
   /** Monaco monarch tokenizer embedded as JSON-serializable object. */
   monarch?: Record<string, unknown>;
-  /** Extra keyword lists merged into RexaDB's SQL suggestions. */
+  /** Extra keyword lists merged into Infinity Studio's SQL suggestions. */
   keywords?: string[];
-  /** A formatter id the extension serves via rexa.languages.registerFormatter. */
+  /** A formatter id the extension serves via infinityStudio.languages.registerFormatter. */
   formatter?: boolean;
 }
 
@@ -173,15 +173,15 @@ export interface ExtensionContributes {
 }
 
 export interface ExtensionManifest {
-  /** Unique id: `publisher.name`, e.g. `rexa.hello-rexa`. */
+  /** Unique id: `publisher.name`, e.g. `infinity-studio.hello-infinity-studio`. */
   id: string;
   name: string;
   publisher?: string;
   version: string;
   displayName?: string;
   description?: string;
-  engines: { rexadb: string };
-  /** Sandbox entry: single JS file exporting `activate(rexa)`. */
+  engines: { "infinity-studio": string };
+  /** Sandbox entry: single JS file exporting `activate(infinityStudio)`. */
   main?: string;
   activationEvents?: string[];
   capabilities?: ExtensionCapability[];
@@ -217,9 +217,9 @@ export function validateManifest(manifest: unknown): { ok: boolean; errors: stri
   if (typeof m.version !== "string" || !VERSION_RE.test(m.version)) {
     errors.push("version must be semver (e.g. `1.0.0`)");
   }
-  const engines = m.engines as { rexadb?: unknown } | undefined;
-  if (!engines || typeof engines.rexadb !== "string" || !engines.rexadb.trim()) {
-    errors.push("engines.rexadb is required (e.g. `^1.0.0`)");
+  const engines = m.engines as { "infinity-studio"?: unknown } | undefined;
+  if (!engines || typeof engines["infinity-studio"] !== "string" || !engines["infinity-studio"].trim()) {
+    errors.push('engines["infinity-studio"] is required (e.g. `^1.0.0`)');
   }
   const contributes = (m.contributes ?? {}) as Record<string, unknown>;
   if (typeof contributes !== "object") errors.push("contributes must be an object");
@@ -240,24 +240,24 @@ export function validateManifest(manifest: unknown): { ok: boolean; errors: stri
 }
 
 // ---------------------------------------------------------------------------
-// Runtime API surface (what `activate(rexa)` receives).
-// Mirrors `vscode` namespaces where it makes sense, plus `rexaDb` extras.
+// Runtime API surface (what `activate(infinityStudio)` receives).
+// Mirrors `vscode` namespaces where it makes sense, plus `db` extras.
 // Every method is async across the Worker boundary.
 // ---------------------------------------------------------------------------
 
 import type { ExtensionSchemaInfo } from "./db-bridge";
 
-export interface RexaTreeItem {
+export interface StudioTreeItem {
   id: string;
   label: string;
   description?: string;
   collapsible?: boolean;
   icon?: string;
   command?: { command: string; args?: unknown[] };
-  children?: RexaTreeItem[];
+  children?: StudioTreeItem[];
 }
 
-export interface RexaHostApi {
+export interface StudioHostApi {
   commands: {
     registerCommand(command: string, title?: string, group?: string): Promise<void>;
     executeCommand<T = unknown>(command: string, ...args: unknown[]): Promise<T>;
@@ -276,7 +276,7 @@ export interface RexaHostApi {
     updateStatusBarItem(id: string, patch: { text?: string; tooltip?: string }): Promise<void>;
     registerTreeDataProvider(
       viewId: string,
-      provider?: { getChildren(parentId?: string): Promise<RexaTreeItem[]> },
+      provider?: { getChildren(parentId?: string): Promise<StudioTreeItem[]> },
     ): Promise<void>;
     registerWebviewView(viewId: string, html: string): Promise<void>;
     /**
@@ -310,7 +310,7 @@ export interface RexaHostApi {
     registerCompletionItems(languageId: string, items: Array<{ label: string; detail?: string; insertText?: string }>): Promise<void>;
     registerFormatter(languageId: string): Promise<void>;
   };
-  rexaDb: {
+  db: {
     getConnections(): Promise<Array<{ id: number; name: string; dbType: string }>>;
     getActiveConnection(): Promise<{ id: number; name: string; dbType: string } | null>;
     executeQuery<T = unknown>(sql: string, params?: unknown[]): Promise<{ rows: T[]; fields: string[] }>;
@@ -330,4 +330,4 @@ export interface RexaHostApi {
   };
 }
 
-export type ExtensionActivateFn = (rexa: RexaHostApi) => Promise<void> | void;
+export type ExtensionActivateFn = (infinityStudio: StudioHostApi) => Promise<void> | void;

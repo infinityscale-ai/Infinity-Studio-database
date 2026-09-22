@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 /**
- * Extensions manager — VS Code-like Extensions view for RexaDB-native
+ * Extensions manager — VS Code-like Extensions view for Infinity Studio-native
  * extensions (manifest + Worker-sandboxed `main.js`).
  * Install from a JSON bundle `{ manifest, code }`, enable/disable, inspect
  * contribution points, surface activation errors.
@@ -92,7 +92,7 @@ export function ExtensionsView() {
         <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
           No extensions installed yet. Paste a bundle below or drop a{" "}
           <code>{"{ manifest, code }"}</code> JSON file. See{" "}
-          <code>resources/extensions/hello-rexa</code> for an example.
+          <code>resources/extensions/hello-infinity-studio</code> for an example.
         </div>
       )}
 

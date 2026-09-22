@@ -66,12 +66,12 @@ function makeCallbacks(): HostCallbacks & {
 }
 
 const CODE = `
-async function activate(rexa) {
-  await rexa.commands.registerCommand("demo.hello", "Say hello", "Demo");
-  await rexa.window.showInformationMessage("hi");
-  await rexa.window.createStatusBarItem("s1", "demo");
-  await rexa.languages.registerCompletionItems("sql", [{ label: "DEMO_KW" }]);
-  await rexa.window.registerTreeDataProvider("demo.view", {
+async function activate(infinityStudio) {
+  await infinityStudio.commands.registerCommand("demo.hello", "Say hello", "Demo");
+  await infinityStudio.window.showInformationMessage("hi");
+  await infinityStudio.window.createStatusBarItem("s1", "demo");
+  await infinityStudio.languages.registerCompletionItems("sql", [{ label: "DEMO_KW" }]);
+  await infinityStudio.window.registerTreeDataProvider("demo.view", {
     getChildren: async () => [{ id: "a", label: "A" }],
   });
 }
@@ -93,13 +93,13 @@ test("runInProcess throws when no activate export", async () => {
 });
 
 const WORKER_STYLE_CODE = `
-async function activate(rexa) {
-  await rexa.commands.registerCommand("demo.ping", "Ping", "Demo");
-  rexa.__registerHandler("command:demo.ping", async (name) => "pong:" + name);
-  rexa.__registerHandler("tree:demo.view", async (parentId) => (
+async function activate(infinityStudio) {
+  await infinityStudio.commands.registerCommand("demo.ping", "Ping", "Demo");
+  infinityStudio.__registerHandler("command:demo.ping", async (name) => "pong:" + name);
+  infinityStudio.__registerHandler("tree:demo.view", async (parentId) => (
     parentId ? [] : [{ id: "root", label: "Root", collapsible: false }]
   ));
-  await rexa.window.registerTreeDataProvider("demo.view", {
+  await infinityStudio.window.registerTreeDataProvider("demo.view", {
     getChildren: async () => [{ id: "root", label: "Root" }],
   });
 }
@@ -119,8 +119,8 @@ test("write queries are blocked without the query:write capability", async () =>
     ...cb,
     resolveCapabilities: () => ["query:read"],
   });
-  await assert.rejects(() => api.rexaDb.executeQuery("DELETE FROM users"), /query:write/);
-  const ok = await api.rexaDb.executeQuery("SELECT 1");
+  await assert.rejects(() => api.db.executeQuery("DELETE FROM users"), /query:write/);
+  const ok = await api.db.executeQuery("SELECT 1");
   assert.deepEqual(ok, { rows: [], fields: [] });
 });
 
@@ -130,7 +130,7 @@ test("write queries pass with the query:write capability", async () => {
     ...cb,
     resolveCapabilities: () => ["query:write"],
   });
-  const ok = await api.rexaDb.executeQuery("DELETE FROM users");
+  const ok = await api.db.executeQuery("DELETE FROM users");
   assert.deepEqual(ok, { rows: [], fields: [] });
 });
 

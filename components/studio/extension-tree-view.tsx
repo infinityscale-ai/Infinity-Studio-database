@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, Loader2 } from "@/lib/icon-theme/lucide-react";
 import { useExtensions } from "@/lib/extensions/react";
 import { ExtensionWebview } from "./extension-webview";
-import type { RexaTreeItem } from "@/lib/extensions/types";
+import type { StudioTreeItem } from "@/lib/extensions/types";
 import { cn } from "@/lib/utils";
 
 function TreeNode({
@@ -13,12 +13,12 @@ function TreeNode({
   depth,
 }: {
   viewId: string;
-  item: RexaTreeItem;
+  item: StudioTreeItem;
   depth: number;
 }) {
   const { expandTree, executeCommand } = useExtensions();
   const [open, setOpen] = useState(false);
-  const [children, setChildren] = useState<RexaTreeItem[] | null>(item.children ?? null);
+  const [children, setChildren] = useState<StudioTreeItem[] | null>(item.children ?? null);
   const [loading, setLoading] = useState(false);
 
   const toggle = useCallback(async () => {

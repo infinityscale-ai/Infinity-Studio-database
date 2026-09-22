@@ -9,11 +9,11 @@ import {
 } from "../../../lib/ai/exa-mcp";
 
 const SEARCH_TEXT = [
-  "Title: RexaDB",
-  "URL: https://github.com/rexadbapp",
+  "Title: Infinity Studio",
+  "URL: https://github.com/infinityscale",
   "Published: N/A",
   "Highlights:",
-  "RexaDB provides database management tools",
+  "Infinity Studio provides database management tools",
   "---",
   "Title: Other",
   "URL: https://example.com/other",
@@ -48,7 +48,7 @@ function mockMcp(callText: string, onCall?: (body: any) => void): typeof fetch {
 
 test("free search returns parsed results", async () => {
   let seenArgs: any = null;
-  const results = await searchWebFree("RexaDB", {
+  const results = await searchWebFree("Infinity Studio", {
     numResults: 3,
     fetchImpl: mockMcp(SEARCH_TEXT, (body) => {
       seenArgs = body.params.arguments;
@@ -56,8 +56,8 @@ test("free search returns parsed results", async () => {
   });
   assert.equal(seenArgs.name, undefined); // name is on params, not arguments
   assert.equal(results.length, 2);
-  assert.equal(results[0].url, "https://github.com/rexadbapp");
-  assert.equal(results[0].title, "RexaDB");
+  assert.equal(results[0].url, "https://github.com/infinityscale");
+  assert.equal(results[0].title, "Infinity Studio");
   assert.match(results[0].text || "", /database management tools/);
 });
 

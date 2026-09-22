@@ -17,7 +17,7 @@ import type {
 } from "@/lib/studio/types";
 import { pickCommonSettings } from "@/lib/studio/settings-common";
 
-export const ZOOM_UPDATED_EVENT = "rexadb-zoom-updated";
+export const ZOOM_UPDATED_EVENT = "infinity-studio-zoom-updated";
 
 interface GlobalStudioSettings extends SqlFormatSettingsRequired {
   appZoom: number;

@@ -94,19 +94,19 @@ async function getFullSqlSnapshot(
   }
 }
 
-function stripRexaDbParams(connectionString: string) {
+function stripStudioParams(connectionString: string) {
   try {
     const url = new URL(normalizePgConnectionString(connectionString));
     const customKeys = [
-      "rexadb_keychain_db",
-      "rexadb_ssh_mode",
-      "rexadb_ssh_host",
-      "rexadb_ssh_port",
-      "rexadb_ssh_user",
-      "rexadb_ssh_auth",
-      "rexadb_ssh_keychain",
-      "rexadb_ssh_password",
-      "rexadb_ssh_private_key",
+      "infstudio_keychain_db",
+      "infstudio_ssh_mode",
+      "infstudio_ssh_host",
+      "infstudio_ssh_port",
+      "infstudio_ssh_user",
+      "infstudio_ssh_auth",
+      "infstudio_ssh_keychain",
+      "infstudio_ssh_password",
+      "infstudio_ssh_private_key",
     ];
     for (const key of customKeys) {
       url.searchParams.delete(key);
@@ -187,7 +187,7 @@ export async function runPgDumpSchemaOnly(
   const { promisify } = await import("util");
   const execFileAsync = promisify(execFile);
 
-  const conn = stripRexaDbParams(connectionString);
+  const conn = stripStudioParams(connectionString);
   const isSupabase = isLikelySupabaseConnection(connectionString);
   const excludedSchemas = isSupabase
     ? "information_schema|pg_*|_analytics|_realtime|_supavisor|auth|extensions|pgbouncer|realtime|storage|supabase_functions|supabase_migrations|cron|dbdev|graphql|graphql_public|net|pgmq|pgsodium|pgsodium_masks|pgtle|repack|tiger|tiger_data|timescaledb_*|_timescaledb_*|topology|vault"
@@ -227,7 +227,7 @@ export async function runPgDumpSchemaOnly(
       `platform=${process.platform}`,
       `arch=${process.arch}`,
       `resourcesPath=${(process as { resourcesPath?: string }).resourcesPath ?? "n/a"}`,
-      `REXADB_PG_DUMP_PATH=${process.env.REXADB_PG_DUMP_PATH || "n/a"}`,
+      `INFSTUDIO_PG_DUMP_PATH=${process.env.INFSTUDIO_PG_DUMP_PATH || "n/a"}`,
       `PG_DUMP_PATH=${process.env.PG_DUMP_PATH || "n/a"}`,
       `resolved=${pgDumpBinary}`,
       `candidates=${pgDumpCandidates.length ? pgDumpCandidates.join(",") : "n/a"}`,
@@ -308,7 +308,7 @@ export async function exportDatabaseBundle(
       return {
         success: true,
         data: {
-          filename: `rexa-db-export-${Date.now()}.sql`,
+          filename: `infinity-studio-export-${Date.now()}.sql`,
           mimeType: "application/sql",
           content: snapshot.fullSql,
         }
@@ -317,7 +317,7 @@ export async function exportDatabaseBundle(
 
     if (format === "json") {
       const content = JSON.stringify({
-        format: "rexa-db-export-v1",
+        format: "infinity-studio-export-v1",
         generatedAt,
         schemaSql: snapshot.schemaSql,
         dataSql: snapshot.dataSql,
@@ -327,7 +327,7 @@ export async function exportDatabaseBundle(
       return {
         success: true,
         data: {
-          filename: `rexa-db-export-${Date.now()}.json`,
+          filename: `infinity-studio-export-${Date.now()}.json`,
           mimeType: "application/json",
           content,
         }
@@ -337,7 +337,7 @@ export async function exportDatabaseBundle(
     const fullSqlBase64 = Buffer.from(snapshot.fullSql, "utf-8").toString("base64");
     const csvLines = [
       "section,key,value",
-      `meta,format,${encodeCsvCell("rexa-db-export-v1")}`,
+      `meta,format,${encodeCsvCell("infinity-studio-export-v1")}`,
       `meta,generated_at,${encodeCsvCell(generatedAt)}`,
       `payload,full_sql_base64,${encodeCsvCell(fullSqlBase64)}`,
     ];
@@ -345,7 +345,7 @@ export async function exportDatabaseBundle(
     return {
       success: true,
       data: {
-        filename: `rexa-db-export-${Date.now()}.csv`,
+        filename: `infinity-studio-export-${Date.now()}.csv`,
         mimeType: "text/csv",
         content: csvLines.join("\n"),
       }

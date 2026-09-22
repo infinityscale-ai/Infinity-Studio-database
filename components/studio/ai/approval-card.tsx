@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { Button } from "@/components/ui/button";
 
 /* ─────────────────────────────────────────────────────────
- * APPROVAL CARD (human-in-the-loop) — adapted for RexaDB
+ * APPROVAL CARD (human-in-the-loop) — adapted for Infinity Studio
  * Tokens mapped: --line→--border, --ink→--foreground, etc.
  * One question at a time, slide + rolling counter.
  * Single-choice auto-advances; multi-select waits.

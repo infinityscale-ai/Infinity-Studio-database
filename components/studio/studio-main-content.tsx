@@ -157,7 +157,7 @@ interface StudioMainContentProps {
   onEditDashboardWithAi: (dashboard: any) => void;
   onOpenThemeCreator?: () => void;
   onOpenIconThemeCreator?: () => void;
-  /** Opens the Ask AI panel — wired to "Create with RexaDB Assistant". */
+  /** Opens the Ask AI panel — wired to "Create with Infinity Studio Assistant". */
   onAskAI?: () => void;
   snippetSplitDrag?: {
     snippet: any;
@@ -1968,7 +1968,7 @@ export function StudioMainContent({
       e.preventDefault();
       e.stopPropagation();
 
-      const dataStr = e.dataTransfer.getData("application/x-rexadb-item");
+      const dataStr = e.dataTransfer.getData("application/x-infinity-studio-item");
       if (!dataStr) {
         setDropIndicator(null);
         dropIndicatorRef.current = null;

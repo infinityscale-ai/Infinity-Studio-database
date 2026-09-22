@@ -34,7 +34,7 @@ import {
 import { DotmCircular12 } from "@/components/ui/dotm-circular-12";
 import { ProviderLogo } from "@/components/shared/provider-logo";
 import {
-  RexaDBIcon,
+  InfinityStudioIcon,
   ClaudeIcon,
   OpenCodeIcon,
   OpenAIIcon,
@@ -68,7 +68,7 @@ interface AgentThread {
 }
 
 function threadKey(connectionId: number) {
-  return `rexa-agent-threads-${connectionId}`;
+  return `infinity-agent-threads-${connectionId}`;
 }
 
 function loadThreads(connectionId: number): AgentThread[] {
@@ -119,7 +119,7 @@ export default function AgentsClient() {
     if (!connection?.id) return;
     const stored = loadThreads(connection.id);
     // Backfill providerId for old threads that predate the field
-    const migrated = stored.map((t) => (t.providerId ? t : { ...t, providerId: "rexadb" }));
+    const migrated = stored.map((t) => (t.providerId ? t : { ...t, providerId: "infinity-studio" }));
     if (migrated.length !== stored.length || migrated.some((t, i) => t.providerId !== stored[i]?.providerId)) {
       saveThreads(connection.id, migrated);
     }
@@ -255,7 +255,7 @@ export default function AgentsClient() {
       id,
       title: "New session",
       updatedAt: Date.now(),
-      providerId: harness.activeProvider || "rexadb",
+      providerId: harness.activeProvider || "infinity-studio",
     };
     const next = [thread, ...threads];
     setThreads(next);
@@ -274,7 +274,7 @@ export default function AgentsClient() {
       setThreads(next);
       saveThreads(connection.id, next);
       try {
-        localStorage.removeItem(`rexa-agent-chat-${connection.id}:${threadId}`);
+        localStorage.removeItem(`infinity-agent-chat-${connection.id}:${threadId}`);
       } catch {}
       if (activeThread === threadId) {
         setActiveThread(null);
@@ -302,7 +302,7 @@ export default function AgentsClient() {
       if (!connection?.id) return;
 
       // Persist which provider was used for this session so the sidebar can show it on reload
-      const currentProviderId = harness.activeProvider || "rexadb";
+      const currentProviderId = harness.activeProvider || "infinity-studio";
 
       // Auto-title thread from first message
       if (harness.messages.length === 0) {
@@ -521,7 +521,7 @@ function WorkingTimer({ startedAt }: { startedAt: number | null }) {
 function ProviderIcon({ providerId, className }: { providerId?: string | null; className?: string }) {
   const cls = cn("size-3.5 shrink-0", className);
   switch (providerId) {
-    case "rexadb": return <RexaDBIcon className={cls} />;
+    case "infinity-studio": return <InfinityStudioIcon className={cls} />;
     case "claude-code": return <ClaudeIcon className={cls} />;
     case "opencode": return <OpenCodeIcon className={cls} />;
     case "codex": return <OpenAIIcon className={cls} />;
@@ -529,13 +529,13 @@ function ProviderIcon({ providerId, className }: { providerId?: string | null; c
     case "cursor": return <CursorIcon className={cls} />;
     case "fx": return <FxIcon className={cls} />;
     case "pi": return <PiIcon className={cls} />;
-    default: return <RexaDBIcon className={cls} />;
+    default: return <InfinityStudioIcon className={cls} />;
   }
 }
 
 function getThreadPreview(connectionId: number, threadId: string): string | null {
   try {
-    const raw = localStorage.getItem(`rexa-agent-chat-${connectionId}:${threadId}`);
+    const raw = localStorage.getItem(`infinity-agent-chat-${connectionId}:${threadId}`);
     if (!raw) return null;
     const data = JSON.parse(raw) as { messages?: Array<{ role: string; content: string }> };
     const msgs = Array.isArray(data.messages) ? data.messages : [];
@@ -642,7 +642,7 @@ function ThreadsSidebar({
               connectionId ? getThreadPreview(connectionId, thread.id) : null;
 
             // t3code: SidebarThreadRow rowSurface — group/sidebar-row + rounded-md + select-none
-            // Active: bg-sidebar-row-active (maps to bg-white/8 in RexaDB chrome)
+            // Active: bg-sidebar-row-active (maps to bg-white/8 in Infinity Studio chrome)
             // Hover: bg-sidebar-row-hover (bg-white/5), receded opacity when not active
             const rowSurface = cn(
               "group/sidebar-row relative w-full cursor-pointer overflow-hidden rounded-md text-left outline-none select-none border border-transparent",
@@ -786,7 +786,7 @@ function ThreadsSidebar({
                           {preview || "master"}
                         </span>
                       )}
-                      <ProviderIcon providerId={thread.providerId || (isActive ? activeProvider : undefined) || "rexadb"} className="size-3.5 shrink-0" />
+                      <ProviderIcon providerId={thread.providerId || (isActive ? activeProvider : undefined) || "infinity-studio"} className="size-3.5 shrink-0" />
                     </div>
                   </div>
                 </div>

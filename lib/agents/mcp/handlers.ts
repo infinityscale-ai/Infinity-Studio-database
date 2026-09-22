@@ -267,7 +267,7 @@ export function registerExternalTools(
     "list_exposed_connections",
     {
       description:
-        "List the RexaDB connections the user exposed over MCP (id, name, type). Pass one as `connection` to other tools. Connection strings are never revealed.",
+        "List the Infinity Studio connections the user exposed over MCP (id, name, type). Pass one as `connection` to other tools. Connection strings are never revealed.",
       inputSchema: {},
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -277,7 +277,7 @@ export function registerExternalTools(
         const listConnections = deps.listConnections || listAllConnectionDeps;
         const config = await loadConfig();
         const mode = resolveMcpMode(config);
-        if (!config.enabled) return errText(new Error("The RexaDB MCP server is disabled. Enable it in Settings → MCP Server."));
+        if (!config.enabled) return errText(new Error("The Infinity Studio MCP server is disabled. Enable it in Settings → MCP Server."));
         const all = await listConnections();
         const exposed = await listExposedConnectionMetas(config.exposedConnectionIds, all);
         return toolText({
@@ -299,7 +299,7 @@ export function registerExternalTools(
     "describe_connection",
     {
       description:
-        "Describe the selected exposed RexaDB connection: type, capabilities, and the active MCP permission mode.",
+        "Describe the selected exposed Infinity Studio connection: type, capabilities, and the active MCP permission mode.",
       inputSchema: toolShape({ connection: connectionField }),
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -849,6 +849,6 @@ export function registerExternalTools(
 }
 
 export function createExternalMcpServer(deps: ExternalToolDeps = {}): McpServer {
-  const server = new McpServer({ name: "rexadb", version: "2.0.0" });
+  const server = new McpServer({ name: "infinity-studio", version: "2.0.0" });
   return registerExternalTools(server, deps);
 }

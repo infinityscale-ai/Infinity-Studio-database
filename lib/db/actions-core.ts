@@ -417,7 +417,7 @@ export async function logAppError(params: {
   const { db } = await import("./index");
   const { sql } = await import("drizzle-orm");
   await ensureCoreTables();
-  const logFile = "/tmp/rexadb-server.log";
+  const logFile = "/tmp/infinity-studio-server.log";
   try {
     const line = `[${new Date().toISOString()}] [app-error] type=${params.errorType} msg=${(params.message || "").slice(0, 200)} url=${params.url || ""}\n`;
     const fs = await import("fs");

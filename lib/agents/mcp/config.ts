@@ -1,42 +1,42 @@
 import { join } from "node:path";
-import type { RexaAgentAppMode } from "../app-modes";
+import type { StudioAgentAppMode } from "../app-modes";
 
-export type RexaMcpLaunchEnv = {
-  REXADB_CONNECTION_STRING: string;
-  REXADB_DB_TYPE: string;
-  REXADB_CONNECTION_NAME: string;
-  REXADB_ALLOW_SQL_READ: string;
-  REXADB_ALLOW_SQL_WRITE: string;
-  REXADB_MODE: string;
+export type StudioMcpLaunchEnv = {
+  INFSTUDIO_CONNECTION_STRING: string;
+  INFSTUDIO_DB_TYPE: string;
+  INFSTUDIO_CONNECTION_NAME: string;
+  INFSTUDIO_ALLOW_SQL_READ: string;
+  INFSTUDIO_ALLOW_SQL_WRITE: string;
+  INFSTUDIO_MODE: string;
 };
 
-export type RexaMcpServerConfig = {
+export type StudioMcpServerConfig = {
   name: string;
   command: string;
   args: string[];
-  env: RexaMcpLaunchEnv;
+  env: StudioMcpLaunchEnv;
 };
 
 /**
  * Absolute path to the MCP stdio entry, resolved from the repo/server cwd.
  */
-export function getRexaMcpEntryPath(cwd = process.cwd()): string {
+export function getStudioMcpEntryPath(cwd = process.cwd()): string {
   return join(cwd, "lib/agents/mcp/stdio.ts");
 }
 
-export function buildRexaMcpEnv(input: {
+export function buildStudioMcpEnv(input: {
   connectionString: string;
   dbType: string;
   connectionName?: string;
-  appMode: RexaAgentAppMode;
-}): RexaMcpLaunchEnv {
+  appMode: StudioAgentAppMode;
+}): StudioMcpLaunchEnv {
   return {
-    REXADB_CONNECTION_STRING: input.connectionString,
-    REXADB_DB_TYPE: input.dbType || "unknown",
-    REXADB_CONNECTION_NAME: input.connectionName || "",
-    REXADB_ALLOW_SQL_READ: input.appMode.allowSqlRead ? "1" : "0",
-    REXADB_ALLOW_SQL_WRITE: input.appMode.allowSqlWrite ? "1" : "0",
-    REXADB_MODE: input.appMode.id,
+    INFSTUDIO_CONNECTION_STRING: input.connectionString,
+    INFSTUDIO_DB_TYPE: input.dbType || "unknown",
+    INFSTUDIO_CONNECTION_NAME: input.connectionName || "",
+    INFSTUDIO_ALLOW_SQL_READ: input.appMode.allowSqlRead ? "1" : "0",
+    INFSTUDIO_ALLOW_SQL_WRITE: input.appMode.allowSqlWrite ? "1" : "0",
+    INFSTUDIO_MODE: input.appMode.id,
   };
 }
 
@@ -44,24 +44,24 @@ export function buildRexaMcpEnv(input: {
  * ACP / Claude-compatible MCP server descriptor for a single agent turn.
  * Uses `bun` to run the TypeScript entry directly.
  */
-export function buildRexaMcpServerConfig(input: {
+export function buildStudioMcpServerConfig(input: {
   connectionString: string;
   dbType: string;
   connectionName?: string;
-  appMode: RexaAgentAppMode;
+  appMode: StudioAgentAppMode;
   cwd?: string;
-}): RexaMcpServerConfig {
-  const entry = getRexaMcpEntryPath(input.cwd);
+}): StudioMcpServerConfig {
+  const entry = getStudioMcpEntryPath(input.cwd);
   return {
-    name: "rexadb",
+    name: "infinity-studio",
     command: process.execPath.includes("bun") ? process.execPath : "bun",
     args: ["run", entry],
-    env: buildRexaMcpEnv(input),
+    env: buildStudioMcpEnv(input),
   };
 }
 
 /** Claude Code `--mcp-config` JSON shape (mcpServers map). */
-export function buildClaudeMcpConfigJson(config: RexaMcpServerConfig): string {
+export function buildClaudeMcpConfigJson(config: StudioMcpServerConfig): string {
   return JSON.stringify({
     mcpServers: {
       [config.name]: {
@@ -96,7 +96,7 @@ export function buildExternalStdioDescriptor(cwd = process.cwd()): {
 export function buildExternalClaudeConfigJson(cwd = process.cwd()): string {
   const { command, args } = buildExternalStdioDescriptor(cwd);
   return JSON.stringify(
-    { mcpServers: { rexadb: { command, args } } },
+    { mcpServers: { "infinity-studio": { command, args } } },
     null,
     2,
   );
@@ -106,7 +106,7 @@ export function buildExternalClaudeConfigJson(cwd = process.cwd()): string {
 export function buildExternalCursorConfigJson(cwd = process.cwd()): string {
   const { command, args } = buildExternalStdioDescriptor(cwd);
   return JSON.stringify(
-    { mcpServers: { rexadb: { command, args } } },
+    { mcpServers: { "infinity-studio": { command, args } } },
     null,
     2,
   );

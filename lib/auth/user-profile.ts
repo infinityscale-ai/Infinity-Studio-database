@@ -2,9 +2,9 @@
 
 import { getStoredUserProfile, upsertUserProfile } from "@/lib/api/actions-client";
 
-export const DISPLAY_NAME_STORAGE_KEY = "rexa-db-display-name";
+export const DISPLAY_NAME_STORAGE_KEY = "infinity-studio-display-name";
 export const LOCAL_USER_ID = "local";
-export const PROFILE_CHANGED_EVENT = "rexa-db-profile-changed";
+export const PROFILE_CHANGED_EVENT = "infinity-studio-profile-changed";
 
 export interface LocalUserProfile {
   name: string;

@@ -190,7 +190,7 @@ function buildPiSystemPrompt(input: Pick<PiAgentInput, "dbType" | "selectedNames
   return lines.join("\n");
 }
 
-export async function createRexaDbPiSession(input: PiAgentInput): Promise<{ session: AgentSession; dispose: () => void }> {
+export async function createInfinityStudioPiSession(input: PiAgentInput): Promise<{ session: AgentSession; dispose: () => void }> {
   const resolved = resolveLanguageModel(input.settings, input.provider as any, input.model);
   const spec = parsePiModelSpec(resolved.model.id, resolved.model.url);
   const sandboxCwd = input.workingDirectory || getAgentSandboxCwd();

@@ -102,7 +102,7 @@ export const connectionSettings = sqliteTable("connection_settings", {
   sqlEditorEngine: text("sql_editor_engine").$type<"custom" | "monaco">().default("custom"),
   editorThemeId: text("editor_theme_id").default("auto"),
   customEditorThemes: text("custom_editor_themes"),
-  appThemeId: text("app_theme_id").default("rexadb-dark"),
+  appThemeId: text("app_theme_id").default("infinity-studio-dark"),
   customAppThemes: text("custom_app_themes"),
   tuiMode: integer("tui_mode", { mode: "boolean" }).default(false),
   tuiTheme: text("tui_theme").$type<"auto" | "light" | "dark">().default("auto"),

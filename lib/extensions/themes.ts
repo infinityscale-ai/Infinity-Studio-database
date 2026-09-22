@@ -4,7 +4,7 @@
  * `customEditorThemes`; this module handles the app-surface (CSS vars) side.
  */
 
-const ACTIVE_THEME_KEY = "rexadb.extensions.activeTheme";
+const ACTIVE_THEME_KEY = "infinity-studio.extensions.activeTheme";
 
 export function applyExtensionThemeVariables(
   theme: { id: string; cssVariables?: Record<string, string> },

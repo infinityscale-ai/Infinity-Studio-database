@@ -53,17 +53,17 @@ const ARROW_DOWN_INNER = '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>';
 const PLUS_INNER = '<path d="M5 12h14"/><path d="M12 5v14"/>';
 
 export const HEADER_ICON_KEYS = {
-  typeText: "rexaTypeText",
-  typeNumber: "rexaTypeNumber",
-  typeDate: "rexaTypeDate",
-  typeBoolean: "rexaTypeBoolean",
-  typeUuid: "rexaTypeUuid",
-  typeJson: "rexaTypeJson",
-  primaryKey: "rexaPrimaryKey",
-  foreignKey: "rexaForeignKey",
-  sortAsc: "rexaSortAsc",
-  sortDesc: "rexaSortDesc",
-  addColumn: "rexaAddColumn",
+  typeText: "studioTypeText",
+  typeNumber: "studioTypeNumber",
+  typeDate: "studioTypeDate",
+  typeBoolean: "studioTypeBoolean",
+  typeUuid: "studioTypeUuid",
+  typeJson: "studioTypeJson",
+  primaryKey: "studioPrimaryKey",
+  foreignKey: "studioForeignKey",
+  sortAsc: "studioSortAsc",
+  sortDesc: "studioSortDesc",
+  addColumn: "studioAddColumn",
 } as const;
 
 // Matches grid/grid-header.tsx exactly: type icons use the header's
@@ -72,7 +72,7 @@ export const HEADER_ICON_KEYS = {
 const typeSprite = (inner: string): Sprite => ({ fgColor }) => svg(inner, fgColor);
 const fixedColorSprite = (inner: string, color: string): Sprite => () => svg(inner, color);
 
-export const REXA_HEADER_ICONS: SpriteMap = {
+export const STUDIO_HEADER_ICONS: SpriteMap = {
   [HEADER_ICON_KEYS.typeText]: typeSprite(TYPE_INNER),
   [HEADER_ICON_KEYS.typeNumber]: typeSprite(HASH_INNER),
   [HEADER_ICON_KEYS.typeDate]: typeSprite(CALENDAR_INNER),

@@ -243,7 +243,7 @@ async function listCodexModels(binaryPath: string): Promise<AgentModel[] | null>
         params: {
           protocolVersion: "2025-11-01",
           capabilities: {},
-          clientInfo: { name: "rexadb", version: "0.0.0" },
+          clientInfo: { name: "infinity-studio", version: "0.0.0" },
         },
       }) + "\n",
     );
@@ -282,9 +282,9 @@ export async function listProviderModels(
   providerId: AgentProviderId,
   binaryPath?: string,
 ): Promise<AgentModel[]> {
-  // RexaDB has its own static model list (no CLI to query)
-  if (providerId === "rexadb") {
-    return AGENT_PROVIDER_META.rexadb.models;
+  // Infinity Studio has its own static model list (no CLI to query)
+  if (providerId === "infinity-studio") {
+    return AGENT_PROVIDER_META["infinity-studio"].models;
   }
 
   // Claude Code has no non-interactive model listing command — use static list

@@ -6,7 +6,7 @@
 
 import { validateManifest, type ExtensionManifest, type InstalledExtensionRecord } from "./types";
 
-const INSTALLED_KEY = "rexadb.extensions.installed.v1";
+const INSTALLED_KEY = "infinity-studio.extensions.installed.v1";
 
 function safeParse(json: string | null): InstalledExtensionRecord[] {
   if (!json) return [];
@@ -79,7 +79,7 @@ export function getEnabledExtensions(): InstalledExtensionRecord[] {
 }
 
 /** Parse an install payload. Accepts either a `{ manifest, code }` bundle
- *  (see the hello-rexa bundle.json example) or a raw manifest object —
+ *  (see the hello-infinity-studio bundle.json example) or a raw manifest object —
  *  the latter installs static contributions only (no runtime handlers). */
 export function parseExtensionBundle(json: string): { manifest: ExtensionManifest; code?: string } {
   const parsed = JSON.parse(json) as {

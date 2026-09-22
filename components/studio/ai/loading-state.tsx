@@ -7,7 +7,7 @@ import { useElapsed } from "@/components/studio/ai/use-elapsed";
 
 /* ─────────────────────────────────────────────────────────
  * LOADING STATE — pixel-grid loader for long-running work
- * Adapted from provided snippet to RexaDB tokens:
+ * Adapted from provided snippet to Infinity Studio tokens:
  *   --ink / --ink-3  →  --foreground / --muted-foreground
  *   --tooltip-bg     →  --popover
  *   shadow-overlay   →  shadow-lg

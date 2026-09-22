@@ -3,7 +3,7 @@
 // - client hydrates from localStorage so the picker shows instantly while the server re-probes
 import type { AgentProvider } from "./provider-types";
 
-const CACHE_KEY = "rexa-providers-cache";
+const CACHE_KEY = "infinity-studio-providers-cache";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min fresh, serve stale while revalidate after
 const STALE_WHILE_REVALIDATE_MS = 30 * 60 * 1000; // 30 min stale usable
 

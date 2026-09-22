@@ -9,7 +9,7 @@ import type { ColumnDecorator, DictionaryScope } from "./types";
 import { freshEmptyScope } from "./types";
 import { columnKey, isValidDecorator, tableKey } from "./helpers";
 
-export const DICTIONARY_UPDATED_EVENT = "rexadb:dictionary-updated";
+export const DICTIONARY_UPDATED_EVENT = "infinity-studio:dictionary-updated";
 
 export function notifyDictionaryUpdated(connectionId: number) {
   try {
@@ -23,7 +23,7 @@ export function notifyDictionaryUpdated(connectionId: number) {
   }
 }
 
-const STORAGE_PREFIX = "rexadb.dictionary.";
+const STORAGE_PREFIX = "infinity-studio.dictionary.";
 
 async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const { invoke } = await import("@tauri-apps/api/core");

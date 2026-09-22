@@ -1,5 +1,5 @@
 export type AgentProviderId =
-  | "rexadb"
+  | "infinity-studio"
   | "claude-code"
   | "opencode"
   | "codex"
@@ -176,8 +176,8 @@ export const AGENT_PROVIDER_META: Record<
     models: AgentModel[];
   }
 > = {
-  rexadb: {
-    name: "RexaDB Agent",
+  "infinity-studio": {
+    name: "Infinity Studio Agent",
     icon: "Bot",
     description: "Built-in AI agent with database tools",
     binaries: [],

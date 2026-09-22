@@ -30,7 +30,7 @@ export type ErdProject = {
 };
 
 const storageKey = (connectionId: number | string) =>
-  `rexa-db-erd-projects-${connectionId}`;
+  `infinity-studio-erd-projects-${connectionId}`;
 
 function readAll(connectionId: number | string): ErdProject[] {
   if (typeof window === "undefined") return [];
@@ -228,7 +228,7 @@ export function computeErdProgress(projects: ErdProject[]): {
   if (typeof window !== "undefined") {
     try {
       const flags = JSON.parse(
-        localStorage.getItem("rexa-db-erd-progress-flags") || "{}",
+        localStorage.getItem("infinity-studio-erd-progress-flags") || "{}",
       ) as Partial<Record<ErdFeatureId, boolean>>;
       for (const id of ERD_FEATURE_CHECKLIST.map((f) => f.id)) {
         if (flags[id]) completed.add(id);
@@ -248,10 +248,10 @@ export function markErdFeature(id: ErdFeatureId) {
   if (typeof window === "undefined") return;
   try {
     const flags = JSON.parse(
-      localStorage.getItem("rexa-db-erd-progress-flags") || "{}",
+      localStorage.getItem("infinity-studio-erd-progress-flags") || "{}",
     ) as Partial<Record<ErdFeatureId, boolean>>;
     flags[id] = true;
-    localStorage.setItem("rexa-db-erd-progress-flags", JSON.stringify(flags));
+    localStorage.setItem("infinity-studio-erd-progress-flags", JSON.stringify(flags));
     window.dispatchEvent(new CustomEvent("studio:erd-progress"));
   } catch {
     /* ignore */

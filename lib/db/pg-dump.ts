@@ -19,7 +19,7 @@ function findLatestPgVersion(versions: string[]): string | null {
 
 export async function resolvePgDumpBinary() {
   const explicit =
-    String(process.env.REXADB_PG_DUMP_PATH || "").trim() ||
+    String(process.env.INFSTUDIO_PG_DUMP_PATH || "").trim() ||
     String(process.env.PG_DUMP_PATH || "").trim();
   if (explicit) return { binary: explicit, candidates: [explicit] };
 

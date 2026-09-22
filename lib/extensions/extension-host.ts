@@ -1,6 +1,6 @@
 /**
  * Extension host — runs each extension's `main` JS inside a Web Worker sandbox
- * and exposes a VS Code-like `rexa` API over an async RPC channel.
+ * and exposes a VS Code-like `infinityStudio` API over an async RPC channel.
  *
  * Protocol (postMessage):
  *   worker -> host: { kind: "rpc", id, namespace, method, args }
@@ -11,7 +11,7 @@
  *   worker -> host: { kind: "handler-result", callId, ok, value|error }
  *
  * Extension code shape (bundled single file, no imports):
- *   globalThis.activate = async (rexa) => { await rexa.commands.registerCommand(...) }
+ *   globalThis.activate = async (infinityStudio) => { await infinityStudio.commands.registerCommand(...) }
  *   // or: export-style for tests: module.exports.activate / return value of
  *   // evaluateExtensionFactory.
  *
@@ -20,7 +20,7 @@
  * without a browser.
  */
 
-import type { RexaHostApi, RexaTreeItem } from "./types";
+import type { StudioHostApi, StudioTreeItem } from "./types";
 import { isWriteQuery } from "./db-bridge";
 import type { ExtensionSchemaInfo } from "./db-bridge";
 
@@ -49,7 +49,7 @@ export type HostCallbacks = {
   };
   tree: {
     registerProvider(extensionId: string, viewId: string): void;
-    setChildren(viewId: string, parentId: string | undefined, items: RexaTreeItem[]): void;
+    setChildren(viewId: string, parentId: string | undefined, items: StudioTreeItem[]): void;
   };
   workspace: {
     get(section?: string): Promise<Record<string, unknown>>;
@@ -96,7 +96,7 @@ function __call(namespace, method, args) {
 }
 const __handlers = new Map();
 function __registerHandler(name, fn) { __handlers.set(name, fn); }
-const rexa = {
+const infinityStudio = {
   commands: {
     registerCommand: (command, title, group) => __call("commands", "register", [command, title, group]),
     executeCommand: (command, ...args) => __call("commands", "execute", [command, ...args]),
@@ -124,7 +124,7 @@ const rexa = {
     registerCompletionItems: (languageId, items) => __call("languages", "completionsAdd", [languageId, items]),
     registerFormatter: (languageId) => __call("languages", "formatterAdd", [languageId]),
   },
-  rexaDb: {
+  db: {
     getConnections: () => __call("db", "getConnections", []),
     getActiveConnection: () => __call("db", "getActiveConnection", []),
     executeQuery: (sql, params) => __call("db", "executeQuery", [sql, params]),
@@ -138,7 +138,7 @@ const rexa = {
   env: { clipboardWrite: (text) => __call("env", "clipboardWrite", [text]) },
 };
 // Tree provider + command handlers live in worker; host asks via "execute".
-rexa.__registerHandler = __registerHandler;
+infinityStudio.__registerHandler = __registerHandler;
 onmessage = async (e) => {
   const msg = e.data;
   if (msg?.kind === "result") {
@@ -151,15 +151,15 @@ onmessage = async (e) => {
       const factory = (typeof __extensionActivate === "function") ? __extensionActivate : (typeof activate === "function" ? activate : null);
       if (!factory) { postMessage({ kind: "ready", ok: false, error: "no activate() export found" }); return; }
       // Wrap tree-provider + command callbacks so host can invoke them later.
-      rexa.window.__wrapTreeProvider = (viewId, getChildren) => {
+      infinityStudio.window.__wrapTreeProvider = (viewId, getChildren) => {
         __registerHandler("tree:" + viewId, (parentId) => getChildren(parentId));
-        return rexa.window.registerTreeDataProvider(viewId);
+        return infinityStudio.window.registerTreeDataProvider(viewId);
       };
-      rexa.commands.__wrapRegister = (command, handler, title, group) => {
+      infinityStudio.commands.__wrapRegister = (command, handler, title, group) => {
         __registerHandler("command:" + command, (args) => handler(...(args || [])));
-        return rexa.commands.registerCommand(command, title, group);
+        return infinityStudio.commands.registerCommand(command, title, group);
       };
-      await factory(rexa);
+      await factory(infinityStudio);
       postMessage({ kind: "ready", ok: true });
     } catch (err) {
       postMessage({ kind: "ready", ok: false, error: String(err?.message || err) });
@@ -180,7 +180,7 @@ onmessage = async (e) => {
 `;
 
 export function buildWorkerSource(extensionCode: string): string {
-  // Extension authors write `async function activate(rexa) {...}` or assign
+  // Extension authors write `async function activate(infinityStudio) {...}` or assign
   // `globalThis.__extensionActivate`. We wrap their code so top-level
   // `function activate` declarations are captured.
   return `${SHIM_SOURCE}\n;var activate;\n;var __extensionActivate;\n${extensionCode}\n;if (typeof activate === "function") { __extensionActivate = activate; }\n`;
@@ -358,7 +358,7 @@ export class ExtensionHost {
       case "tree.registerProvider": {
         cb.tree.registerProvider(extensionId, args[0] as string);
         // Pull initial roots so the React tree can render without waiting.
-        const roots = (await this.invokeWorkerHandler(extensionId, `tree:${args[0]}`, [undefined]).catch(() => [])) as RexaTreeItem[];
+        const roots = (await this.invokeWorkerHandler(extensionId, `tree:${args[0]}`, [undefined]).catch(() => [])) as StudioTreeItem[];
         cb.tree.setChildren(args[0] as string, undefined, Array.isArray(roots) ? roots : []);
         return true;
       }
@@ -406,8 +406,8 @@ export class ExtensionHost {
   }
 
   // -- tree expansion helper used by React tree views -----------------------
-  async getTreeChildren(extensionId: string, viewId: string, parentId?: string): Promise<RexaTreeItem[]> {
-    const items = (await this.invokeWorkerHandler(extensionId, `tree:${viewId}`, [parentId]).catch(() => [])) as RexaTreeItem[];
+  async getTreeChildren(extensionId: string, viewId: string, parentId?: string): Promise<StudioTreeItem[]> {
+    const items = (await this.invokeWorkerHandler(extensionId, `tree:${viewId}`, [parentId]).catch(() => [])) as StudioTreeItem[];
     const list = Array.isArray(items) ? items : [];
     this.callbacks.tree.setChildren(viewId, parentId, list);
     return list;
@@ -417,19 +417,19 @@ export class ExtensionHost {
 /**
  * Test/SSR helper: run extension factory code in-process against callbacks.
  * `factorySource` is the extension `main` JS; we eval it in a tiny sandbox
- * exposing `activate`/`__extensionActivate` and call it with a direct `rexa`
+ * exposing `activate`/`__extensionActivate` and call it with a direct `infinityStudio`
  * implementation built from the same callbacks.
  */
 export async function runInProcess(
   extensionId: string,
   factorySource: string,
   callbacks: HostCallbacks,
-  opts?: { onApi?: (api: RexaHostApi) => void },
-): Promise<{ api: RexaHostApi; deactivate?: () => void }> {
-  const treeHandlers = new Map<string, (parentId?: string) => Promise<RexaTreeItem[]>>();
+  opts?: { onApi?: (api: StudioHostApi) => void },
+): Promise<{ api: StudioHostApi; deactivate?: () => void }> {
+  const treeHandlers = new Map<string, (parentId?: string) => Promise<StudioTreeItem[]>>();
   const commandHandlers = new Map<string, (...args: unknown[]) => Promise<unknown>>();
 
-  const api: RexaHostApi = {
+  const api: StudioHostApi = {
     commands: {
       registerCommand: async (command, title, group) => {
         callbacks.commands.register(extensionId, command, title, group);
@@ -497,7 +497,7 @@ export async function runInProcess(
         callbacks.languages.formatterAdd(id, extensionId);
       },
     },
-    rexaDb: {
+    db: {
       getConnections: () => callbacks.db.getConnections(),
       getActiveConnection: () => callbacks.db.getActiveConnection(),
       executeQuery: <T,>(sql: string, params?: unknown[]) => {
@@ -533,7 +533,7 @@ export async function runInProcess(
     commandHandlers.set(command, handler);
     return api.commands.registerCommand(command, title, group);
   };
-  // Worker-shim style: rexa.__registerHandler("command:<id>" | "tree:<viewId>", fn).
+  // Worker-shim style: infinityStudio.__registerHandler("command:<id>" | "tree:<viewId>", fn).
   // Stored locally so executeCommand / tree expansion resolve without a Worker.
   ((api as unknown as Record<string, unknown>).__registerHandler as unknown) = (
     name: string,
@@ -543,12 +543,12 @@ export async function runInProcess(
     else if (name.startsWith("tree:"))
       treeHandlers.set(
         name.slice("tree:".length),
-        (parentId?: string) => fn(parentId) as Promise<RexaTreeItem[]>,
+        (parentId?: string) => fn(parentId) as Promise<StudioTreeItem[]>,
       );
   };
   ((api.window as unknown as Record<string, unknown>).__wrapTreeProvider as unknown) = (
     viewId: string,
-    getChildren: (parentId?: string) => Promise<RexaTreeItem[]>,
+    getChildren: (parentId?: string) => Promise<StudioTreeItem[]>,
   ) => {
     treeHandlers.set(viewId, getChildren);
     return api.window.registerTreeDataProvider(viewId, { getChildren });
@@ -556,12 +556,12 @@ export async function runInProcess(
 
   opts?.onApi?.(api);
 
-  const sandbox: Record<string, unknown> = { rexa: api };
+  const sandbox: Record<string, unknown> = { infinityStudio: api };
   const runner = new Function(
-    "rexa",
+    "infinityStudio",
     `${factorySource}\n;return (typeof __extensionActivate === "function" ? __extensionActivate : (typeof activate === "function" ? activate : null));`,
   );
-  const activate = runner.call(sandbox, api) as ((rexa: RexaHostApi) => Promise<void> | void) | null;
+  const activate = runner.call(sandbox, api) as ((infinityStudio: StudioHostApi) => Promise<void> | void) | null;
   if (!activate) throw new Error("no activate() export found");
   await activate(api);
   return { api };

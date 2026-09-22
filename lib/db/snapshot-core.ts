@@ -1034,11 +1034,11 @@ function getAppDataDir(): string {
   const platform = process.platform;
   if (platform === "win32") {
     const appData = process.env.APPDATA || `${home}\\AppData\\Roaming`;
-    return `${appData}\\Rexa DB`;
+    return `${appData}\\Infinity Studio`;
   }
-  if (platform === "darwin") return `${home}/Library/Application Support/Rexa DB`;
+  if (platform === "darwin") return `${home}/Library/Application Support/Infinity Studio`;
   const xdg = process.env.XDG_CONFIG_HOME || `${home}/.config`;
-  return `${xdg}/Rexa DB`;
+  return `${xdg}/Infinity Studio`;
 }
 
 export function getSnapshotDir(connectionId: string): string {

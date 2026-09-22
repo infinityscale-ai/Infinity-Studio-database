@@ -9,7 +9,7 @@ import "drizzle-orm";
 import "drizzle-orm/bun-sqlite";
 import "nearley";
 import { extractIndexColumns } from "../lib/db/pg-utils";
-import { createRexaDbPiSession, streamPiResponse, type PiAgentInput, type PiSseEvent } from "../lib/ai/pi-agent";
+import { createInfinityStudioPiSession, streamPiResponse, type PiAgentInput, type PiSseEvent } from "../lib/ai/pi-agent";
 import { getAgentSandboxCwd } from "../lib/agents/sandbox-cwd";
 import { ensureEnrichedPath } from "../lib/system/shell-path";
 
@@ -35,15 +35,15 @@ function log(...args: any[]) {
   process.stderr.write(parts.join(' ') + '\n');
 }
 
-const PORT = parseInt(process.env.REXADB_SERVER_PORT || "3867", 10);
+const PORT = parseInt(process.env.INFSTUDIO_SERVER_PORT || "3867", 10);
 
 // In dev mode, default DB to project root (matching Electron main.js behavior)
-if (!process.env.REXADB_USER_DATA_DIR) {
-  process.env.REXADB_USER_DATA_DIR = process.cwd();
+if (!process.env.INFSTUDIO_USER_DATA_DIR) {
+  process.env.INFSTUDIO_USER_DATA_DIR = process.cwd();
 }
 
 // Log to a known-writable location so we can always find it
-const LOG_FILE = path.join(os.tmpdir(), "rexadb-server.log");
+const LOG_FILE = path.join(os.tmpdir(), "infinity-studio-server.log");
 function logToFile(...args: unknown[]) {
   try {
     const line = `[${new Date().toISOString()}] ${args.map(a => String(a)).join(" ")}\n`;
@@ -52,11 +52,11 @@ function logToFile(...args: unknown[]) {
 }
 logToFile("=== server startup ===");
 logToFile("cwd:", process.cwd());
-logToFile("REXADB_USER_DATA_DIR:", process.env.REXADB_USER_DATA_DIR);
+logToFile("INFSTUDIO_USER_DATA_DIR:", process.env.INFSTUDIO_USER_DATA_DIR);
 logToFile("HOME:", process.env.HOME);
 logToFile("USERPROFILE:", process.env.USERPROFILE);
-log("[rexadb:snapshot] Server startup — DB path:", process.env.REXADB_USER_DATA_DIR
-  ? `${process.env.REXADB_USER_DATA_DIR}/sqlite.db`
+log("[infinity-studio:snapshot] Server startup — DB path:", process.env.INFSTUDIO_USER_DATA_DIR
+  ? `${process.env.INFSTUDIO_USER_DATA_DIR}/sqlite.db`
   : `${process.cwd()}/sqlite.db`);
 
 
@@ -72,7 +72,7 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:3000',
   'tauri://localhost',
   'http://tauri.localhost',
-  ...(process.env.REXADB_CORS_ORIGINS ? process.env.REXADB_CORS_ORIGINS.split(',').map(s => s.trim()) : []),
+  ...(process.env.INFSTUDIO_CORS_ORIGINS ? process.env.INFSTUDIO_CORS_ORIGINS.split(',').map(s => s.trim()) : []),
 ];
 
 const corsMiddleware = cors({
@@ -110,7 +110,7 @@ app.use((req, _res, next) => {
 });
 
 // Simple API key authentication (allows unauthenticated health checks)
-const API_KEY = process.env.REXADB_API_KEY || '';
+const API_KEY = process.env.INFSTUDIO_API_KEY || '';
 
 function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
   // Health endpoint is public
@@ -285,7 +285,7 @@ app.get("/api/mcp/config", async (_req, res) => {
     const all = await listAllConnectionDeps();
     // Verbatim stdio descriptor so harnesses spawn the server against THIS
     // sidecar's data dir no matter what cwd they launch from (without
-    // REXADB_USER_DATA_DIR a foreign-cwd spawn would open ~/.rexadb/sqlite.db
+    // INFSTUDIO_USER_DATA_DIR a foreign-cwd spawn would open ~/.infinity-studio/sqlite.db
     // and see a disabled server).
     let stdio: { command: string; args: string[]; env: Record<string, string>; available: boolean } | null = null;
     try {
@@ -294,7 +294,7 @@ app.get("/api/mcp/config", async (_req, res) => {
       stdio = {
         command: bunBin,
         args: ["run", entry],
-        env: { REXADB_USER_DATA_DIR: process.env.REXADB_USER_DATA_DIR || process.cwd() },
+        env: { INFSTUDIO_USER_DATA_DIR: process.env.INFSTUDIO_USER_DATA_DIR || process.cwd() },
         available: fs.existsSync(entry),
       };
     } catch {
@@ -436,11 +436,11 @@ app.put("/api/mcp/modes/:id", async (req, res) => {
 app.delete("/api/mcp/modes/:id", async (req, res) => {
   try {
     const { loadMcpExternalConfig, saveMcpExternalConfig, sanitizeMcpExternalConfig, listMcpModes } = await import("../lib/agents/mcp/external-config");
-    const { REXADB_PLAN_MODE } = await import("../lib/agents/app-modes");
+    const { INFSTUDIO_PLAN_MODE } = await import("../lib/agents/app-modes");
     const config = await loadMcpExternalConfig();
     const id = String(req.params.id);
     config.customModes = (config.customModes || []).filter((m: any) => m.id !== id);
-    if (config.modeId === id) config.modeId = REXADB_PLAN_MODE.id;
+    if (config.modeId === id) config.modeId = INFSTUDIO_PLAN_MODE.id;
     const saved = await saveMcpExternalConfig(sanitizeMcpExternalConfig(config));
     res.json({ success: true, data: { modes: listMcpModes(saved.customModes), modeId: saved.modeId } });
   } catch (e: any) {
@@ -449,7 +449,7 @@ app.delete("/api/mcp/modes/:id", async (req, res) => {
 });
 
 // Streamable-HTTP MCP endpoint (stateless). Bearer-authenticated with the MCP
-// token from Settings → MCP Server; independent from REXADB_API_KEY.
+// token from Settings → MCP Server; independent from INFSTUDIO_API_KEY.
 app.all("/mcp", async (req, res) => {
   try {
     const { loadMcpExternalConfig } = await import("../lib/agents/mcp/external-config");
@@ -796,7 +796,7 @@ app.get("/studio/:connectionId/snippets", async (req, res) => {
   try {
     const connectionId = Number(req.params.connectionId);
     const result = await mod.getStudioSnippets(connectionId);
-    log("[rexadb:snapshot] Server getStudioSnippets for", connectionId, {
+    log("[infinity-studio:snapshot] Server getStudioSnippets for", connectionId, {
       success: result?.success,
       count: result?.data?.length ?? 0,
       ids: (result?.data ?? []).map((s: any) => s.id),
@@ -812,17 +812,17 @@ app.post("/studio/:connectionId/snippets", async (req, res) => {
   try {
     const connectionId = Number(req.params.connectionId);
     const body = req.body;
-    log("[rexadb:snapshot] Server saveStudioSnippets received", {
+    log("[infinity-studio:snapshot] Server saveStudioSnippets received", {
       connectionId,
       snippetCount: Array.isArray(body) ? body.length : typeof body,
       snippetIds: Array.isArray(body) ? body.map((s: any) => s?.id) : [],
       snippetNames: Array.isArray(body) ? body.map((s: any) => s?.name) : [],
     });
     const result = await mod.saveStudioSnippets(connectionId, body);
-    log("[rexadb:snapshot] Server saveStudioSnippets result", result);
+    log("[infinity-studio:snapshot] Server saveStudioSnippets result", result);
     res.json(result);
   } catch (e: any) {
-    console.error("[rexadb:snapshot] Server saveStudioSnippets error", e);
+    console.error("[infinity-studio:snapshot] Server saveStudioSnippets error", e);
     res.json({ success: false, error: e.message });
   }
 });
@@ -1098,7 +1098,7 @@ app.get("/api/ai/chats/:chatId/messages", async (req, res) => {
 });
 
 app.post("/api/ai/chats/:chatId/messages", async (req, res) => {
-  log("[rexadb:chat] POST messages chatId=%s action=%s", req.params.chatId, req.body?.action);
+  log("[infinity-studio:chat] POST messages chatId=%s action=%s", req.params.chatId, req.body?.action);
   try {
     const { action, ...payload } = req.body;
     switch (action) {
@@ -1272,7 +1272,7 @@ app.post("/api/agent/chat/stream", async (req, res) => {
       },
     };
 
-    const { session, dispose } = await createRexaDbPiSession(piInput);
+    const { session, dispose } = await createInfinityStudioPiSession(piInput);
 
     let fullText = "";
     try {
@@ -1340,7 +1340,7 @@ app.post("/api/agent/generate-dashboard/stream", async (req, res) => {
       },
     };
 
-    const { session, dispose } = await createRexaDbPiSession(piInput);
+    const { session, dispose } = await createInfinityStudioPiSession(piInput);
 
     let fullText = "";
     try {
@@ -1813,7 +1813,7 @@ app.post("/api/agents/chat/stream", async (req, res) => {
       return;
     }
 
-    const { REXADB_PLAN_MODE, REXADB_BUILD_MODE } = await import(
+    const { INFSTUDIO_PLAN_MODE, INFSTUDIO_BUILD_MODE } = await import(
       "../lib/agents/app-modes"
     );
     const resolvedAppMode =
@@ -1830,9 +1830,9 @@ app.post("/api/agents/chat/stream", async (req, res) => {
             promptRules: String(appMode.promptRules || ""),
             mapsToProviderMode: appMode.mapsToProviderMode,
           }
-        : appMode?.id === "rexadb-build"
-          ? REXADB_BUILD_MODE
-          : REXADB_PLAN_MODE;
+        : appMode?.id === "infinity-studio-build"
+          ? INFSTUDIO_BUILD_MODE
+          : INFSTUDIO_PLAN_MODE;
 
     // Prefer a per-connection sandbox so schemas never bleed across DBs.
     const agentCwd = getAgentSandboxCwd(connectionId);
@@ -1881,7 +1881,7 @@ app.post("/api/agents/chat/stream", async (req, res) => {
       );
     }
 
-    if (provider === "rexadb") {
+    if (provider === "infinity-studio") {
       // Route to existing built-in agent — pick the first configured provider
       // (like t3's resolveModelScope) instead of hardcoding ollama/llama3.
       const settingsResult = await mod.getGlobalAiSettings();
@@ -2009,7 +2009,7 @@ app.post("/api/agents/chat/stream", async (req, res) => {
         },
       };
 
-      const { session, dispose } = await createRexaDbPiSession(piInput);
+      const { session, dispose } = await createInfinityStudioPiSession(piInput);
       try {
         const fullText = await streamPiResponse({
           session,
@@ -2044,12 +2044,12 @@ app.post("/api/agents/chat/stream", async (req, res) => {
     // External CLI harness
     const { getHarnessClient, spawnHarness } = await import("../lib/agents/harness-clients");
     const { buildAgentDatabaseContext } = await import("../lib/ai/system-prompt");
-    const { buildRexaMcpServerConfig } = await import("../lib/agents/mcp/config");
+    const { buildStudioMcpServerConfig } = await import("../lib/agents/mcp/config");
     const client = getHarnessClient(provider);
 
     const mcp =
       typeof connectionString === "string" && connectionString
-        ? buildRexaMcpServerConfig({
+        ? buildStudioMcpServerConfig({
             connectionString,
             dbType: String(dbType || "unknown"),
             connectionName:
@@ -2230,14 +2230,14 @@ app.post("/api/agents/chat/stream", async (req, res) => {
 
 function startServer(port: number, maxPort: number = 3900) {
   const server = app.listen(port, "127.0.0.1", () => {
-    log(`[rexadb-server] listening on port ${port}`);
+    log(`[infinity-studio-server] listening on port ${port}`);
     logToFile(`listening on port ${port}`);
     // Warm provider cache in background so first /api/agents/detect is instant (t3 pattern)
     setTimeout(() => {
       void refreshProvidersCacheInBackground().catch(() => {});
     }, 500);
     // Write port file for frontend discovery
-    const dataDir = process.env.REXADB_USER_DATA_DIR || "/tmp";
+    const dataDir = process.env.INFSTUDIO_USER_DATA_DIR || "/tmp";
     try {
       fs.writeFileSync(path.join(dataDir, "port.json"), JSON.stringify({ port }));
     } catch {}
@@ -2249,11 +2249,11 @@ function startServer(port: number, maxPort: number = 3900) {
   server.on("error", (err: any) => {
     if (err.code === "EADDRINUSE" && port < maxPort) {
       const nextPort = port + 1;
-      log(`[rexadb-server] port ${port} in use, trying ${nextPort}`);
+      log(`[infinity-studio-server] port ${port} in use, trying ${nextPort}`);
       logToFile(`port ${port} in use, trying ${nextPort}`);
       startServer(nextPort, maxPort);
     } else {
-      log(`[rexadb-server] failed to start on port ${port}: ${err.message}`);
+      log(`[infinity-studio-server] failed to start on port ${port}: ${err.message}`);
       logToFile(`failed to start on port ${port}: ${err.message}`);
       process.exit(1);
     }

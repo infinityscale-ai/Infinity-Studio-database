@@ -1,5 +1,5 @@
 /**
- * Shared DB tool handlers for the built-in pi-agent AND the RexaDB MCP server.
+ * Shared DB tool handlers for the built-in pi-agent AND the Infinity Studio MCP server.
  * Keep this free of pi-coding-agent / MCP SDK types so both sides can wrap it.
  */
 import {

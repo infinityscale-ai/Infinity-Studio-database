@@ -145,7 +145,7 @@ async function withSession<T>(
       params: {
         protocolVersion: "2025-06-18",
         capabilities: {},
-        clientInfo: { name: "rexadb", version: "1.0" },
+        clientInfo: { name: "infinity-studio", version: "1.0" },
       },
     },
     null,

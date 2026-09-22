@@ -4,7 +4,7 @@ import { useExtensions } from "@/lib/extensions/react";
 import { ExtensionWebview } from "./extension-webview";
 
 /**
- * Editor-tab host for extension panels (`rexa.window.openWebviewPanel`
+ * Editor-tab host for extension panels (`infinityStudio.window.openWebviewPanel`
  * with `area: "editor"`).
  *
  * Tab content is the PANEL's own html (declared in the manifest or passed at

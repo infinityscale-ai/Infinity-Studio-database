@@ -4,8 +4,8 @@ import { join } from "node:path";
 import type { LightSchemaContextTable } from "@/lib/ai/types";
 import { renderSchemaContext } from "@/lib/ai/system-prompt";
 
-/** Shared sandbox root for every RexaDB agent (sidebar + window, built-in + CLI). */
-export const AGENT_SANDBOX_DIR_NAME = "rexadb-pi-agent";
+/** Shared sandbox root for every Infinity Studio agent (sidebar + window, built-in + CLI). */
+export const AGENT_SANDBOX_DIR_NAME = "infinity-studio-pi-agent";
 
 /** Filename coding agents should read for the live DB schema. */
 export const AGENT_SCHEMA_FILENAME = "SCHEMA.md";
@@ -51,13 +51,13 @@ export function materializeAgentSandbox(
     Array.isArray(input.schemaContext) && input.schemaContext.length > 0;
   const schemaPath = join(cwd, AGENT_SCHEMA_FILENAME);
   const schemaMarkdown = [
-    `# Live database catalog (RexaDB connection)`,
+    `# Live database catalog (Infinity Studio connection)`,
     ``,
     `This is NOT a local project schema file.`,
-    `It is a snapshot of the LIVE database RexaDB is connected to right now.`,
+    `It is a snapshot of the LIVE database Infinity Studio is connected to right now.`,
     `When the user says "this database" / "this schema", they mean THIS live connection.`,
     ``,
-    `- **Hosted by:** RexaDB Agents`,
+    `- **Hosted by:** Infinity Studio Agents`,
     `- **Database type:** ${input.dbType || "unknown"}`,
     input.connectionName ? `- **Connection name:** ${input.connectionName}` : null,
     input.connectionId != null ? `- **Connection id:** ${input.connectionId}` : null,
@@ -81,14 +81,14 @@ export function materializeAgentSandbox(
   writeFileSync(
     readmePath,
     [
-      `# RexaDB live connection workspace`,
+      `# Infinity Studio live connection workspace`,
       ``,
       `This temporary folder is only a scratch pad for the agent.`,
-      `It is NOT the database and NOT the RexaDB application source tree.`,
+      `It is NOT the database and NOT the Infinity Studio application source tree.`,
       ``,
       `## What you are connected to`,
       ``,
-      `- A **live** database connection managed by RexaDB.`,
+      `- A **live** database connection managed by Infinity Studio.`,
       `- Database type: **${input.dbType || "unknown"}**`,
       input.connectionName ? `- Connection name: **${input.connectionName}**` : null,
       ``,

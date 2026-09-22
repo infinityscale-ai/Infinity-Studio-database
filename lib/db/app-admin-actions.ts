@@ -174,7 +174,7 @@ export async function getGlobalAppThemeSettings(
         return {
           success: true,
           data: {
-            appThemeId: fileData.app_theme_id || "rexadb-dark",
+            appThemeId: fileData.app_theme_id || "infinity-studio-dark",
             customAppThemes: fileData.custom_app_themes || "[]",
           },
         };
@@ -200,7 +200,7 @@ export async function getGlobalAppThemeSettings(
       return {
         success: true,
         data: {
-          appThemeId: savedThemeId || "rexadb-dark",
+          appThemeId: savedThemeId || "infinity-studio-dark",
           customAppThemes: savedCustomThemes || "[]",
         },
       };
@@ -208,7 +208,7 @@ export async function getGlobalAppThemeSettings(
 
     const missingSetting = await checkMissingSettingColumns(db, sql, ["app_theme_id", "custom_app_themes"]);
     if (missingSetting) {
-      return { success: true, data: { appThemeId: "rexadb-dark", customAppThemes: "[]" } };
+      return { success: true, data: { appThemeId: "infinity-studio-dark", customAppThemes: "[]" } };
     }
 
     const legacyRows = await db.all<{
@@ -221,7 +221,7 @@ export async function getGlobalAppThemeSettings(
          OR TRIM(COALESCE(custom_app_themes, '')) <> ''
       LIMIT 1
     `);
-    const legacyThemeId = legacyRows[0]?.appThemeId?.trim() || "rexadb-dark";
+    const legacyThemeId = legacyRows[0]?.appThemeId?.trim() || "infinity-studio-dark";
     const legacyCustomThemes = legacyRows[0]?.customAppThemes?.trim() || "[]";
 
     await db.run(sql`
@@ -260,7 +260,7 @@ export async function saveGlobalAppThemeSettings(settings: {
     // If JSON file exists (migration already happened), write to JSON
     if (await settingsFileExists()) {
       const written = await queueSettingsUpdate((fileData) => {
-        fileData.app_theme_id = String(settings.appThemeId || "rexadb-dark").trim() || "rexadb-dark";
+        fileData.app_theme_id = String(settings.appThemeId || "infinity-studio-dark").trim() || "infinity-studio-dark";
         // fallow-ignore-next-line code-duplication
         fileData.custom_app_themes = String(settings.customAppThemes || "[]").trim() || "[]";
         fileData._version = 1;
@@ -272,7 +272,7 @@ export async function saveGlobalAppThemeSettings(settings: {
     const { db } = await import("./index");
     const { sql } = await import("drizzle-orm");
     const appThemeId =
-      String(settings.appThemeId || "rexadb-dark").trim() || "rexadb-dark";
+      String(settings.appThemeId || "infinity-studio-dark").trim() || "infinity-studio-dark";
     const customAppThemes =
       String(settings.customAppThemes || "[]").trim() || "[]";
     const updatedAt = Date.now();

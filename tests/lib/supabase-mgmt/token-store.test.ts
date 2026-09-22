@@ -99,7 +99,7 @@ test("token store: clearMgmtTokens empties the list", () => {
 });
 
 test("token store: corrupt storage never throws", () => {
-  const { storage } = makeStorage({ "rexadb-supabase-mgmt-accounts": "{oops" });
+  const { storage } = makeStorage({ "infinity-studio-supabase-mgmt-accounts": "{oops" });
   (globalThis as any).window = { localStorage: storage };
   assert.deepEqual(getMgmtAccounts(), []);
   assert.equal(getFirstMgmtToken(), null);
@@ -108,14 +108,14 @@ test("token store: corrupt storage never throws", () => {
 test("token store: legacy single-token key migrates and is removed", () => {
   const legacyToken = jwtWith({ email: "legacy@example.com" });
   const { storage, store } = makeStorage({
-    "rexadb-supabase-mgmt-token": legacyToken,
+    "infinity-studio-supabase-mgmt-token": legacyToken,
   });
   (globalThis as any).window = { localStorage: storage };
   const accounts = getMgmtAccounts();
   assert.equal(accounts.length, 1);
   assert.equal(accounts[0].token, legacyToken);
   assert.equal(accounts[0].email, "legacy@example.com");
-  assert.equal(store.has("rexadb-supabase-mgmt-token"), false);
+  assert.equal(store.has("infinity-studio-supabase-mgmt-token"), false);
   assert.equal(getFirstMgmtToken(), legacyToken);
 });
 
@@ -129,14 +129,14 @@ test("token store: legacy migration does not run when accounts exist", () => {
     },
   ];
   const { storage, store } = makeStorage({
-    "rexadb-supabase-mgmt-token": legacyToken,
-    "rexadb-supabase-mgmt-accounts": JSON.stringify(existing),
+    "infinity-studio-supabase-mgmt-token": legacyToken,
+    "infinity-studio-supabase-mgmt-accounts": JSON.stringify(existing),
   });
   (globalThis as any).window = { localStorage: storage };
   const accounts = getMgmtAccounts();
   assert.equal(accounts.length, 1);
   assert.equal(accounts[0].token, "fresh-token");
-  assert.equal(store.get("rexadb-supabase-mgmt-token"), legacyToken);
+  assert.equal(store.get("infinity-studio-supabase-mgmt-token"), legacyToken);
 });
 
 test("token store: saveMgmtToken/clearMgmtToken aliases work", () => {

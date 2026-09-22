@@ -7,8 +7,8 @@ export type CustomAppTheme = {
 
 export const BUILTIN_APP_THEMES: CustomAppTheme[] = [
   {
-    id: "rexadb-dark",
-    name: "RexaDB dark",
+    id: "infinity-studio-dark",
+    name: "Infinity Studio dark",
     base: "dark",
     colors: {
       "--background": "#111113",

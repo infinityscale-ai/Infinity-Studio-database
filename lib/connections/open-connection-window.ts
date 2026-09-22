@@ -24,7 +24,7 @@ export async function openConnectionInNewWindow(
     }
     new WebviewWindow(label, {
       url,
-      title: "RexaDB",
+      title: "Infinity Studio",
       width: 1200,
       height: 800,
       minWidth: 800,

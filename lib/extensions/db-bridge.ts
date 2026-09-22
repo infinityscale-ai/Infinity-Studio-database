@@ -2,7 +2,7 @@
  * Live DB bridge — connects the extension host to the active studio session.
  * Registered by `StudioInterface` on mount (it owns the `useStudio()` state);
  * the `ExtensionProvider` (mounted at the app root) reads it when extensions
- * call `rexa.rexaDb.*`. Null when no studio session is active (e.g. the
+ * call `infinityStudio.db.*`. Null when no studio session is active (e.g. the
  * connections list) — calls then fall back to safe empty values.
  * The provider re-runs extension activation on every (re)registration
  * (`onExtensionBridgeChange`), so activation-time snapshots pick up live data

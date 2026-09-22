@@ -8,8 +8,8 @@ import {
 import { requireDockerDbOrSkip } from "./docker-helpers";
 
 const POSTGRES_URL =
-  process.env.REXADB_TEST_PG ||
-  "postgres://postgres:postgres@127.0.0.1:5432/rexadb_test";
+  process.env.INFSTUDIO_TEST_PG ||
+  "postgres://postgres:postgres@127.0.0.1:5432/infstudio_test";
 
 async function setupPostgres(sqlEngine: {
   executeSqlEngineQuery: (cs: string, q: string, p?: unknown[]) => Promise<any>;
@@ -77,7 +77,7 @@ test("sql-engine handles postgres catalog + mutations", async (t) => {
   assert.ok(schemas.includes("public"));
 
   const databases = await sqlEngine.getSqlEngineDatabases(POSTGRES_URL);
-  assert.ok(databases.includes("rexadb_test"));
+  assert.ok(databases.includes("infstudio_test"));
 
   // fallow-ignore-next-line code-duplication
   const structure = await sqlEngine.getSqlEngineTableStructure(

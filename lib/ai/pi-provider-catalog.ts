@@ -3,7 +3,7 @@ import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 /**
  * Provider metadata straight from the installed Pi agent SDK — id, display
  * name, default base URL, and native API format. Read live (not hand-copied)
- * so RexaDB automatically picks up whatever providers the SDK ships with,
+ * so Infinity Studio automatically picks up whatever providers the SDK ships with,
  * including ones added in future SDK updates.
  */
 export type PiProviderMeta = {

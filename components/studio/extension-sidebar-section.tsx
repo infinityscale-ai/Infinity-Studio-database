@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * Standalone container sidebar (`extensions:<containerId>` rail target).
  *
  * Free-form surface: when the extension provides a sidebar page (manifest
- * `viewsContainers[].html` or runtime `rexa.window.registerSidebarPage`),
+ * `viewsContainers[].html` or runtime `infinityStudio.window.registerSidebarPage`),
  * it fills the sidebar — whatever the extension wants it to be
  * (explorer-like, dashboard-like). Otherwise the container's declared views
  * render as a fallback list. Never linked to the Extensions manager sidebar.

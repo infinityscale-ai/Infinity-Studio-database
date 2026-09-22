@@ -4,7 +4,7 @@ import { useExtensions } from "@/lib/extensions/react";
 import { ExtensionWebview } from "./extension-webview";
 
 /**
- * Editor-tab host for extension views (`rexa.window.openTab(viewId)`).
+ * Editor-tab host for extension views (`infinityStudio.window.openTab(viewId)`).
  * Content resolves live from the extension registry so tabs never persist
  * stale HTML — if the extension is gone, a placeholder renders.
  */

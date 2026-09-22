@@ -1,9 +1,9 @@
 {
-  "name": "rexa-db",
+  "name": "infinity-studio",
   "version": "1.3.16",
   "private": true,
-  "description": "Rexa DB desktop application",
-  "author": "Rexa DB",
+  "description": "Infinity Studio, the Infinity Scale database studio",
+  "author": "Infinity Studio contributors",
   "license": "GPL-3.0-or-later",
   "scripts": {
     "dev": "next dev",
@@ -14,7 +14,7 @@
     "server:dev": "bun run server/index.ts",
     "server:build": "bun run scripts/build-server.mjs",
     "server:install": "cd server && bun install",
-    "mcp:rexadb": "bun run lib/agents/mcp/stdio.ts",
+    "mcp:infinity-studio": "bun run lib/agents/mcp/stdio.ts",
     "mcp:external": "bun run lib/agents/mcp/external-stdio.ts",
     "mcp:setup-harnesses": "bun run scripts/setup-mcp-harnesses.mjs",
     "tauri": "tauri",

@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-export interface RexaContextMenuItem {
+export interface StudioContextMenuItem {
   key: string;
   label: string;
   onSelect: () => void;
@@ -11,7 +11,7 @@ export interface RexaContextMenuItem {
   separatorBefore?: boolean;
 }
 
-export function RexaContextMenu({
+export function StudioContextMenu({
   x,
   y,
   items,
@@ -19,7 +19,7 @@ export function RexaContextMenu({
 }: {
   x: number;
   y: number;
-  items: RexaContextMenuItem[];
+  items: StudioContextMenuItem[];
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);

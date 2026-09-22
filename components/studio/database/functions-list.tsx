@@ -325,7 +325,7 @@ export function FunctionsList({
                 <img src="/ai-agent.png" alt="" width={20} height={20} className="rounded-[3px] object-cover dark:invert" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Create with RexaDB Assistant</TooltipContent>
+            <TooltipContent side="bottom">Create with Infinity Studio Assistant</TooltipContent>
           </Tooltip>
           </TooltipProvider>
           {isMssql ? (
@@ -387,7 +387,7 @@ export function FunctionsList({
                 <img src="/ai-agent.png" alt="" width={20} height={20} className="rounded-[3px] object-cover dark:invert" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Create with RexaDB Assistant</TooltipContent>
+                    <TooltipContent side="bottom">Create with Infinity Studio Assistant</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 {!isMssql && (

@@ -1,5 +1,5 @@
 export const DEFAULT_ICON_THEME_ID = "lucide";
-export const ICON_THEME_UPDATED_EVENT = "rexadb:icon-theme-updated";
+export const ICON_THEME_UPDATED_EVENT = "infinity-studio:icon-theme-updated";
 
 export interface StoredSvgIcon {
   body: string;

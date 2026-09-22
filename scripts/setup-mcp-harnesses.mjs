@@ -1,5 +1,5 @@
 /**
- * Configure ALL popular MCP harnesses for the RexaDB external MCP server.
+ * Configure ALL popular MCP harnesses for the Infinity Studio external MCP server.
  *
  * Usage:
  *   bun run scripts/setup-mcp-harnesses.mjs [--data-dir <dir>] [--dry-run] [--only <a,b,c>]
@@ -10,10 +10,10 @@
  *   windsurf (~/.codeium/windsurf/mcp_config.json), zed (~/.config/zed/settings.json),
  *   vscode-user (Code/User/mcp.json, `servers` key), cline + roo (VS Code globalStorage).
  *
- * The stdio entries pin REXADB_USER_DATA_DIR so harness spawns open the SAME
+ * The stdio entries pin INFSTUDIO_USER_DATA_DIR so harness spawns open the SAME
  * database the sidecar uses no matter what cwd they launch from. The HTTP
  * entries target the sidecar's discovered port (port.json in the data dir).
- * Existing files are backed up once (<file>.rexadb-bak) and all other
+ * Existing files are backed up once (<file>.infinity-studio-bak) and all other
  * settings/servers are preserved.
  */
 import { spawnSync } from "node:child_process";
@@ -34,13 +34,13 @@ const DRY_RUN = args.includes("--dry-run");
 const ONLY = (flag("--only") || "").split(",").map((s) => s.trim()).filter(Boolean);
 const DATA_DIR =
   flag("--data-dir") ||
-  process.env.REXADB_USER_DATA_DIR ||
+  process.env.INFSTUDIO_USER_DATA_DIR ||
   join(HOME, "Library/Application Support/com.rexadb");
 
 const BUN_BIN = process.execPath.includes("bun") ? process.execPath : "bun";
 const ENTRY = join(ROOT, "lib/agents/mcp/external-stdio.ts");
-const SERVER_NAME = "rexadb";
-const SERVER_HTTP_NAME = "rexadb-http";
+const SERVER_NAME = "infinity-studio";
+const SERVER_HTTP_NAME = "infinity-studio-http";
 
 const report = [];
 function log(ok, label, detail = "") {
@@ -155,7 +155,7 @@ function readJson(path, fallback) {
 }
 
 function backupOnce(path) {
-  const bak = `${path}.rexadb-bak`;
+  const bak = `${path}.infinity-studio-bak`;
   if (existsSync(path) && !existsSync(bak) && !DRY_RUN) copyFileSync(path, bak);
 }
 
@@ -171,7 +171,7 @@ function writeJsonMerge(path, mutate, { topKeys = [] } = {}) {
   }
   backupOnce(path);
   if (!DRY_RUN) writeFileSync(path, JSON.stringify(data, null, 2) + "\n", "utf8");
-  log(true, `${path}`, isNew ? "created" : "updated (backup at .rexadb-bak)");
+  log(true, `${path}`, isNew ? "created" : "updated (backup at .infinity-studio-bak)");
   return data;
 }
 
@@ -181,7 +181,7 @@ function stdioEntry() {
   return {
     command: BUN_BIN,
     args: ["run", ENTRY],
-    env: { REXADB_USER_DATA_DIR: DATA_DIR },
+    env: { INFSTUDIO_USER_DATA_DIR: DATA_DIR },
   };
 }
 
@@ -203,20 +203,20 @@ const writers = {
     try { runCmd("claude", ["mcp", "remove", SERVER_NAME]); } catch {}
     runCmd("claude", [
       "mcp", "add", "--transport", "stdio", SERVER_NAME,
-      "--env", `REXADB_USER_DATA_DIR=${DATA_DIR}`,
+      "--env", `INFSTUDIO_USER_DATA_DIR=${DATA_DIR}`,
       "--", BUN_BIN, "run", ENTRY,
     ]);
-    log(true, "claude: rexadb (stdio)");
+    log(true, "claude: infinity-studio (stdio)");
   },
 
   codex() {
     try { runCmd("codex", ["mcp", "remove", SERVER_NAME]); } catch {}
     runCmd("codex", [
       "mcp", "add", SERVER_NAME,
-      "--env", `REXADB_USER_DATA_DIR=${DATA_DIR}`,
+      "--env", `INFSTUDIO_USER_DATA_DIR=${DATA_DIR}`,
       "--", BUN_BIN, "run", ENTRY,
     ]);
-    log(true, "codex: rexadb (stdio)");
+    log(true, "codex: infinity-studio (stdio)");
   },
 
   opencode(httpUrl, token) {
@@ -226,7 +226,7 @@ const writers = {
       data.mcp[SERVER_NAME] = {
         type: "local",
         command: [BUN_BIN, "run", ENTRY],
-        environment: { REXADB_USER_DATA_DIR: DATA_DIR },
+        environment: { INFSTUDIO_USER_DATA_DIR: DATA_DIR },
         enabled: true,
       };
       data.mcp[SERVER_HTTP_NAME] = {

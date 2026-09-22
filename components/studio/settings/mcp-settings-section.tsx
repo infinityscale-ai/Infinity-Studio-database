@@ -88,11 +88,11 @@ export function McpSettingsSection() {
 
   const stdio = data?.stdio ?? null;
   const stdioSnippet = useMemo(() => {
-    if (!stdio) return "Start the RexaDB sidecar first — the stdio command is generated from it.";
+    if (!stdio) return "Start the Infinity Studio sidecar first — the stdio command is generated from it.";
     return JSON.stringify(
       {
         mcpServers: {
-          rexadb: {
+          "infinity-studio": {
             command: stdio.command,
             args: stdio.args,
             env: stdio.env,
@@ -111,7 +111,7 @@ export function McpSettingsSection() {
     const env = Object.entries(stdio.env || {})
       .map(([k, v]) => `--env ${k}=${shellQuote(v)}`)
       .join(" ");
-    return `claude mcp add --transport stdio rexadb ${env} -- ${parts.join(" ")}`.replace(/\s+/g, " ");
+    return `claude mcp add --transport stdio infinity-studio ${env} -- ${parts.join(" ")}`.replace(/\s+/g, " ");
   }, [stdio]);
 
   if (loading || !data) {
@@ -129,7 +129,7 @@ export function McpSettingsSection() {
   const activeMode = modes.find((m) => m.id === config.modeId);
   const httpEnabled = config.transports === "http" || config.transports === "both";
   const httpAddCmd =
-    `claude mcp add --transport http rexadb ${httpUrl} --header ${shellQuote(`Authorization: Bearer ${lastToken || "<TOKEN — click Show above first>"}`)}`;
+    `claude mcp add --transport http infinity-studio ${httpUrl} --header ${shellQuote(`Authorization: Bearer ${lastToken || "<TOKEN — click Show above first>"}`)}`;
   const customModes = modes.filter((m) => m.kind === "custom" || m.id.startsWith("custom:"));
 
   const openCreateDialog = () => {

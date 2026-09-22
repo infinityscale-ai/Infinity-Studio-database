@@ -55,7 +55,7 @@ export async function startSshTunnelIfNeeded(
   }
 
   const localPort = await getFreePort();
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rexadb-ssh-"));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "infinity-studio-ssh-"));
   const cleanupPaths: string[] = [];
 
   // Register cleanup on process exit to prevent private key leaks
@@ -99,12 +99,12 @@ export async function startSshTunnelIfNeeded(
       throw new Error("SSH password is required for password authentication.");
     }
     const askPassPath = path.join(tmpDir, "askpass.sh");
-    fs.writeFileSync(askPassPath, "#!/bin/sh\nprintf %s \"$REXADB_SSH_PASSWORD\"\n", { mode: 0o700 });
+    fs.writeFileSync(askPassPath, "#!/bin/sh\nprintf %s \"$INFSTUDIO_SSH_PASSWORD\"\n", { mode: 0o700 });
     cleanupPaths.push(askPassPath);
     env.SSH_ASKPASS = askPassPath;
     env.SSH_ASKPASS_REQUIRE = "force";
     env.DISPLAY = env.DISPLAY || ":0";
-    env.REXADB_SSH_PASSWORD = parsed.sshConfig.password;
+    env.INFSTUDIO_SSH_PASSWORD = parsed.sshConfig.password;
   }
 
   const proc = spawn("ssh", args, {

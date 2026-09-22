@@ -844,7 +844,7 @@ body[data-review-sheet-open="true"] .studio-grid-header th {
 }
 
 /* ── Sonner Toast — theme-aware overrides ── */
-.rexa-toast {
+.infinity-toast {
   --normal-bg: var(--card) !important;
   --normal-text: var(--foreground) !important;
   --normal-border: var(--border) !important;
@@ -854,13 +854,13 @@ body[data-review-sheet-open="true"] .studio-grid-header th {
   font-family: var(--font-sans) !important;
 }
 
-.rexa-toast [data-close-button] {
+.infinity-toast [data-close-button] {
   background: var(--muted) !important;
   color: var(--muted-foreground) !important;
   border-color: var(--border) !important;
 }
 
-.rexa-toast-success {
+.infinity-toast-success {
   --success-bg: color-mix(in srgb, var(--success) 12%, var(--card)) !important;
   --success-border: color-mix(in srgb, var(--success) 25%, var(--border)) !important;
   --success-text: var(--foreground) !important;
@@ -869,11 +869,11 @@ body[data-review-sheet-open="true"] .studio-grid-header th {
   color: var(--foreground) !important;
 }
 
-.rexa-toast-success [data-icon] svg {
+.infinity-toast-success [data-icon] svg {
   color: var(--success) !important;
 }
 
-.rexa-toast-error {
+.infinity-toast-error {
   --error-bg: color-mix(in srgb, var(--destructive) 12%, var(--card)) !important;
   --error-border: color-mix(in srgb, var(--destructive) 25%, var(--border)) !important;
   --error-text: var(--foreground) !important;
@@ -882,11 +882,11 @@ body[data-review-sheet-open="true"] .studio-grid-header th {
   color: var(--foreground) !important;
 }
 
-.rexa-toast-error [data-icon] svg {
+.infinity-toast-error [data-icon] svg {
   color: var(--destructive) !important;
 }
 
-.rexa-toast-warning {
+.infinity-toast-warning {
   --warning-bg: color-mix(in srgb, var(--warning) 12%, var(--card)) !important;
   --warning-border: color-mix(in srgb, var(--warning) 25%, var(--border)) !important;
   --warning-text: var(--foreground) !important;
@@ -895,11 +895,11 @@ body[data-review-sheet-open="true"] .studio-grid-header th {
   color: var(--foreground) !important;
 }
 
-.rexa-toast-warning [data-icon] svg {
+.infinity-toast-warning [data-icon] svg {
   color: var(--warning) !important;
 }
 
-.rexa-toast-info {
+.infinity-toast-info {
   --info-bg: color-mix(in srgb, var(--info) 12%, var(--card)) !important;
   --info-border: color-mix(in srgb, var(--info) 25%, var(--border)) !important;
   --info-text: var(--foreground) !important;
@@ -908,22 +908,22 @@ body[data-review-sheet-open="true"] .studio-grid-header th {
   color: var(--foreground) !important;
 }
 
-.rexa-toast-info [data-icon] svg {
+.infinity-toast-info [data-icon] svg {
   color: var(--info) !important;
 }
 
-.rexa-toast [data-description] {
+.infinity-toast [data-description] {
   color: var(--muted-foreground) !important;
 }
 
 /* Action buttons inside toasts */
-.rexa-toast [data-button] {
+.infinity-toast [data-button] {
   background: var(--primary) !important;
   color: var(--primary-foreground) !important;
   border-radius: var(--radius) !important;
 }
 
-.rexa-toast [data-cancel] {
+.infinity-toast [data-cancel] {
   background: var(--muted) !important;
   color: var(--muted-foreground) !important;
   border-radius: var(--radius) !important;

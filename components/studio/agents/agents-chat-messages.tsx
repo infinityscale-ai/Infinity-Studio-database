@@ -8,7 +8,7 @@ import type {
   AgentChatMessage,
   AgentWorkLogEntry,
 } from "@/lib/agents/provider-types";
-import type { RexaAgentAppMode } from "@/lib/agents/app-modes";
+import type { StudioAgentAppMode } from "@/lib/agents/app-modes";
 import { formatDuration } from "@/lib/agents/work-log";
 import { AgentMarkdown } from "./agent-markdown";
 import { TurnFoldTimelineRow } from "./thinking-row";
@@ -30,7 +30,7 @@ export function AgentsChatMessages({
   workLog?: AgentWorkLogEntry[];
   streamingStartedAt?: number | null;
   onRevert?: (messageId: string) => void;
-  appMode?: RexaAgentAppMode;
+  appMode?: StudioAgentAppMode;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [expandedTurnIds, setExpandedTurnIds] = useState<Set<string>>(

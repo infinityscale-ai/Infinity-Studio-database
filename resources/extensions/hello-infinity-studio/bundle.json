@@ -1,0 +1,129 @@
+{
+  "manifest": {
+    "id": "infinity-studio.hello-infinity-studio",
+    "name": "hello-infinity-studio",
+    "publisher": "infinity-studio",
+    "version": "1.0.0",
+    "displayName": "Hello Infinity Studio",
+    "description": "Example Infinity Studio extension exercising every v1 contribution point.",
+    "engines": {
+      "infinity-studio": "^1.0.0"
+    },
+    "main": "main.js",
+    "activationEvents": [
+      "onStartupFinished"
+    ],
+    "capabilities": [
+      "query:read",
+      "connections:read",
+      "clipboard"
+    ],
+    "contributes": {
+      "commands": [
+        {
+          "command": "hello-infinity-studio.say-hello",
+          "title": "Hello Infinity Studio: Say Hello",
+          "group": "Hello Infinity Studio"
+        },
+        {
+          "command": "hello-infinity-studio.insert-select-star",
+          "title": "Hello Infinity Studio: Insert SELECT *",
+          "group": "Hello Infinity Studio"
+        },
+        {
+          "command": "hello-infinity-studio.open-dashboard",
+          "title": "Hello Infinity Studio: Open Dashboard Panel",
+          "group": "Hello Infinity Studio"
+        },
+        {
+          "command": "hello-infinity-studio.show-schema",
+          "title": "Hello Infinity Studio: Show Schema Summary",
+          "group": "Hello Infinity Studio"
+        }
+      ],
+      "viewsContainers": [
+        {
+          "id": "hello-infinity-studio.group",
+          "title": "Hello Infinity Studio",
+          "icon": "👋"
+        }
+      ],
+      "views": [
+        {
+          "id": "hello-infinity-studio.connections",
+          "name": "Hello Connections",
+          "type": "tree",
+          "containerId": "hello-infinity-studio.group"
+        },
+        {
+          "id": "hello-infinity-studio.welcome",
+          "name": "Hello Webview",
+          "type": "webview",
+          "containerId": "hello-infinity-studio.group",
+          "html": "<html><body style='font-family:sans-serif;padding:12px'><h3>Hello Infinity Studio webview</h3><p>Rendered in a sandboxed iframe via <code>acquireInfinityStudioApi()</code>.</p></body></html>"
+        }
+      ],
+      "webviewPanels": [
+        {
+          "id": "hello-infinity-studio.dashboard",
+          "title": "Hello Dashboard",
+          "area": "both",
+          "html": "<html><body style='font-family:sans-serif;padding:16px'><h2>Hello Dashboard</h2><p>Opened with <code>infinityStudio.window.openWebviewPanel</code>.</p></body></html>"
+        }
+      ],
+      "statusBar": [
+        {
+          "id": "hello",
+          "text": "$(smiley) Hello Infinity Studio",
+          "tooltip": "Hello Infinity Studio status item",
+          "command": "hello-infinity-studio.say-hello",
+          "alignment": "right",
+          "priority": 100
+        }
+      ],
+      "languages": [
+        {
+          "id": "sql",
+          "keywords": [
+            "HELLO_INFINITY_STUDIO"
+          ],
+          "formatter": false
+        }
+      ],
+      "themes": [
+        {
+          "id": "hello-infinity-studio-warm",
+          "label": "Hello Warm",
+          "uiTheme": "vs-dark",
+          "cssVariables": {
+            "accent": "#f59e0b"
+          }
+        }
+      ],
+      "resultVisualizers": [
+        {
+          "id": "hello-infinity-studio.json-tree",
+          "label": "Hello JSON Tree",
+          "selector": "*:json"
+        }
+      ],
+      "cellRenderers": [
+        {
+          "id": "hello-infinity-studio.uppercase",
+          "label": "Hello Uppercase",
+          "forTypes": [
+            "text"
+          ]
+        }
+      ],
+      "aiTools": [
+        {
+          "id": "hello-infinity-studio.explain-plan",
+          "label": "Explain plan",
+          "description": "Explains the active query plan."
+        }
+      ]
+    }
+  },
+  "code": "/**\n * Hello Infinity Studio — example Infinity Studio extension (Worker sandbox, no imports).\n * Declares `activate(infinityStudio)`; the host injects `infinityStudio` (VS Code-like API).\n * Install via Extensions manager: paste `bundle.json`, or copy this file's\n * contents as `code` with `manifest.json` as `manifest`.\n */\nasync function activate(infinityStudio) {\n  // 1. Commands (appear in Cmd+K under \"Hello Infinity Studio\").\n  await infinityStudio.commands.registerCommand(\"hello-infinity-studio.say-hello\", \"Hello Infinity Studio: Say Hello\", \"Hello Infinity Studio\");\n  await infinityStudio.commands.registerCommand(\"hello-infinity-studio.insert-select-star\", \"Hello Infinity Studio: Insert SELECT *\", \"Hello Infinity Studio\");\n  await infinityStudio.commands.registerCommand(\"hello-infinity-studio.open-dashboard\", \"Hello Infinity Studio: Open Dashboard Panel\", \"Hello Infinity Studio\");\n  await infinityStudio.commands.registerCommand(\"hello-infinity-studio.show-schema\", \"Hello Infinity Studio: Show Schema Summary\", \"Hello Infinity Studio\");\n\n  // The Worker shim routes host->worker handler calls by name:\n  // `command:<id>` for commands, `tree:<viewId>` for tree views.\n  infinityStudio.__registerHandler(\"command:hello-infinity-studio.say-hello\", async () => {\n    await infinityStudio.window.showInformationMessage(\"Hello from Hello Infinity Studio!\");\n    return \"greeted\";\n  });\n  infinityStudio.__registerHandler(\"command:hello-infinity-studio.insert-select-star\", async () => {\n    const current = await infinityStudio.db.getActiveQuery();\n    await infinityStudio.db.setActiveQuery(`${current}SELECT * `.trimStart());\n    return \"inserted\";\n  });\n  infinityStudio.__registerHandler(\"command:hello-infinity-studio.open-dashboard\", async () => {\n    await infinityStudio.window.openWebviewPanel(\n      \"hello-infinity-studio.dashboard\",\n      \"<html><body style='font-family:sans-serif;padding:16px'><h2>Hello Dashboard</h2><p>Opened at runtime.</p></body></html>\",\n    );\n    return \"opened\";\n  });\n  infinityStudio.__registerHandler(\"command:hello-infinity-studio.show-schema\", async () => {\n    const schema = await infinityStudio.db.getSchema();\n    await infinityStudio.window.showInformationMessage(\n      `${schema.database || \"active database\"} (${schema.dbType}): ${schema.tables.length} table(s) across ${schema.schemas.length} schema(s).`\n    );\n    return schema;\n  });\n\n  // 2. Sidebar tree view.\n  infinityStudio.__registerHandler(\"tree:hello-infinity-studio.connections\", async (parentId) => {\n    if (!parentId) {\n      const connections = await infinityStudio.db.getConnections();\n      return connections.map((c) => ({\n        id: `conn-${c.id}`,\n        label: c.name,\n        description: c.dbType,\n        collapsible: true,\n      }));\n    }\n    return [{ id: `${parentId}-info`, label: \"Connection details live in Infinity Studio\", collapsible: false }];\n  });\n  await infinityStudio.window.registerTreeDataProvider(\"hello-infinity-studio.connections\");\n\n  // 3. Status bar (rail icon comes from the viewsContainer `icon` — one\n  // activity-rail entry opening this container's sidebar; no runtime\n  // createRailItem here so we never produce a duplicate second icon).\n  await infinityStudio.window.createStatusBarItem(\"hello\", \"$(smiley) Hello Infinity Studio\", {\n    tooltip: \"Hello Infinity Studio status item\",\n    command: \"hello-infinity-studio.say-hello\",\n    alignment: \"right\",\n    priority: 100,\n  });\n\n  // 4. Open the webview as an editor tab on demand via command.\n  infinityStudio.__registerHandler(\"command:hello-infinity-studio.open-tab\", async () => {\n    await infinityStudio.window.openTab(\"hello-infinity-studio.welcome\", { title: \"Hello Infinity Studio\" });\n    return \"tab-opened\";\n  });\n  await infinityStudio.commands.registerCommand(\"hello-infinity-studio.open-tab\", \"Hello Infinity Studio: Open Webview Tab\", \"Hello Infinity Studio\");\n\n  // 4. Languages (SQL keyword completion).\n  await infinityStudio.languages.registerCompletionItems(\"sql\", [\n    { label: \"HELLO_INFINITY_STUDIO\", detail: \"Hello Infinity Studio keyword\", insertText: \"HELLO_INFINITY_STUDIO\" },\n  ]);\n\n  // 5. AI tool.\n  await infinityStudio.ai.registerTool({\n    id: \"hello-infinity-studio.explain-plan\",\n    label: \"Explain plan\",\n    description: \"Explains the active query plan.\",\n  });\n}\n"
+}

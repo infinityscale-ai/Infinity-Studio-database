@@ -1113,7 +1113,7 @@ export const NODE_REGISTRY: NodeDef[] = [
     fields: [
       { key: "webhookUrl", label: "Webhook URL", type: "text", required: true },
       { key: "text", label: "Message Text", type: "textarea", required: true, placeholder: "Workflow completed: {{count}} rows processed." },
-      { key: "username", label: "Bot Username", type: "text", placeholder: "RexaDB Bot" },
+      { key: "username", label: "Bot Username", type: "text", placeholder: "Infinity Studio Bot" },
     ],
     implemented: true,
   },

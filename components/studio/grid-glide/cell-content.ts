@@ -21,7 +21,7 @@ export function computeRelativeDateLabel(value: any): string | null {
   return formatDistanceToNow(date, { addSuffix: true });
 }
 
-export type RexaCellKind =
+export type StudioCellKind =
   | "null"
   | "boolean"
   | "enum"
@@ -30,10 +30,10 @@ export type RexaCellKind =
   | "number"
   | "text";
 
-export interface RexaCellData {
+export interface StudioCellData {
   value: any;
   displayValue: string;
-  kind: RexaCellKind;
+  kind: StudioCellKind;
   columnName: string;
   rowIndex: number;
   rowId: string | null;

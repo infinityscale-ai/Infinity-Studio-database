@@ -24,7 +24,7 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSectionId, string> = {
 
 export const SETTINGS_SEARCH_INDEX: SettingsSearchEntry[] = [
   // ---- General ----
-  { id: "appearance", section: "general", title: "Appearance", description: "Select how Rexa DB looks on your device (light, dark, system).", keywords: ["theme", "light", "dark", "system", "mode"] },
+  { id: "appearance", section: "general", title: "Appearance", description: "Select how Infinity Studio looks on your device (light, dark, system).", keywords: ["theme", "light", "dark", "system", "mode"] },
   { id: "app-theme", section: "general", title: "App Theme", description: "Choose a built-in theme or add a custom palette for the whole app.", keywords: ["theme", "palette", "color", "custom"] },
   { id: "app-font", section: "general", title: "App Font", description: "Customize the application font family.", keywords: ["font", "typography", "text", "family"] },
   { id: "icon-theme", section: "general", title: "Icon Theme", description: "Choose the icon pack used across the app.", keywords: ["icons", "pack", "lucide", "solar"] },
@@ -75,7 +75,7 @@ export const SETTINGS_SEARCH_INDEX: SettingsSearchEntry[] = [
   { id: "slash-ai-trigger", section: "ai", title: "Slash AI Trigger", description: "Type / in an empty editor to activate AI mode.", keywords: ["slash", "trigger", "/", "ai", "assistant", "autocomplete"] },
 
   // ---- MCP ----
-  { id: "mcp-enable", section: "mcp", title: "Enable MCP Server", description: "Expose RexaDB over the Model Context Protocol.", keywords: ["mcp", "server", "model context", "enable"] },
+  { id: "mcp-enable", section: "mcp", title: "Enable MCP Server", description: "Expose Infinity Studio over the Model Context Protocol.", keywords: ["mcp", "server", "model context", "enable"] },
   { id: "mcp-transports", section: "mcp", title: "MCP Transports", description: "Configure stdio and HTTP transports for the MCP server.", keywords: ["mcp", "stdio", "http", "transport", "port"] },
   { id: "mcp-token", section: "mcp", title: "MCP HTTP Auth Token", description: "Manage the auth token for HTTP MCP clients.", keywords: ["mcp", "token", "auth", "http", "secret"] },
   { id: "mcp-modes", section: "mcp", title: "MCP Permission Modes", description: "Define read/write permission modes for MCP connections.", keywords: ["mcp", "permissions", "modes", "read", "write", "autopilot"] },

@@ -10,7 +10,7 @@ import { useElapsed } from "@/components/studio/ai/use-elapsed";
  * actually running instead of a bare "Generating" spinner.
  *
  * Adapted from a provided ThinkingState reference (Steps
- * variant) to RexaDB tokens and wired to real data:
+ * variant) to Infinity Studio tokens and wired to real data:
  *   --ink / --ink-3 → --foreground / --muted-foreground
  *   bg-hover(-2)    → hover:bg-muted
  *   border-line     → border-border

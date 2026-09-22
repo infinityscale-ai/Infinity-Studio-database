@@ -14,7 +14,7 @@ async function loadMysqlAlterModule() {
     entryFile: "mysql-alter/column-definition.js",
     outDir: "tests/.compiled/mysql-alter",
   });
-  const outDir = "/Users/virus/Downloads/Loom/RexaDB/tests/.compiled/mysql-alter/mysql-alter";
+  const outDir = "/Users/virus/Downloads/Loom/Infinity Studio/tests/.compiled/mysql-alter/mysql-alter";
   const columnDefinition = await import(path.join(outDir, "column-definition.js"));
   const notNullQuery = await import(path.join(outDir, "not-null-query.js"));
   return { ...columnDefinition, ...notNullQuery };

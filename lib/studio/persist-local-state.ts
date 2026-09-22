@@ -3,7 +3,7 @@ export function persistLocalState(
   entries: Record<string, string | null>,
 ) {
   if (typeof window === "undefined" || !window.localStorage) return;
-  const restoreKey = "rexa-db-restore-state-" + connectionId;
+  const restoreKey = "infinity-studio-restore-state-" + connectionId;
   const shouldRestore = window.localStorage.getItem(restoreKey) !== "0";
   for (const [key, value] of Object.entries(entries)) {
     if (shouldRestore && value !== null) {

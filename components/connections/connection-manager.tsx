@@ -308,9 +308,9 @@ export function ConnectionManager({
   useEffect(() => {
     if (typeof window === "undefined" || !window.localStorage) return;
     const root = document.documentElement;
-    const storedMode = window.localStorage.getItem("rexa-db-tui-mode") === "1";
+    const storedMode = window.localStorage.getItem("infinity-studio-tui-mode") === "1";
     const storedTheme =
-      window.localStorage.getItem("rexa-db-tui-theme") || "auto";
+      window.localStorage.getItem("infinity-studio-tui-theme") || "auto";
 
     if (!storedMode) {
       root.classList.remove("tui-mode");
@@ -796,18 +796,18 @@ export function ConnectionManager({
         sslMode: allowedSsl.includes(ssl as PgSslMode)
           ? (ssl as PgSslMode)
           : "prefer",
-        sshMode: (parsed.searchParams.get("rexadb_ssh_mode") === "ssh"
+        sshMode: (parsed.searchParams.get("infstudio_ssh_mode") === "ssh"
           ? "ssh"
           : "off") as PgSshMode,
-        sshHost: parsed.searchParams.get("rexadb_ssh_host") || "192.168.1.1",
-        sshPort: parsed.searchParams.get("rexadb_ssh_port") || "22",
-        sshUsername: parsed.searchParams.get("rexadb_ssh_user") || "ubuntu",
-        sshAuthMode: (parsed.searchParams.get("rexadb_ssh_auth") ===
+        sshHost: parsed.searchParams.get("infstudio_ssh_host") || "192.168.1.1",
+        sshPort: parsed.searchParams.get("infstudio_ssh_port") || "22",
+        sshUsername: parsed.searchParams.get("infstudio_ssh_user") || "ubuntu",
+        sshAuthMode: (parsed.searchParams.get("infstudio_ssh_auth") ===
         "private-key"
           ? "private-key"
           : "password") as PgSshAuthMode,
-        sshPassword: parsed.searchParams.get("rexadb_ssh_password") || "",
-        sshPrivateKey: parsed.searchParams.get("rexadb_ssh_private_key") || "",
+        sshPassword: parsed.searchParams.get("infstudio_ssh_password") || "",
+        sshPrivateKey: parsed.searchParams.get("infstudio_ssh_private_key") || "",
       };
     } catch {
       return null;
@@ -1249,18 +1249,18 @@ export function ConnectionManager({
     const searchParams = new URLSearchParams();
     searchParams.set("uselibpqcompat", "true");
     searchParams.set("sslmode", pgSslMode);
-    searchParams.set("rexadb_keychain_db", pgEnableKeychain ? "1" : "0");
-    searchParams.set("rexadb_ssh_mode", pgSshMode);
+    searchParams.set("infstudio_keychain_db", pgEnableKeychain ? "1" : "0");
+    searchParams.set("infstudio_ssh_mode", pgSshMode);
     if (pgSshMode === "ssh") {
-      searchParams.set("rexadb_ssh_host", pgSshHost.trim());
-      searchParams.set("rexadb_ssh_port", pgSshPort.trim() || "22");
-      searchParams.set("rexadb_ssh_user", pgSshUsername.trim());
-      searchParams.set("rexadb_ssh_auth", pgSshAuthMode);
-      searchParams.set("rexadb_ssh_keychain", pgSshEnableKeychain ? "1" : "0");
+      searchParams.set("infstudio_ssh_host", pgSshHost.trim());
+      searchParams.set("infstudio_ssh_port", pgSshPort.trim() || "22");
+      searchParams.set("infstudio_ssh_user", pgSshUsername.trim());
+      searchParams.set("infstudio_ssh_auth", pgSshAuthMode);
+      searchParams.set("infstudio_ssh_keychain", pgSshEnableKeychain ? "1" : "0");
       if (pgSshAuthMode === "password") {
-        searchParams.set("rexadb_ssh_password", pgSshPassword);
+        searchParams.set("infstudio_ssh_password", pgSshPassword);
       } else {
-        searchParams.set("rexadb_ssh_private_key", pgSshPrivateKey);
+        searchParams.set("infstudio_ssh_private_key", pgSshPrivateKey);
       }
     }
     return `postgresql://${auth}${host}:${port}${pathname}?${searchParams.toString()}`;
@@ -2012,7 +2012,7 @@ export function ConnectionManager({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `rexadb-connections-${new Date().toISOString().split("T")[0]}.json`;
+    a.download = `infinity-studio-connections-${new Date().toISOString().split("T")[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Connections exported.");

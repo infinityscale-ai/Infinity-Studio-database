@@ -73,7 +73,7 @@ export const DEFAULT_STORAGE_SETTINGS: StorageSettings = {
 };
 
 function settingsKey(connectionId: number | string) {
-  return `rexadb-storage-settings:${connectionId}`;
+  return `infinity-studio-storage-settings:${connectionId}`;
 }
 
 export function loadStorageSettings(connectionId: number | string): StorageSettings {

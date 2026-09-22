@@ -5,7 +5,8 @@ import "./globals.css";
 import "@glideapps/glide-data-grid/dist/index.css";
 
 export const metadata: Metadata = {
-  description: "The Modern Postgres Database Desktop App",
+  title: "Infinity Studio",
+  description: "The Infinity Scale database studio.",
 };
 
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -44,7 +45,7 @@ export default function RootLayout({
             kept warm by hooks/use-global-app-theme.ts. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var el=document.documentElement;var t=localStorage.getItem("theme");var d=window.matchMedia("(prefers-color-scheme: dark)").matches;var r=t==="light"||t==="dark"?t:(d?"dark":"light");var av=null;try{var raw=localStorage.getItem("rexa-db-app-theme-vars");if(raw)av=JSON.parse(raw);}catch(e2){av=null;}if(av&&av.colors&&(av.base==="light"||av.base==="dark")){r=av.base;}el.classList.remove("light","dark");el.classList.add(r);el.style.colorScheme=r;if(av&&av.colors){for(var k in av.colors){if(Object.prototype.hasOwnProperty.call(av.colors,k)){el.style.setProperty(k,av.colors[k]);}}if(av.id)el.dataset.appTheme=av.id;}}catch(e){}})();`,
+            __html: `(function(){try{var el=document.documentElement;var t=localStorage.getItem("theme");var d=window.matchMedia("(prefers-color-scheme: dark)").matches;var r=t==="light"||t==="dark"?t:(d?"dark":"light");var av=null;try{var raw=localStorage.getItem("infinity-studio-app-theme-vars");if(raw)av=JSON.parse(raw);}catch(e2){av=null;}if(av&&av.colors&&(av.base==="light"||av.base==="dark")){r=av.base;}el.classList.remove("light","dark");el.classList.add(r);el.style.colorScheme=r;if(av&&av.colors){for(var k in av.colors){if(Object.prototype.hasOwnProperty.call(av.colors,k)){el.style.setProperty(k,av.colors[k]);}}if(av.id)el.dataset.appTheme=av.id;}}catch(e){}})();`,
           }}
         />
       </head>
@@ -72,11 +73,11 @@ export default function RootLayout({
                         toastOptions={{
                           unstyled: false,
                           classNames: {
-                            toast: "rexa-toast",
-                            success: "rexa-toast-success",
-                            error: "rexa-toast-error",
-                            warning: "rexa-toast-warning",
-                            info: "rexa-toast-info",
+                            toast: "infinity-toast",
+                            success: "infinity-toast-success",
+                            error: "infinity-toast-error",
+                            warning: "infinity-toast-warning",
+                            info: "infinity-toast-info",
                           },
                         }}
                       />

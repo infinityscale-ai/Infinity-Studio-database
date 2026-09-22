@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * React bridge between the extension host and RexaDB UI surfaces.
+ * React bridge between the extension host and Infinity Studio UI surfaces.
  * Aggregates static manifest contributions + runtime registrations into:
  * commands (Cmd+K), sidebar views, status bar items, languages, themes,
  * webviews, tree data, visualizers, AI tools.
@@ -19,11 +19,11 @@ import { resolvePanelTarget } from "./panels";
 import type {
   ExtensionCommandContribution,
   InstalledExtensionRecord,
-  RexaTreeItem,
+  StudioTreeItem,
 } from "./types";
 
-export const EXTENSION_OPEN_TAB_EVENT = "rexa:open-extension-tab";
-export const EXTENSION_OPEN_PANEL_TAB_EVENT = "rexa:open-extension-panel-tab";
+export const EXTENSION_OPEN_TAB_EVENT = "infinity-studio:open-extension-tab";
+export const EXTENSION_OPEN_PANEL_TAB_EVENT = "infinity-studio:open-extension-panel-tab";
 
 export function requestOpenExtensionTab(detail: { extensionId: string; viewId: string; title?: string }): void {
   if (typeof window === "undefined") return;
@@ -106,11 +106,11 @@ export interface ExtensionContextValue {
   webviewHtml: Record<string, string>;
   /** Free-form sidebar pages by container id (static manifest `html` or runtime `registerSidebarPage`). */
   sidebarHtml: Record<string, string>;
-  treeNodes: Record<string, RexaTreeItem[]>;
+  treeNodes: Record<string, StudioTreeItem[]>;
   errors: Record<string, string>;
   refresh: () => void;
   executeCommand: (command: string, ...args: unknown[]) => Promise<unknown>;
-  expandTree: (viewId: string, parentId?: string) => Promise<RexaTreeItem[]>;
+  expandTree: (viewId: string, parentId?: string) => Promise<StudioTreeItem[]>;
   openPanel: (panelId: string) => void;
   openTab: (viewId: string, opts?: { title?: string }) => void;
   activePanel: ExtensionPanelState | null;
@@ -168,7 +168,7 @@ export function ExtensionProvider({
   const [themes, setThemes] = useState<ExtensionContextValue["themes"]>([]);
   const [webviewHtml, setWebviewHtml] = useState<Record<string, string>>({});
   const [sidebarHtml, setSidebarHtml] = useState<Record<string, string>>({});
-  const [treeNodes, setTreeNodes] = useState<Record<string, RexaTreeItem[]>>({});
+  const [treeNodes, setTreeNodes] = useState<Record<string, StudioTreeItem[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activePanel, setActivePanel] = useState<ExtensionPanelState | null>(null);
   const hostRef = useRef<ExtensionHost | null>(null);
@@ -334,7 +334,7 @@ export function ExtensionProvider({
               }
             }
           }
-          // Fall through: core handles `rexa.*` built-ins elsewhere.
+          // Fall through: core handles `infinityStudio.*` built-ins elsewhere.
           return undefined as never;
         },
         list: () =>
@@ -500,7 +500,7 @@ export function ExtensionProvider({
     });
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key?.startsWith("rexadb.extensions")) refresh();
+      if (e.key?.startsWith("infinity-studio.extensions")) refresh();
     };
     window.addEventListener("storage", onStorage);
     return () => {

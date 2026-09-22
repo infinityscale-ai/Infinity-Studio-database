@@ -19,7 +19,7 @@ import { useAuthState } from "@/hooks/use-auth-state";
 import { saveLocalUserProfile } from "@/lib/auth/user-profile";
 import { toast } from "sonner";
 
-export const USER_AVATAR_STORAGE_KEY = "rexa-db-user-avatar";
+export const USER_AVATAR_STORAGE_KEY = "infinity-studio-user-avatar";
 
 export interface ProfileData {
   fullName: string;

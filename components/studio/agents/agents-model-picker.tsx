@@ -6,7 +6,7 @@ import { ChevronDown, Search, Check, Star } from "@/lib/icon-theme/lucide-react"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import {
-  RexaDBIcon,
+  InfinityStudioIcon,
   ClaudeIcon,
   OpenCodeIcon,
   OpenAIIcon,
@@ -26,7 +26,7 @@ const PROVIDER_ICON_MAP: Record<
   AgentProviderId,
   React.ComponentType<{ className?: string }>
 > = {
-  rexadb: RexaDBIcon,
+  "infinity-studio": InfinityStudioIcon,
   "claude-code": ClaudeIcon,
   opencode: OpenCodeIcon,
   codex: OpenAIIcon,
@@ -175,7 +175,7 @@ export function AgentsModelPicker({
 
   const activeMeta =
     providers.find((p) => p.id === activeProvider) ?? providers[0];
-  const ActiveIcon = PROVIDER_ICON_MAP[activeProvider] ?? RexaDBIcon;
+  const ActiveIcon = PROVIDER_ICON_MAP[activeProvider] ?? InfinityStudioIcon;
 
   const activeModels = getProviderModels(activeProvider, activeMeta);
 
@@ -283,7 +283,7 @@ export function AgentsModelPicker({
               </div>
             ) : (
               providers.map((provider) => {
-                const Icon = PROVIDER_ICON_MAP[provider.id] ?? RexaDBIcon;
+                const Icon = PROVIDER_ICON_MAP[provider.id] ?? InfinityStudioIcon;
                 const isActive = provider.id === activeProvider;
                 const isAvailable = provider.status === "installed";
                 return (

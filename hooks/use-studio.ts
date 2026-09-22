@@ -537,13 +537,13 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   const [isDeletingDatabase, setIsDeletingDatabase] = useState(false);
   const [openTabs, setOpenTabs] = useState<StudioInitialTab[]>(() => {
     if (typeof window !== "undefined" && window.localStorage) {
-      const restoreKey = `rexa-db-restore-state-${propConnection.id}`;
+      const restoreKey = `infinity-studio-restore-state-${propConnection.id}`;
       const shouldRestore = window.localStorage.getItem(restoreKey) !== "0";
       if (!shouldRestore) {
-        window.localStorage.removeItem(`rexa-db-tabs-${propConnection.id}`);
-        window.localStorage.removeItem(`rexa-db-active-tab-${propConnection.id}`);
+        window.localStorage.removeItem(`infinity-studio-tabs-${propConnection.id}`);
+        window.localStorage.removeItem(`infinity-studio-active-tab-${propConnection.id}`);
       } else {
-        const storageKey = `rexa-db-tabs-${propConnection.id}`;
+        const storageKey = `infinity-studio-tabs-${propConnection.id}`;
         try {
           const cached = window.localStorage.getItem(storageKey);
           if (cached) return JSON.parse(cached);
@@ -580,10 +580,10 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   const [activeTabId, setActiveTabId] = useState<string | null>(() => {
     let restoredId: string | null = null;
     if (typeof window !== "undefined" && window.localStorage) {
-      const restoreKey = `rexa-db-restore-state-${propConnection.id}`;
+      const restoreKey = `infinity-studio-restore-state-${propConnection.id}`;
       const shouldRestore = window.localStorage.getItem(restoreKey) !== "0";
       if (shouldRestore) {
-        const storageKey = `rexa-db-active-tab-${propConnection.id}`;
+        const storageKey = `infinity-studio-active-tab-${propConnection.id}`;
         try {
           const cached = window.localStorage.getItem(storageKey);
           if (cached) restoredId = cached;
@@ -622,8 +622,8 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   // Local persistence for immediate recovery on tab change
   useEffect(() => {
     persistLocalState(connection.id, {
-      [`rexa-db-tabs-${connection.id}`]: openTabs ? JSON.stringify(openTabs) : null,
-      [`rexa-db-active-tab-${connection.id}`]: activeTabId ?? null,
+      [`infinity-studio-tabs-${connection.id}`]: openTabs ? JSON.stringify(openTabs) : null,
+      [`infinity-studio-active-tab-${connection.id}`]: activeTabId ?? null,
     });
   }, [openTabs, activeTabId, connection.id]);
 
@@ -1008,9 +1008,9 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
 // fallow-ignore-next-line code-duplication
   const [sidebarView, setSidebarViewState] = useState<"dashboard" | "tables" | "sql" | "database" | "import-export" | "auth" | "storage" | "edge-functions" | "themes" | "workflows" | "agents" | "erd" | "notes" | null>(() => {
     if (typeof window !== "undefined" && window.localStorage) {
-      const restoreKey = `rexa-db-restore-state-${propConnection.id}`;
+      const restoreKey = `infinity-studio-restore-state-${propConnection.id}`;
       if (window.localStorage.getItem(restoreKey) !== "0") {
-        const storageKey = `rexa-db-sidebar-view-${propConnection.id}`;
+        const storageKey = `infinity-studio-sidebar-view-${propConnection.id}`;
         const cached = window.localStorage.getItem(storageKey);
         if (cached) return cached as any;
       }
@@ -1034,7 +1034,7 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   useEffect(() => {
     if (!sidebarView) return;
     persistLocalState(connection.id, {
-      [`rexa-db-sidebar-view-${connection.id}`]: sidebarView,
+      [`infinity-studio-sidebar-view-${connection.id}`]: sidebarView,
     });
   }, [sidebarView, connection.id]);
   const [isImportExportLoading, setIsImportExportLoading] = useState(false);
@@ -1058,9 +1058,9 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
 // fallow-ignore-next-line code-duplication
   const [isSidebarVisible, setIsSidebarVisibleState] = useState(() => {
     if (typeof window !== "undefined" && window.localStorage) {
-      const restoreKey = `rexa-db-restore-state-${propConnection.id}`;
+      const restoreKey = `infinity-studio-restore-state-${propConnection.id}`;
       if (window.localStorage.getItem(restoreKey) !== "0") {
-        const storageKey = `rexa-db-sidebar-visible-${propConnection.id}`;
+        const storageKey = `infinity-studio-sidebar-visible-${propConnection.id}`;
         const cached = window.localStorage.getItem(storageKey);
         if (cached !== null) return cached === "1";
       }
@@ -1079,7 +1079,7 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   // Local persistence for immediate recovery on sidebar change
   useEffect(() => {
     persistLocalState(connection.id, {
-      [`rexa-db-sidebar-visible-${connection.id}`]: isSidebarVisible ? "1" : "0",
+      [`infinity-studio-sidebar-visible-${connection.id}`]: isSidebarVisible ? "1" : "0",
     });
   }, [isSidebarVisible, connection.id]);
   const [sidebarBehaviorState, setSidebarBehaviorState] = useState<SidebarBehavior>(DEFAULT_SIDEBAR_BEHAVIOR);
@@ -1232,8 +1232,8 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
       executedBy: newEntry.executedBy,
       executedByName: newEntry.executedByName,
     }).then(res => {
-      if (!res.success) console.error("[rexadb] insertHistoryEntry server error", res.error);
-    }).catch((err: unknown) => console.error("[rexadb] insertHistoryEntry network error", err));
+      if (!res.success) console.error("[infinity-studio] insertHistoryEntry server error", res.error);
+    }).catch((err: unknown) => console.error("[infinity-studio] insertHistoryEntry network error", err));
 
     setQueryHistory(prev => {
       // Only update if we're still on the same connection
@@ -1380,8 +1380,8 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
   useEffect(() => {
     if (typeof window === "undefined" || !window.localStorage) return;
     try {
-      window.localStorage.setItem("rexa-db-tui-mode", tuiMode ? "1" : "0");
-      window.localStorage.setItem("rexa-db-tui-theme", tuiTheme || "auto");
+      window.localStorage.setItem("infinity-studio-tui-mode", tuiMode ? "1" : "0");
+      window.localStorage.setItem("infinity-studio-tui-theme", tuiTheme || "auto");
     } catch {}
   }, [tuiMode, tuiTheme]);
 
@@ -7960,7 +7960,7 @@ END $$;`.trim();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = res.data.filename || `rexa-db-export-${Date.now()}.${format}`;
+      link.download = res.data.filename || `infinity-studio-export-${Date.now()}.${format}`;
       link.click();
       URL.revokeObjectURL(url);
 

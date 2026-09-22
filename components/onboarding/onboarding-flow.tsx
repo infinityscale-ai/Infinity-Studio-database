@@ -18,11 +18,11 @@ type Step = "welcome" | "theme" | "name";
 
 const STEPS: Step[] = ["welcome", "theme", "name"];
 
-const DARK_THEME = BUILTIN_APP_THEMES.find((t) => t.id === "rexadb-dark");
+const DARK_THEME = BUILTIN_APP_THEMES.find((t) => t.id === "infinity-studio-dark");
 const DARK_THEME_ID = DARK_THEME?.id ?? "dark";
 
 const TIPS: string[] = [
-  "RexaDB connects to Postgres, MySQL, Supabase, SQLite and more — all from one unified workspace.",
+  "Infinity Studio connects to Postgres, MySQL, Supabase, SQLite and more — all from one unified workspace.",
   "Turn on Schema Explorer in Settings to browse tables, functions, triggers and indexes without leaving the sidebar.",
   "You can pin favorite tables and queries for quick access from the sidebar.",
   "Export query results as CSV or JSON with a single click from the results grid.",
@@ -83,7 +83,7 @@ function TipPanel({ stepIndex }: { stepIndex: number }) {
       {/* eslint-disable-next-line @next/next/no-img-element -- static onboarding art from /public */}
       <img
         src="/onboarding.png"
-        alt="RexaDB onboarding"
+        alt="Infinity Studio onboarding"
         className="absolute inset-0 h-full w-full object-cover"
       />
       <div className="absolute inset-0 bg-black/40" />
@@ -104,7 +104,7 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
   return (
     <>
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Welcome to RexaDB</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Welcome to Infinity Studio</h1>
         <p className="text-muted-foreground">
           Let&apos;s get your workspace set up. This will only take a moment.
         </p>
@@ -247,9 +247,9 @@ export function OnboardingFlow({
         onEscapeKeyDown={(e) => e.preventDefault()}
         className="w-[94vw] h-[86vh] max-w-[1200px] sm:max-w-[1200px] gap-0 overflow-hidden rounded-2xl border border-border bg-studio-bg p-0 text-foreground"
       >
-        <DialogTitle className="sr-only">Welcome to RexaDB</DialogTitle>
+        <DialogTitle className="sr-only">Welcome to Infinity Studio</DialogTitle>
         <DialogDescription className="sr-only">
-          Set up RexaDB: pick an appearance and tell us your name.
+          Set up Infinity Studio: pick an appearance and tell us your name.
         </DialogDescription>
 
         <div className="flex h-full">

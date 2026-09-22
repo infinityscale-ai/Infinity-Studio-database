@@ -51,11 +51,11 @@ export function useStudioPersistence({ connectionId }: UseStudioPersistenceProps
         });
         const body = await response.json().catch(() => null);
         if (!response.ok || body?.success === false) {
-          console.error(`[rexadb] Failed to save ${label} for connection ${capturedConnectionId}:`, body?.error);
+          console.error(`[infinity-studio] Failed to save ${label} for connection ${capturedConnectionId}:`, body?.error);
         }
       })
       .catch((error) => {
-        console.error(`[rexadb] Unexpected error saving studio ${label}:`, error);
+        console.error(`[infinity-studio] Unexpected error saving studio ${label}:`, error);
       })
       .finally(() => {
         pendingSavesRef.current--;

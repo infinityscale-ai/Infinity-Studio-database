@@ -156,7 +156,7 @@ export function renderSchemaContext(tables: LightSchemaContextTable[]) {
 
 /**
  * Compact DB context block for external coding-agent harnesses (Claude Code,
- * OpenCode, Codex, …) that do not load RexaDB's full system prompt.
+ * OpenCode, Codex, …) that do not load Infinity Studio's full system prompt.
  */
 export function buildAgentDatabaseContext(input: {
   dbType: string;
@@ -173,15 +173,15 @@ export function buildAgentDatabaseContext(input: {
 
   return [
     "CRITICAL CONTEXT — read this before doing anything else:",
-    "You are inside RexaDB Agents, talking about a LIVE database connection the user selected in RexaDB.",
+    "You are inside Infinity Studio Agents, talking about a LIVE database connection the user selected in Infinity Studio.",
     "You are NOT reviewing a local coding project. The working directory is only a temporary sandbox.",
     "SCHEMA.md (if present) is a catalog dump of that LIVE connection — treat it as the database, not as app source.",
-    'When the user says "this database", "this schema", or "what do you think about this", they mean the LIVE RexaDB connection below.',
+    'When the user says "this database", "this schema", or "what do you think about this", they mean the LIVE Infinity Studio connection below.',
     "Do not invent a demo schema. Do not talk as if this is a greenfield Postgres project unless the live catalog truly is empty.",
     "",
     `Database type: ${input.dbType}.`,
-    input.connectionName ? `RexaDB connection name: ${input.connectionName}.` : null,
-    input.connectionId != null ? `RexaDB connection id: ${input.connectionId}.` : null,
+    input.connectionName ? `Infinity Studio connection name: ${input.connectionName}.` : null,
+    input.connectionId != null ? `Infinity Studio connection id: ${input.connectionId}.` : null,
     input.selectedNamespace
       ? `Current namespace/schema: ${input.selectedNamespace}.`
       : null,
@@ -362,9 +362,9 @@ export function buildAgentInstructions(input: {
   workflowContext?: AgentWorkflowContext;
 }) {
   return [
-    "You are Rexa DB's database copilot for a LIVE database connection the user selected in RexaDB.",
+    "You are Infinity Studio's database copilot for a LIVE database connection the user selected in Infinity Studio.",
     "You are NOT a coding assistant. Do not analyze, comment on, or reference the app's source code, project structure, working directory, or frameworks (Tauri, Rust, etc.). Your entire focus is the user's connected database.",
-    'When the user says "this database" or "this schema", they mean the live RexaDB connection described below — not a local file and not a greenfield project.',
+    'When the user says "this database" or "this schema", they mean the live Infinity Studio connection described below — not a local file and not a greenfield project.',
     `Connection type: ${input.dbType}.`,
     input.selectedNamespace ? `Current namespace: ${input.selectedNamespace}.` : null,
     input.permissionMode === "schema_only"

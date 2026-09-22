@@ -8,8 +8,8 @@ import {
 import { requireDockerDbOrSkip } from "./docker-helpers";
 
 const MYSQL_URL =
-  process.env.REXADB_TEST_MYSQL ||
-  "mysql://root:root@127.0.0.1:3306/rexadb_test";
+  process.env.INFSTUDIO_TEST_MYSQL ||
+  "mysql://root:root@127.0.0.1:3306/infstudio_test";
 
 async function setupMysql(sqlEngine: {
   executeSqlEngineQuery: (cs: string, q: string, p?: unknown[]) => Promise<any>;
@@ -66,23 +66,23 @@ test("sql-engine handles mysql catalog + mutations", async (t) => {
   assert.equal(selectResult.rowCount, 1);
   assert.equal(selectResult.rows[0].name, "Ada");
 
-  const tables = await sqlEngine.getSqlEngineTables(MYSQL_URL, "rexadb_test");
+  const tables = await sqlEngine.getSqlEngineTables(MYSQL_URL, "infstudio_test");
   assert.ok(tables.includes("users"));
   assert.ok(tables.includes("posts"));
 
-  const views = await sqlEngine.getSqlEngineViews(MYSQL_URL, "rexadb_test");
+  const views = await sqlEngine.getSqlEngineViews(MYSQL_URL, "infstudio_test");
   assert.ok(views.includes("user_emails"));
 
   const schemas = await sqlEngine.getSqlEngineSchemas(MYSQL_URL);
-  assert.ok(schemas.includes("rexadb_test"));
+  assert.ok(schemas.includes("infstudio_test"));
 
   const databases = await sqlEngine.getSqlEngineDatabases(MYSQL_URL);
-  assert.ok(databases.includes("rexadb_test"));
+  assert.ok(databases.includes("infstudio_test"));
 
   // fallow-ignore-next-line code-duplication
   const structure = await sqlEngine.getSqlEngineTableStructure(
     MYSQL_URL,
-    "rexadb_test",
+    "infstudio_test",
     "posts",
   );
   const userIdColumn = structure.find(
@@ -92,14 +92,14 @@ test("sql-engine handles mysql catalog + mutations", async (t) => {
 
   const primaryKey = await sqlEngine.getSqlEnginePrimaryKey(
     MYSQL_URL,
-    "rexadb_test",
+    "infstudio_test",
     "users",
   );
   assert.equal(primaryKey, "id");
 
   const foreignKeys = await sqlEngine.getSqlEngineTableForeignKeys(
     MYSQL_URL,
-    "rexadb_test",
+    "infstudio_test",
     "posts",
   );
   assert.equal(foreignKeys[0]?.foreign_table_name, "users");
@@ -107,7 +107,7 @@ test("sql-engine handles mysql catalog + mutations", async (t) => {
   await verifyReferencedRecordAndMutate(
     sqlEngine,
     MYSQL_URL,
-    "rexadb_test",
+    "infstudio_test",
     "SELECT name FROM users WHERE id = ?",
     [1],
   );

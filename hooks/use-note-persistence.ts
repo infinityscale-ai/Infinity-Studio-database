@@ -32,7 +32,7 @@ export function useNotePersistence({ connectionId, notes, setNotes }: UseNotePer
         return true;
       }
       try {
-        const raw = localStorage.getItem(`rexa-db-notes-${connectionId}`);
+        const raw = localStorage.getItem(`infinity-studio-notes-${connectionId}`);
         if (raw) {
           const parsed = JSON.parse(raw);
           const list = Array.isArray(parsed) ? parsed : parsed?.notes;
@@ -61,7 +61,7 @@ export function useNotePersistence({ connectionId, notes, setNotes }: UseNotePer
     void saveStudioNotes(connectionId, payload).catch(() => {});
     lastSnapshotRef.current = JSON.stringify(notes);
     try {
-      localStorage.setItem(`rexa-db-notes-${connectionId}`, JSON.stringify(payload));
+      localStorage.setItem(`infinity-studio-notes-${connectionId}`, JSON.stringify(payload));
     } catch {}
   }, [notes, connectionId]);
 }

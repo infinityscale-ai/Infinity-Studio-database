@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { RexaAgentAppMode } from "@/lib/agents/app-modes";
+import type { StudioAgentAppMode } from "@/lib/agents/app-modes";
 import type { McpExternalConfig, McpTransportSelection } from "@/lib/agents/mcp/external-config";
 import type { ExposedConnectionMeta } from "@/lib/agents/mcp/registry";
 import { API_BASE } from "@/lib/api-base";
@@ -20,7 +20,7 @@ export type McpStdioDescriptor = {
 
 export type McpSettingsData = {
   config: Omit<McpExternalConfig, "authToken"> & { hasAuthToken: boolean };
-  modes: RexaAgentAppMode[];
+  modes: StudioAgentAppMode[];
   connections: McpConnectionOption[];
   /** Path of the MCP HTTP endpoint on the sidecar (same origin). */
   httpPath: string;
@@ -73,7 +73,7 @@ export function useMcpSettings() {
       setError(null);
       try {
         const next = { ...data.config, ...patch };
-        const saved = await api<{ config: McpSettingsData["config"]; modes: RexaAgentAppMode[]; mintedToken?: string }>(
+        const saved = await api<{ config: McpSettingsData["config"]; modes: StudioAgentAppMode[]; mintedToken?: string }>(
           "/api/mcp/config",
           { method: "PUT", body: JSON.stringify(next) },
         );
@@ -161,7 +161,7 @@ export function useMcpSettings() {
       setSaving(true);
       setError(null);
       try {
-        const result = await api<{ mode: RexaAgentAppMode; modes: RexaAgentAppMode[] }>("/api/mcp/modes", {
+        const result = await api<{ mode: StudioAgentAppMode; modes: StudioAgentAppMode[] }>("/api/mcp/modes", {
           method: "POST",
           body: JSON.stringify(input),
         });
@@ -177,11 +177,11 @@ export function useMcpSettings() {
     [],
   );
 
-  const updateMode = useCallback(async (id: string, patch: Partial<RexaAgentAppMode>) => {
+  const updateMode = useCallback(async (id: string, patch: Partial<StudioAgentAppMode>) => {
     setSaving(true);
     setError(null);
     try {
-      const result = await api<{ modes: RexaAgentAppMode[] }>(`/api/mcp/modes/${encodeURIComponent(id)}`, {
+      const result = await api<{ modes: StudioAgentAppMode[] }>(`/api/mcp/modes/${encodeURIComponent(id)}`, {
         method: "PUT",
         body: JSON.stringify(patch),
       });
@@ -197,7 +197,7 @@ export function useMcpSettings() {
     setSaving(true);
     setError(null);
     try {
-      const result = await api<{ modes: RexaAgentAppMode[]; modeId: string }>(
+      const result = await api<{ modes: StudioAgentAppMode[]; modeId: string }>(
         `/api/mcp/modes/${encodeURIComponent(id)}`,
         { method: "DELETE" },
       );

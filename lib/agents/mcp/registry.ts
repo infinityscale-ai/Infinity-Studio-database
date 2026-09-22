@@ -8,7 +8,7 @@
  */
 import { detectConnectionDbType } from "@/lib/db/connection-type";
 import type { DbToolsContext } from "../db-tools-core";
-import type { RexaAgentAppMode } from "../app-modes";
+import type { StudioAgentAppMode } from "../app-modes";
 import { maskConnectionString } from "./external-config";
 
 export type ExposedConnectionMeta = {
@@ -84,12 +84,12 @@ export async function resolveToolConnection(
   opts: {
     enabled: boolean;
     exposedIds: number[];
-    mode: RexaAgentAppMode;
+    mode: StudioAgentAppMode;
     all?: ConnectionDep[];
   },
 ): Promise<{ ctx: DbToolsContext; meta: ExposedConnectionMeta }> {
   if (!opts.enabled) {
-    throw new Error("The RexaDB MCP server is disabled. Enable it in Settings → MCP Server.");
+    throw new Error("The Infinity Studio MCP server is disabled. Enable it in Settings → MCP Server.");
   }
   const rows = opts.all ?? (await listAllConnectionDeps());
   const usable = rows.filter(

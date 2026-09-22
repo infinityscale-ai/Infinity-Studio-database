@@ -1,13 +1,13 @@
 /**
- * RexaDB Agents MCP server (stdio).
+ * Infinity Studio Agents MCP server (stdio).
  *
  * Spawned per harness turn with env:
- *   REXADB_CONNECTION_STRING
- *   REXADB_DB_TYPE
- *   REXADB_CONNECTION_NAME
- *   REXADB_ALLOW_SQL_READ=1|0
- *   REXADB_ALLOW_SQL_WRITE=1|0
- *   REXADB_MODE=rexadb-plan|rexadb-build|…
+ *   INFSTUDIO_CONNECTION_STRING
+ *   INFSTUDIO_DB_TYPE
+ *   INFSTUDIO_CONNECTION_NAME
+ *   INFSTUDIO_ALLOW_SQL_READ=1|0
+ *   INFSTUDIO_ALLOW_SQL_WRITE=1|0
+ *   INFSTUDIO_MODE=infinity-studio-plan|infinity-studio-build|…
  *
  * Run: bun run lib/agents/mcp/stdio.ts
  */
@@ -35,17 +35,17 @@ function envFlag(name: string, fallback = false): boolean {
 }
 
 function buildContext(): DbToolsContext {
-  const connectionString = process.env.REXADB_CONNECTION_STRING || "";
+  const connectionString = process.env.INFSTUDIO_CONNECTION_STRING || "";
   if (!connectionString) {
-    throw new Error("REXADB_CONNECTION_STRING is required for the RexaDB MCP server");
+    throw new Error("INFSTUDIO_CONNECTION_STRING is required for the Infinity Studio MCP server");
   }
   return {
     connectionString,
-    dbType: process.env.REXADB_DB_TYPE || undefined,
-    connectionName: process.env.REXADB_CONNECTION_NAME || undefined,
+    dbType: process.env.INFSTUDIO_DB_TYPE || undefined,
+    connectionName: process.env.INFSTUDIO_CONNECTION_NAME || undefined,
     permissions: {
-      allowSqlRead: envFlag("REXADB_ALLOW_SQL_READ", true),
-      allowSqlWrite: envFlag("REXADB_ALLOW_SQL_WRITE", false),
+      allowSqlRead: envFlag("INFSTUDIO_ALLOW_SQL_READ", true),
+      allowSqlWrite: envFlag("INFSTUDIO_ALLOW_SQL_WRITE", false),
     },
   };
 }
@@ -69,10 +69,10 @@ function toolText(result: Awaited<ReturnType<typeof executeDbTool>>) {
 
 async function main() {
   const ctx = buildContext();
-  const mode = process.env.REXADB_MODE || "rexadb-plan";
+  const mode = process.env.INFSTUDIO_MODE || "infinity-studio-plan";
 
   const server = new McpServer({
-    name: "rexadb",
+    name: "infinity-studio",
     version: "1.0.0",
   });
 
@@ -83,7 +83,7 @@ async function main() {
     "describe_connection",
     {
       description:
-        "Describe the live RexaDB database connection, capabilities, and current agent SQL permissions.",
+        "Describe the live Infinity Studio database connection, capabilities, and current agent SQL permissions.",
       inputSchema: {},
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -93,7 +93,7 @@ async function main() {
   server.registerTool(
     "list_namespaces",
     {
-      description: "List databases or schemas on the current RexaDB connection.",
+      description: "List databases or schemas on the current Infinity Studio connection.",
       inputSchema: {},
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -159,7 +159,7 @@ async function main() {
     "run_sql",
     {
       description:
-        "Run SQL (or Mongo/Redis query) against the live RexaDB connection. Writes are blocked in plan/read-only modes.",
+        "Run SQL (or Mongo/Redis query) against the live Infinity Studio connection. Writes are blocked in plan/read-only modes.",
       inputSchema: toolShape({
         query: z.string().describe("SQL / Mongo JSON / Redis command"),
       }),
@@ -182,7 +182,7 @@ async function main() {
 
   // Log to stderr only — stdout is the MCP JSON-RPC channel.
   console.error(
-    `[rexadb-mcp] starting mode=${mode} read=${ctx.permissions.allowSqlRead} write=${ctx.permissions.allowSqlWrite} dbType=${ctx.dbType || "auto"}`,
+    `[infinity-studio-mcp] starting mode=${mode} read=${ctx.permissions.allowSqlRead} write=${ctx.permissions.allowSqlWrite} dbType=${ctx.dbType || "auto"}`,
   );
 
   const transport = new StdioServerTransport();
@@ -190,6 +190,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("[rexadb-mcp] fatal:", error);
+  console.error("[infinity-studio-mcp] fatal:", error);
   process.exit(1);
 });

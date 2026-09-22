@@ -1,19 +1,19 @@
-# RexaDB Extensions (v1)
+# Infinity Studio Extensions (v1)
 
-RexaDB-native extensions, inspired by VS Code's extension model, running in a
+Infinity Studio-native extensions, inspired by VS Code's extension model, running in a
 **Web Worker sandbox** (no DOM, no Node, no `fetch` unless the
 `network` capability is granted).
 
 ## Quick start
 
 1. Open any connection → sidebar **Extensions** (rail puzzle icon).
-2. **Install from bundle**: paste `resources/extensions/hello-rexa/bundle.json`.
+2. **Install from bundle**: paste `resources/extensions/hello-infinity-studio/bundle.json`.
 3. Reload — the worker activates:
    - Commands appear in **Cmd+K** under the extension's group.
    - Tree/webview **views** render in the Extensions sidebar section.
    - **Status bar** items appear left/right by alignment.
    - **SQL completions** merge into the Monaco editor.
-   - **Panels** open via `rexa.window.openWebviewPanel` (floating dialog).
+   - **Panels** open via `infinityStudio.window.openWebviewPanel` (floating dialog).
    - **Themes** apply CSS variables from the manager.
 
 ## Writing an extension
@@ -21,23 +21,23 @@ RexaDB-native extensions, inspired by VS Code's extension model, running in a
 Two artifacts:
 
 - `manifest.json` — id (`publisher.name`), semver version,
-  `engines.rexadb`, static `contributes` (commands, views, webviewPanels,
+  `engines["infinity-studio"]`, static `contributes` (commands, views, webviewPanels,
   statusBar, languages, themes, resultVisualizers, cellRenderers, dbDrivers,
   aiTools), `capabilities`.
 - `main.js` — **single bundled file, no imports**, declaring
-  `async function activate(rexa) {...}`.
+  `async function activate(infinityStudio) {...}`.
 
-### Runtime API (`rexa`)
+### Runtime API (`infinityStudio`)
 
 | Namespace | Methods |
 |---|---|
-| `rexa.commands` | `registerCommand`, `executeCommand`, `getCommands` |
-| `rexa.window` | `showInformation/Warning/ErrorMessage`, `showInputBox`, `createStatusBarItem`, `updateStatusBarItem`, `registerTreeDataProvider`, `registerWebviewView`, `registerSidebarPage`, `openWebviewPanel`, `openTab`, `createRailItem` |
-| `rexa.workspace` | `getConfiguration`, `updateConfiguration` |
-| `rexa.languages` | `registerCompletionItems`, `registerFormatter` |
-| `rexa.rexaDb` | `getConnections`, `getActiveConnection`, `executeQuery`, `getSchema`, `readTable`, `getActiveQuery`, `setActiveQuery`, `openResultVisualizer` |
-| `rexa.ai` | `registerTool` |
-| `rexa.env` | `clipboardWrite` |
+| `infinityStudio.commands` | `registerCommand`, `executeCommand`, `getCommands` |
+| `infinityStudio.window` | `showInformation/Warning/ErrorMessage`, `showInputBox`, `createStatusBarItem`, `updateStatusBarItem`, `registerTreeDataProvider`, `registerWebviewView`, `registerSidebarPage`, `openWebviewPanel`, `openTab`, `createRailItem` |
+| `infinityStudio.workspace` | `getConfiguration`, `updateConfiguration` |
+| `infinityStudio.languages` | `registerCompletionItems`, `registerFormatter` |
+| `infinityStudio.db` | `getConnections`, `getActiveConnection`, `executeQuery`, `getSchema`, `readTable`, `getActiveQuery`, `setActiveQuery`, `openResultVisualizer` |
+| `infinityStudio.ai` | `registerTool` |
+| `infinityStudio.env` | `clipboardWrite` |
 
 ### Data + schema access
 
@@ -45,11 +45,11 @@ The host wires a live bridge to the active studio session, so these return
 real data (empty fallbacks when no studio is open):
 
 ```js
-const conns = await rexa.rexaDb.getConnections();       // [{ id, name, dbType }]
-const active = await rexa.rexaDb.getActiveConnection(); // { id, name, dbType } | null
-const schema = await rexa.rexaDb.getSchema();           // { database, dbType, schemas[], tables: [{ schema, name, columns: [{ name, type, nullable }] }] }
-const page = await rexa.rexaDb.readTable("public", "users", 25); // { rows, fields }
-const res = await rexa.rexaDb.executeQuery("SELECT COUNT(*) AS n FROM users");
+const conns = await infinityStudio.db.getConnections();       // [{ id, name, dbType }]
+const active = await infinityStudio.db.getActiveConnection(); // { id, name, dbType } | null
+const schema = await infinityStudio.db.getSchema();           // { database, dbType, schemas[], tables: [{ schema, name, columns: [{ name, type, nullable }] }] }
+const page = await infinityStudio.db.readTable("public", "users", 25); // { rows, fields }
+const res = await infinityStudio.db.executeQuery("SELECT COUNT(*) AS n FROM users");
 ```
 
 Write statements (`INSERT/UPDATE/DELETE/…`, multi-statements) require the
@@ -67,18 +67,18 @@ Sidebar views and tab content are separate surfaces — never the same html:
   opening a BRAND-NEW standalone sidebar (`extensions:<containerId>`) that the
   extension fills with WHATEVER it wants — explorer-like, dashboard-like.
   Provide the page as static `viewsContainers[].html` or at runtime via
-  `await rexa.window.registerSidebarPage(containerId, html)` (full-height,
+  `await infinityStudio.window.registerSidebarPage(containerId, html)` (full-height,
   theme-aware webview). Only when no page is provided does the sidebar fall
   back to the declared `views` list. Never merged into, and never linking
   to, the Extensions manager sidebar (which is management-only).
 - **Editor tabs**: `contributes.webviewPanels[]` with `area: "editor"` open
-  via `await rexa.window.openWebviewPanel(panelId, html?)` as full-height
+  via `await infinityStudio.window.openWebviewPanel(panelId, html?)` as full-height
   editor tabs with the panel's OWN html — one tab per panel, so an extension
   can have many tabs next to its single sidebar. Panels with any other area
-  open as floating dialogs. `await rexa.window.openTab(viewId)` remains only
+  open as floating dialogs. `await infinityStudio.window.openTab(viewId)` remains only
   as a sidebar-view pop-out.
 - **Rail items**: static `contributes.railItems[]` (`{ id, title, command?, viewId?, tooltip?, icon? }`)
-  or runtime `await rexa.window.createRailItem("id", "Title", { command })`.
+  or runtime `await infinityStudio.window.createRailItem("id", "Title", { command })`.
   `icon` is an inline `<svg…>` string, a short emoji/text glyph, or omitted
   (puzzle fallback). Same format for container icons. If an extension
   declares explicit rail items, they replace its automatic container item
@@ -87,13 +87,13 @@ Sidebar views and tab content are separate surfaces — never the same html:
 - **Theming**: webview HTML is sandboxed but theme-aware — a base stylesheet
   maps to app system colors (`color-scheme: light dark`, `CanvasText`), the
   live theme is pushed on every app theme switch
-  (`document.documentElement.dataset.rexaTheme`, `style.colorScheme`, and
-  `acquireRexaApi().getState().theme`), so extension tabs/panels/views follow
+  (`document.documentElement.dataset.studioTheme`, `style.colorScheme`, and
+  `acquireInfinityStudioApi().getState().theme`), so extension tabs/panels/views follow
   light/dark automatically.
 
 ```js
-await rexa.window.createRailItem("my-tab", "My Panel", { viewId: "my-ext.view" });
-await rexa.window.openTab("my-ext.view", { title: "My Panel" });
+await infinityStudio.window.createRailItem("my-tab", "My Panel", { viewId: "my-ext.view" });
+await infinityStudio.window.openTab("my-ext.view", { title: "My Panel" });
 ```
 
 ### Handler registration (Worker)
@@ -102,10 +102,10 @@ Because the sandbox has no shared memory, command/tree handlers are
 registered by name for host→worker dispatch:
 
 ```js
-rexa.__registerHandler("command:my-ext.do-thing", async (...args) => { ... });
-rexa.__registerHandler("tree:my-ext.my-view", async (parentId) => [ ...items ]);
-await rexa.commands.registerCommand("my-ext.do-thing", "Do thing", "My Ext");
-await rexa.window.registerTreeDataProvider("my-ext.my-view");
+infinityStudio.__registerHandler("command:my-ext.do-thing", async (...args) => { ... });
+infinityStudio.__registerHandler("tree:my-ext.my-view", async (parentId) => [ ...items ]);
+await infinityStudio.commands.registerCommand("my-ext.do-thing", "Do thing", "My Ext");
+await infinityStudio.window.registerTreeDataProvider("my-ext.my-view");
 ```
 
 (`runInProcess` in tests also accepts the `registerTreeDataProvider(viewId,
@@ -118,7 +118,7 @@ the VS Code-like bridge:
 
 ```html
 <script>
-  const api = acquireRexaApi();
+  const api = acquireInfinityStudioApi();
   api.postMessage({ hello: "webview" });
   api.onDidReceiveMessage((msg) => console.log(msg));
 </script>
@@ -136,10 +136,10 @@ the VS Code-like bridge:
 
 | Path | Purpose |
 |---|---|
-| `lib/extensions/types.ts` | Manifest + `RexaHostApi` surface |
+| `lib/extensions/types.ts` | Manifest + `StudioHostApi` surface |
 | `lib/extensions/extension-host.ts` | Worker sandbox + RPC + `runInProcess` test helper |
 | `lib/extensions/extension-registry.ts` | Install/enable/disable (localStorage) |
-| `lib/extensions/db-bridge.ts` | Live studio bridge (`rexaDb.*`) + write-query guard |
+| `lib/extensions/db-bridge.ts` | Live studio bridge (`db.*`) + write-query guard |
 | `lib/extensions/react.tsx` | `ExtensionProvider`, aggregation hooks |
 | `lib/extensions/themes.ts` | Theme CSS-variable apply/clear |
 | `components/studio/extensions-view.tsx` | Manager UI (Extensions tab) |

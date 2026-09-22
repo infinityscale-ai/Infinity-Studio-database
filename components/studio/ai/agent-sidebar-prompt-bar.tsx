@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 /* ─────────────────────────────────────────────────────────
  * Agent Sidebar Prompt Bar — adapted from provided PromptBar
- * Tailored for RexaDB's AI sidebar (sidebar shape, not the
+ * Tailored for Infinity Studio's AI sidebar (sidebar shape, not the
  * full Agents window with provider/mode pickers).
  * No external "glimm" dependency: sweep is a lightweight
  * CSS gradient that mimics the rainbow playSweep.

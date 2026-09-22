@@ -1,6 +1,6 @@
 export function readInitialAppearance(): Record<string, unknown> {
   if (typeof window === "undefined") return {};
-  const el = document.getElementById("rexadb-initial-appearance") as HTMLTemplateElement | null;
+  const el = document.getElementById("infinity-studio-initial-appearance") as HTMLTemplateElement | null;
   const raw = el?.textContent || "{}";
   let parsed: Record<string, unknown> = {};
   try { parsed = JSON.parse(raw); } catch { parsed = {}; }

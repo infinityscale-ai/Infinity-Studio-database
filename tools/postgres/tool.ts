@@ -779,7 +779,7 @@ export const postgresTools: AgentTool[] = [
             const isExplain = /^explain\b/i.test(trimmedSql);
             const executableSql = isExplain
               ? trimmedSql
-              : `SELECT * FROM (${trimmedSql}) AS _rexadb_tool_validate_query LIMIT ${maxRows}`;
+              : `SELECT * FROM (${trimmedSql}) AS _infstudio_tool_validate_query LIMIT ${maxRows}`;
             const res = await executeQuery(context.connectionString, executableSql);
 
             results.push({
@@ -842,7 +842,7 @@ export const postgresTools: AgentTool[] = [
         const isExplain = /^explain\b/i.test(trimmedSql);
         const executableSql = isExplain
           ? trimmedSql
-          : `SELECT * FROM (${trimmedSql}) AS _rexadb_tool_query LIMIT ${maxRows}`;
+          : `SELECT * FROM (${trimmedSql}) AS _infstudio_tool_query LIMIT ${maxRows}`;
         const res = await executeQuery(context.connectionString, executableSql);
 
         return ok(

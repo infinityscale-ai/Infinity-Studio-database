@@ -50,7 +50,7 @@ export function useDashboardPersistence({
         return true;
       }
 
-      const storageKey = `rexa-db-dashboards-${connectionId}`;
+      const storageKey = `infinity-studio-dashboards-${connectionId}`;
       try {
         const raw = localStorage.getItem(storageKey);
         if (raw) {
@@ -88,7 +88,7 @@ export function useDashboardPersistence({
     const payload = { dashboards, folders: dashboardFolders };
     void saveStudioDashboards(connectionId, payload);
     lastSqliteSnapshotRef.current = JSON.stringify(payload);
-    const storageKey = `rexa-db-dashboards-${connectionId}`;
+    const storageKey = `infinity-studio-dashboards-${connectionId}`;
     localStorage.setItem(storageKey, JSON.stringify(payload));
   }, [dashboards, dashboardFolders, connectionId]);
 }

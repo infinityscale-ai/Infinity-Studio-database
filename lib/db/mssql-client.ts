@@ -119,7 +119,7 @@ function parseMssqlConfig(connectionString: string): MssqlConfig {
       user: semicolonParsed.user || undefined,
       password: semicolonParsed.password || undefined,
       options: {
-        appName: "RexaDB",
+        appName: "Infinity Studio",
         encrypt: semicolonParsed.options.encrypt,
         trustServerCertificate: semicolonParsed.options.trustServerCertificate,
         instanceName: semicolonParsed.options.instanceName,
@@ -154,7 +154,7 @@ function parseMssqlConfig(connectionString: string): MssqlConfig {
       user: decodeURIComponent(parsed.username || ""),
       password: decodeURIComponent(parsed.password || ""),
       options: {
-        appName: "RexaDB",
+        appName: "Infinity Studio",
         encrypt,
         trustServerCertificate,
         instanceName: instanceName || undefined,
@@ -167,7 +167,7 @@ function parseMssqlConfig(connectionString: string): MssqlConfig {
       server: "localhost",
       port: 1433,
       options: {
-        appName: "RexaDB",
+        appName: "Infinity Studio",
         encrypt: false,
         trustServerCertificate: true,
       },

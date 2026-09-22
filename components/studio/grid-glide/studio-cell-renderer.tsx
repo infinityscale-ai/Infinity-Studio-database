@@ -25,9 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { classifyColumnType, safeParseDate, type RexaCellData } from "./cell-content";
+import { classifyColumnType, safeParseDate, type StudioCellData } from "./cell-content";
 
-export type RexaCell = CustomCell<RexaCellData>;
+export type StudioCell = CustomCell<StudioCellData>;
 
 // Shared with data-grid.tsx's onCellClicked hit-test — one source of truth
 // for where the FK preview button lives so the drawn button and the
@@ -52,8 +52,8 @@ const COLORS = {
   selectionBorder: "rgb(78, 129, 238)",
 };
 
-function isRexaCell(cell: CustomCell): cell is RexaCell {
-  return (cell.data as RexaCellData | undefined)?.kind !== undefined;
+function isStudioCell(cell: CustomCell): cell is StudioCell {
+  return (cell.data as StudioCellData | undefined)?.kind !== undefined;
 }
 
 function drawPendingDeleteBorder(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
@@ -239,9 +239,9 @@ function drawPlainText(
   ctx.restore();
 }
 
-export const rexaCellRenderer: CustomRenderer<RexaCell> = {
+export const studioCellRenderer: CustomRenderer<StudioCell> = {
   kind: GridCellKind.Custom,
-  isMatch: isRexaCell,
+  isMatch: isStudioCell,
   draw: (args, cell) => {
     const { ctx, rect, theme } = args;
     const d = cell.data;
@@ -380,13 +380,13 @@ export const rexaCellRenderer: CustomRenderer<RexaCell> = {
     return true;
   },
   provideEditor: () => ({
-    editor: RexaCellEditor,
+    editor: StudioCellEditor,
     disableStyling: true,
     disablePadding: true,
   }),
 };
 
-function rowSpacingToPx(rowSpacing: RexaCellData["rowSpacing"]): number {
+function rowSpacingToPx(rowSpacing: StudioCellData["rowSpacing"]): number {
   return rowSpacing === "compact" ? 28 : rowSpacing === "standard" ? 32 : 36;
 }
 
@@ -404,7 +404,7 @@ function toDisplayValue(value: any): string {
  * same maximize-to-fullscreen behavior, same inline listbox for small
  * enum/boolean option sets, same date Popover+Calendar.
  */
-const RexaCellEditor: ProvideEditorComponent<RexaCell> = (p) => {
+const StudioCellEditor: ProvideEditorComponent<StudioCell> = (p) => {
   const d = p.value.data;
   const { isDate, isBoolean } = classifyColumnType(d.columnType);
   const isEnum = !!d.enumOptions?.length;
@@ -415,7 +415,7 @@ const RexaCellEditor: ProvideEditorComponent<RexaCell> = (p) => {
       p.onFinishedEditing({
         ...p.value,
         data: { ...d, value: newValue, displayValue: toDisplayValue(newValue) },
-      } as RexaCell);
+      } as StudioCell);
     },
     [d, p],
   );
@@ -465,7 +465,7 @@ const RexaCellEditor: ProvideEditorComponent<RexaCell> = (p) => {
 };
 
 interface EditorProps {
-  d: RexaCellData;
+  d: StudioCellData;
   isModified: boolean;
   onCommit: (value: any) => void;
   onCancel: () => void;

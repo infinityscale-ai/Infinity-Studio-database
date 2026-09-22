@@ -76,7 +76,7 @@ export async function insertHistoryEntry(
     });
     return { success: true };
   } catch (error) {
-    console.error("[rexadb] insertHistoryEntry:error", { connectionId, entryId: entry.id, error });
+    console.error("[infinity-studio] insertHistoryEntry:error", { connectionId, entryId: entry.id, error });
     return { success: false };
   }
 }
@@ -88,7 +88,7 @@ export async function clearStudioHistory(connectionId: number, ensureCoreTables:
     await client.queryHistory.deleteMany({ where: { connectionId } });
     return { success: true };
   } catch (error) {
-    console.error("[rexadb] clearStudioHistory:error", { connectionId, error });
+    console.error("[infinity-studio] clearStudioHistory:error", { connectionId, error });
     return { success: false };
   }
 }
@@ -154,7 +154,7 @@ export async function saveStudioHistory(
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[rexadb] saveStudioHistory:error", { connectionId, error: errorMessage });
+    console.error("[infinity-studio] saveStudioHistory:error", { connectionId, error: errorMessage });
     await logHistoryOperation("error", connectionId, { operation: "save", error: errorMessage });
     return { success: false, error: errorMessage };
   }

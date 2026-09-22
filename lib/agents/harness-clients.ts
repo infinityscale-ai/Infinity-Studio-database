@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "child_process";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentSandboxCwd, sandboxProcessEnv } from "./sandbox-cwd";
-import type { RexaMcpServerConfig } from "./mcp/config";
+import type { StudioMcpServerConfig } from "./mcp/config";
 import { buildClaudeMcpConfigJson } from "./mcp/config";
 import type { AgentProviderId, AgentStreamEvent } from "./provider-types";
 import { JsonlHarnessClient } from "./harness-helpers";
@@ -14,8 +14,8 @@ export interface HarnessSpawnOptions {
   history?: Array<{ role: string; content: string }>;
   /** Provider mode id (plan/build, permission-mode, sandbox, custom agent). */
   mode?: string;
-  /** RexaDB MCP server for live DB tools (stdio). */
-  mcp?: RexaMcpServerConfig;
+  /** Infinity Studio MCP server for live DB tools (stdio). */
+  mcp?: StudioMcpServerConfig;
 }
 
 export interface HarnessClient {
@@ -40,20 +40,20 @@ export interface InteractiveHarnessClient extends HarnessClient {
     cwd?: string;
     env?: Record<string, string>;
     mode?: string;
-    mcp?: RexaMcpServerConfig;
+    mcp?: StudioMcpServerConfig;
     onEvent: (event: AgentStreamEvent) => void;
     onSpawn?: (proc: ChildProcess) => void;
   }): Promise<{ exitCode: number }>;
 }
 
-function writeClaudeMcpConfig(cwd: string, mcp: RexaMcpServerConfig): string {
-  const path = join(cwd, "rexadb-mcp-claude.json");
+function writeClaudeMcpConfig(cwd: string, mcp: StudioMcpServerConfig): string {
+  const path = join(cwd, "infinity-studio-mcp-claude.json");
   writeFileSync(path, buildClaudeMcpConfigJson(mcp), "utf8");
   return path;
 }
 
 /** ACP mcpServers entry shape (Cursor / Grok session/new). */
-function toAcpMcpServer(mcp: RexaMcpServerConfig) {
+function toAcpMcpServer(mcp: StudioMcpServerConfig) {
   return {
     name: mcp.name,
     command: mcp.command,
@@ -89,12 +89,12 @@ function spawnCli(
   return proc;
 }
 
-class RexaDbClient implements HarnessClient {
-  providerId = "rexadb" as const;
+class InfinityStudioClient implements HarnessClient {
+  providerId = "infinity-studio" as const;
 
   spawn(_options: HarnessSpawnOptions): ChildProcess {
     throw new Error(
-      "RexaDB agent uses the built-in pi-coding-agent, not a CLI harness",
+      "Infinity Studio agent uses the built-in pi-coding-agent, not a CLI harness",
     );
   }
 
@@ -218,13 +218,13 @@ class OpenCodeClient extends JsonlHarnessClient implements HarnessClient {
     // explicitly "allow"'d in the user's opencode config (e.g. our injected MCP
     // tool, which they can't have pre-approved) gets silently auto-denied —
     // surfacing as "The user rejected permission to use this specific tool call."
-    // RexaDB's own DbToolsPermissions already gates reads/writes, so it's safe
+    // Infinity Studio's own DbToolsPermissions already gates reads/writes, so it's safe
     // to bypass opencode's interactive permission gate here.
     const args = ["run", "--format", "json", "--dir", cwd, "--auto"];
     if (options.mode) args.push("--agent", options.mode);
     const env = { ...options.env };
     // OpenCode discovers MCP from project/user config; write a local overlay
-    // into the sandbox so this turn sees RexaDB tools.
+    // into the sandbox so this turn sees Infinity Studio tools.
     if (options.mcp) {
       const mcpPath = join(cwd, "opencode-mcp.json");
       writeFileSync(
@@ -490,7 +490,7 @@ class AcpInteractiveClient implements InteractiveHarnessClient {
     cwd?: string;
     env?: Record<string, string>;
     mode?: string;
-    mcp?: RexaMcpServerConfig;
+    mcp?: StudioMcpServerConfig;
     onEvent: (event: AgentStreamEvent) => void;
     onSpawn?: (proc: ChildProcess) => void;
   }): Promise<{ exitCode: number }> {
@@ -737,7 +737,7 @@ class FxClient extends JsonlHarnessClient implements HarnessClient {
 // pi-coding-agent has no MCP support ("intentionally does not include
 // built-in MCP" per its own docs), so this harness runs off the prompt's
 // inlined schema context plus pi's own read/bash tools in the sandbox —
-// no live RexaDB DB tools here.
+// no live Infinity Studio DB tools here.
 class PiClient extends JsonlHarnessClient implements HarnessClient {
   providerId = "pi" as const;
 
@@ -815,7 +815,7 @@ class PiClient extends JsonlHarnessClient implements HarnessClient {
 }
 
 const CLIENTS: Record<AgentProviderId, () => HarnessClient> = {
-  rexadb: () => new RexaDbClient(),
+  "infinity-studio": () => new InfinityStudioClient(),
   "claude-code": () => new ClaudeCodeClient(),
   codex: () => new CodexClient(),
   opencode: () => new OpenCodeClient(),

@@ -1,0 +1,56 @@
+{
+  "id": "infinity-studio.hello-infinity-studio",
+  "name": "hello-infinity-studio",
+  "publisher": "infinity-studio",
+  "version": "1.0.0",
+  "displayName": "Hello Infinity Studio",
+  "description": "Example Infinity Studio extension exercising every v1 contribution point.",
+  "engines": { "infinity-studio": "^1.0.0" },
+  "main": "main.js",
+  "activationEvents": ["onStartupFinished"],
+  "capabilities": ["query:read", "connections:read", "clipboard"],
+  "contributes": {
+    "commands": [
+      { "command": "hello-infinity-studio.say-hello", "title": "Hello Infinity Studio: Say Hello", "group": "Hello Infinity Studio" },
+      { "command": "hello-infinity-studio.insert-select-star", "title": "Hello Infinity Studio: Insert SELECT *", "group": "Hello Infinity Studio" },
+      { "command": "hello-infinity-studio.open-dashboard", "title": "Hello Infinity Studio: Open Dashboard Panel", "group": "Hello Infinity Studio" },
+      { "command": "hello-infinity-studio.show-schema", "title": "Hello Infinity Studio: Show Schema Summary", "group": "Hello Infinity Studio" }
+    ],
+    "viewsContainers": [{ "id": "hello-infinity-studio.group", "title": "Hello Infinity Studio", "icon": "👋" }],
+    "views": [
+      { "id": "hello-infinity-studio.connections", "name": "Hello Connections", "type": "tree", "containerId": "hello-infinity-studio.group" },
+      {
+        "id": "hello-infinity-studio.welcome",
+        "name": "Hello Webview",
+        "type": "webview",
+        "containerId": "hello-infinity-studio.group",
+        "html": "<html><body style='font-family:sans-serif;padding:12px'><h3>Hello Infinity Studio webview</h3><p>Rendered in a sandboxed iframe via <code>acquireInfinityStudioApi()</code>.</p></body></html>"
+      }
+    ],
+    "webviewPanels": [
+      {
+        "id": "hello-infinity-studio.dashboard",
+        "title": "Hello Dashboard",
+        "area": "both",
+        "html": "<html><body style='font-family:sans-serif;padding:16px'><h2>Hello Dashboard</h2><p>Opened with <code>infinityStudio.window.openWebviewPanel</code>.</p></body></html>"
+      }
+    ],
+    "statusBar": [
+      { "id": "hello", "text": "$(smiley) Hello Infinity Studio", "tooltip": "Hello Infinity Studio status item", "command": "hello-infinity-studio.say-hello", "alignment": "right", "priority": 100 }
+    ],
+    "languages": [
+      { "id": "sql", "keywords": ["HELLO_INFINITY_STUDIO"], "formatter": false }
+    ],
+    "themes": [
+      {
+        "id": "hello-infinity-studio-warm",
+        "label": "Hello Warm",
+        "uiTheme": "vs-dark",
+        "cssVariables": { "accent": "#f59e0b" }
+      }
+    ],
+    "resultVisualizers": [{ "id": "hello-infinity-studio.json-tree", "label": "Hello JSON Tree", "selector": "*:json" }],
+    "cellRenderers": [{ "id": "hello-infinity-studio.uppercase", "label": "Hello Uppercase", "forTypes": ["text"] }],
+    "aiTools": [{ "id": "hello-infinity-studio.explain-plan", "label": "Explain plan", "description": "Explains the active query plan." }]
+  }
+}

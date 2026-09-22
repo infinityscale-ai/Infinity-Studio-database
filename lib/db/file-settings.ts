@@ -21,14 +21,14 @@ function getAppDataDirSync(): string {
   if (platform === "win32") {
     const appData =
       process.env.APPDATA || (home ? `${home}\\AppData\\Roaming` : "");
-    _appDataDir = appData ? path.join(appData, "Rexa DB") : path.join("Rexa DB");
+    _appDataDir = appData ? path.join(appData, "Infinity Studio") : path.join("Infinity Studio");
   } else if (platform === "darwin") {
     _appDataDir = home
-      ? path.join(home, "Library", "Application Support", "Rexa DB")
-      : "Rexa DB";
+      ? path.join(home, "Library", "Application Support", "Infinity Studio")
+      : "Infinity Studio";
   } else {
     const xdg = process.env.XDG_CONFIG_HOME || (home ? `${home}/.config` : "");
-    _appDataDir = xdg ? path.join(xdg, "Rexa DB") : "Rexa DB";
+    _appDataDir = xdg ? path.join(xdg, "Infinity Studio") : "Infinity Studio";
   }
   return _appDataDir as string;
 }

@@ -1092,7 +1092,7 @@ export function SettingsView({
       setCustomAppThemes,
       appThemeId,
       setAppThemeId,
-      "rexadb-dark",
+      "infinity-studio-dark",
       themeId,
     );
 
@@ -1210,7 +1210,7 @@ export function SettingsView({
                   <div className="flex flex-col">
                     <span className="font-medium text-xs">Appearance</span>
                     <span className="text-xs text-muted-foreground">
-                      Select how Rexa DB looks on your device.
+                      Select how Infinity Studio looks on your device.
                     </span>
                   </div>
 
@@ -1224,7 +1224,7 @@ export function SettingsView({
                       },
                       {
                         id: "dark",
-                        themeId: "rexadb-dark",
+                        themeId: "infinity-studio-dark",
                         label: "Dark",
                         preview: "bg-[#0F0F0F]",
                       },

@@ -584,13 +584,13 @@ function SourceBadge({ source }: { source: "local" | "native" | null }) {
         <TooltipTrigger asChild>
           <span>
             <Badge variant={isLocal ? "secondary" : "outline"}>
-              {isLocal ? "RexaDB" : "Database"}
+              {isLocal ? "Infinity Studio" : "Database"}
             </Badge>
           </span>
         </TooltipTrigger>
         <TooltipContent side="top">
           {isLocal
-            ? "Described in RexaDB (local to this connection)"
+            ? "Described in Infinity Studio (local to this connection)"
             : "From the database (native comment)"}
         </TooltipContent>
       </Tooltip>

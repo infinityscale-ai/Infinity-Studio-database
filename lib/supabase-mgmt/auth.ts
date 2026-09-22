@@ -35,7 +35,7 @@ export async function createLoginSession(): Promise<LoginSession> {
   const sessionId = crypto.randomUUID();
 
   const tokenName = encodeURIComponent(
-    `rexadb_${typeof navigator !== "undefined" ? navigator.userAgent : "app"}_${Date.now()}`,
+    `infinity-studio_${typeof navigator !== "undefined" ? navigator.userAgent : "app"}_${Date.now()}`,
   );
 
   const url =

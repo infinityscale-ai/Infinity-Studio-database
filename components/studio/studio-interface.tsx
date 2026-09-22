@@ -137,7 +137,7 @@ export function StudioInterface({
     studio.setActiveTabId(browserId);
   }, [studio]);
 
-  // Live DB bridge for extensions (`rexa.rexaDb.*`). Methods read the latest
+  // Live DB bridge for extensions (`infinityStudio.db.*`). Methods read the latest
   // studio state through a ref so registration is stable across renders.
   const studioRef = useRef(studio);
   useEffect(() => {
@@ -252,7 +252,7 @@ export function StudioInterface({
     return () => unregisterExtensionDbBridge(bridge);
   }, []);
 
-  // Extension views opened as editor tabs (`rexa.window.openTab(viewId)`).
+  // Extension views opened as editor tabs (`infinityStudio.window.openTab(viewId)`).
   useEffect(() => {
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent<{ extensionId?: string; viewId?: string; title?: string }>).detail;
@@ -281,7 +281,7 @@ export function StudioInterface({
   }, []);
 
   // Extension panels with `area: "editor"` opened as editor tabs
-  // (`rexa.window.openWebviewPanel`). One tab per panel — tab content is the
+  // (`infinityStudio.window.openWebviewPanel`). One tab per panel — tab content is the
   // panel's own html, never sidebar content.
   useEffect(() => {
     const onOpenPanel = (e: Event) => {

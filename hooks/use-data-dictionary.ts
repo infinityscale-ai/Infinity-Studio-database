@@ -74,7 +74,7 @@ export function useDataDictionary(connectionId: number | null | undefined): Data
       void refresh();
     };
     const onStorage = (event: StorageEvent) => {
-      if (event.key === `rexadb.dictionary.${connectionId}`) void refresh();
+      if (event.key === `infinity-studio.dictionary.${connectionId}`) void refresh();
     };
     window.addEventListener(DICTIONARY_UPDATED_EVENT, onUpdated);
     window.addEventListener("storage", onStorage);

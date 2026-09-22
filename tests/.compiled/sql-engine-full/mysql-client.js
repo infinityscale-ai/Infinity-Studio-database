@@ -102,26 +102,26 @@ function getMysqlSslConfig(connectionString) {
 }
 function parseExtendedConnection(connectionString) {
     const url = new URL(normalizeMysqlConnectionString(connectionString));
-    const sshMode = url.searchParams.get("rexadb_ssh_mode") === "ssh" ? "ssh" : "off";
+    const sshMode = url.searchParams.get("infstudio_ssh_mode") === "ssh" ? "ssh" : "off";
     const sshConfig = {
         mode: sshMode,
-        host: url.searchParams.get("rexadb_ssh_host") || "",
-        port: Number(url.searchParams.get("rexadb_ssh_port") || "22") || 22,
-        username: url.searchParams.get("rexadb_ssh_user") || "",
-        authMode: url.searchParams.get("rexadb_ssh_auth") === "private-key" ? "private-key" : "password",
-        password: url.searchParams.get("rexadb_ssh_password") || "",
-        privateKey: url.searchParams.get("rexadb_ssh_private_key") || "",
+        host: url.searchParams.get("infstudio_ssh_host") || "",
+        port: Number(url.searchParams.get("infstudio_ssh_port") || "22") || 22,
+        username: url.searchParams.get("infstudio_ssh_user") || "",
+        authMode: url.searchParams.get("infstudio_ssh_auth") === "private-key" ? "private-key" : "password",
+        password: url.searchParams.get("infstudio_ssh_password") || "",
+        privateKey: url.searchParams.get("infstudio_ssh_private_key") || "",
     };
     const customKeys = [
-        "rexadb_keychain_db",
-        "rexadb_ssh_mode",
-        "rexadb_ssh_host",
-        "rexadb_ssh_port",
-        "rexadb_ssh_user",
-        "rexadb_ssh_auth",
-        "rexadb_ssh_keychain",
-        "rexadb_ssh_password",
-        "rexadb_ssh_private_key",
+        "infstudio_keychain_db",
+        "infstudio_ssh_mode",
+        "infstudio_ssh_host",
+        "infstudio_ssh_port",
+        "infstudio_ssh_user",
+        "infstudio_ssh_auth",
+        "infstudio_ssh_keychain",
+        "infstudio_ssh_password",
+        "infstudio_ssh_private_key",
     ];
     for (const key of customKeys) {
         url.searchParams.delete(key);
@@ -169,7 +169,7 @@ async function startSshTunnelIfNeeded(connectionString) {
         throw new Error("SSH host and username are required when SSH tunnel is enabled.");
     }
     const localPort = await getFreePort();
-    const tmpDir = fs_1.default.mkdtempSync(path_1.default.join(os_1.default.tmpdir(), "rexadb-ssh-"));
+    const tmpDir = fs_1.default.mkdtempSync(path_1.default.join(os_1.default.tmpdir(), "infinity-studio-ssh-"));
     const cleanupPaths = [];
     const args = [
         "-N",
@@ -200,12 +200,12 @@ async function startSshTunnelIfNeeded(connectionString) {
             throw new Error("SSH password is required for password authentication.");
         }
         const askPassPath = path_1.default.join(tmpDir, "askpass.sh");
-        fs_1.default.writeFileSync(askPassPath, "#!/bin/sh\nprintf %s \"$REXADB_SSH_PASSWORD\"\n", { mode: 0o700 });
+        fs_1.default.writeFileSync(askPassPath, "#!/bin/sh\nprintf %s \"$INFSTUDIO_SSH_PASSWORD\"\n", { mode: 0o700 });
         cleanupPaths.push(askPassPath);
         env.SSH_ASKPASS = askPassPath;
         env.SSH_ASKPASS_REQUIRE = "force";
         env.DISPLAY = env.DISPLAY || ":0";
-        env.REXADB_SSH_PASSWORD = parsed.sshConfig.password;
+        env.INFSTUDIO_SSH_PASSWORD = parsed.sshConfig.password;
     }
     const proc = (0, child_process_1.spawn)("ssh", args, {
         stdio: ["ignore", "ignore", "pipe"],

@@ -74,7 +74,7 @@ export async function executeTrinoQuery(
   opts: { catalog?: string; schema?: string; user?: string } = {}
 ): Promise<QueryResult> {
   const { baseUrl, catalog, schema } = parseTrinoConnectionString(connectionString);
-  const headers = buildHeaders(opts.user || "rexadb", opts.catalog || catalog, opts.schema || schema);
+  const headers = buildHeaders(opts.user || "infinity-studio", opts.catalog || catalog, opts.schema || schema);
 
   let res: Response;
   try {

@@ -125,12 +125,12 @@ export async function detectProviders(): Promise<AgentProvider[]> {
 
   // Always available
   providers.push({
-    id: "rexadb",
-    name: AGENT_PROVIDER_META.rexadb.name,
-    icon: AGENT_PROVIDER_META.rexadb.icon,
+    id: "infinity-studio",
+    name: AGENT_PROVIDER_META["infinity-studio"].name,
+    icon: AGENT_PROVIDER_META["infinity-studio"].icon,
     available: true,
     status: "installed",
-    description: AGENT_PROVIDER_META.rexadb.description,
+    description: AGENT_PROVIDER_META["infinity-studio"].description,
   });
 
   const externalProviders: AgentProviderId[] = [

@@ -103,7 +103,7 @@ export async function handleMcpHttpRequest(req: any, res: any) {
 
     jsonRpcError(res, 405, "Method not allowed. Use GET, POST or DELETE.");
   } catch (error: any) {
-    console.error("[rexadb-mcp] http error:", error?.message || error);
+    console.error("[infinity-studio-mcp] http error:", error?.message || error);
     if (!res.headersSent) {
       res.status(500).json({
         jsonrpc: "2.0",

@@ -75,7 +75,7 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
-      (window as any).__rexa_open_onboarding = () => {
+      (window as any).__infinity_studio_open_onboarding = () => {
         try {
           window.localStorage.removeItem(ONBOARDING_COMPLETE_KEY);
         } catch {}

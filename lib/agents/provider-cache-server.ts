@@ -5,27 +5,27 @@ import type { AgentProvider } from "./provider-types";
 import type { ProvidersCachePayload } from "./provider-cache";
 
 function getCachePath(): string {
-  // Mirror t3's baseDir/caches: use ~/.cache/rexadb or XDG_CACHE_HOME or tmpdir fallback
+  // Mirror t3's baseDir/caches: use ~/.cache/infinity-studio or XDG_CACHE_HOME or tmpdir fallback
   const xdg = process.env.XDG_CACHE_HOME?.trim();
   if (xdg) {
     try {
-      const dir = path.join(xdg, "rexadb");
+      const dir = path.join(xdg, "infinity-studio");
       fs.mkdirSync(dir, { recursive: true });
       return path.join(dir, "providers-cache.json");
     } catch {}
   }
   try {
-    const dir = path.join(os.homedir(), ".cache", "rexadb");
+    const dir = path.join(os.homedir(), ".cache", "infinity-studio");
     fs.mkdirSync(dir, { recursive: true });
     return path.join(dir, "providers-cache.json");
   } catch {}
   // Fallback to tmpdir (ephemeral but still instant within same boot)
   try {
-    const dir = path.join(os.tmpdir(), "rexadb-cache");
+    const dir = path.join(os.tmpdir(), "infinity-studio-cache");
     fs.mkdirSync(dir, { recursive: true });
     return path.join(dir, "providers-cache.json");
   } catch {}
-  return path.join(os.tmpdir(), "rexadb-providers-cache.json");
+  return path.join(os.tmpdir(), "infinity-studio-providers-cache.json");
 }
 
 let memoryCache: ProvidersCachePayload | null = null;

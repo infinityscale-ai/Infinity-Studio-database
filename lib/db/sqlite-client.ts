@@ -114,11 +114,11 @@ function expandHome(filePath: string): string {
 }
 
 function getWritableDir(): string {
-  const envDir = process.env.REXADB_USER_DATA_DIR;
+  const envDir = process.env.INFSTUDIO_USER_DATA_DIR;
   if (envDir) return envDir;
   const home = os.homedir();
   if (home) {
-    const appDir = path.join(home, ".rexadb");
+    const appDir = path.join(home, ".infinity-studio");
     try {
       fs.mkdirSync(appDir, { recursive: true });
       return appDir;

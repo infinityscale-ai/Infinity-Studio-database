@@ -4,50 +4,50 @@ import { useEffect, useMemo, useRef } from "react";
 
 /**
  * Sandboxed webview host (VS Code-like `WebviewView` / `WebviewPanel`).
- * Renders extension HTML inside a sandboxed iframe with an `acquireRexaApi()`
+ * Renders extension HTML inside a sandboxed iframe with an `acquireInfinityStudioApi()`
  * bridge mirroring `acquireVsCodeApi()`.
  *
  * Theming: a base stylesheet maps the page to app system colors
  * (`Canvas`/`CanvasText`, `color-scheme: light dark`) so unstyled extension
  * HTML follows the app theme automatically, and the live theme
  * (`"light" | "dark"`) is pushed into the iframe on load and on every app
- * theme switch — readable via `acquireRexaApi().getState().theme` and via
- * `document.documentElement.dataset.rexaTheme` for CSS selectors.
+ * theme switch — readable via `acquireInfinityStudioApi().getState().theme` and via
+ * `document.documentElement.dataset.studioTheme` for CSS selectors.
  */
 
-export type RexaWebviewTheme = "light" | "dark";
+export type StudioWebviewTheme = "light" | "dark";
 
-export function getAppTheme(): RexaWebviewTheme {
+export function getAppTheme(): StudioWebviewTheme {
   if (typeof document === "undefined") return "dark";
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
 const THEME_STYLE = `<style>html{color-scheme:light dark}body{background:transparent;color:CanvasText;overflow-wrap:anywhere;word-break:break-all}body a{color:LinkText}img,table,pre,code{max-width:100%}</style>`;
 
-function bridgeScript(viewId: string, extensionId: string | undefined, theme: RexaWebviewTheme): string {
+function bridgeScript(viewId: string, extensionId: string | undefined, theme: StudioWebviewTheme): string {
   return `<script>
 (function() {
   var listeners = new Set();
   function applyTheme(t) {
     try {
-      document.documentElement.dataset.rexaTheme = t;
+      document.documentElement.dataset.studioTheme = t;
       document.documentElement.style.colorScheme = t;
       state.theme = t;
     } catch (e) {}
   }
   window.addEventListener("message", function(e) {
     var d = e.data;
-    if (d && d.__rexaHost) {
-      if (d.payload && d.payload.__rexaTheme) applyTheme(d.payload.__rexaTheme);
+    if (d && d.__studioHost) {
+      if (d.payload && d.payload.__studioTheme) applyTheme(d.payload.__studioTheme);
       else listeners.forEach(function(fn) { try { fn(d.payload); } catch (e) {} });
     }
   });
   var state = { viewId: ${JSON.stringify(viewId)}, extensionId: ${JSON.stringify(extensionId ?? null)}, theme: ${JSON.stringify(theme)} };
   applyTheme(state.theme);
-  window.acquireRexaApi = function() {
+  window.acquireInfinityStudioApi = function() {
     return {
       getState: function() { return state; },
-      postMessage: function(payload) { parent.postMessage({ __rexaWebview: true, viewId: state.viewId, payload: payload }, "*"); },
+      postMessage: function(payload) { parent.postMessage({ __studioWebview: true, viewId: state.viewId, payload: payload }, "*"); },
       onDidReceiveMessage: function(fn) { listeners.add(fn); return { dispose: function() { listeners.delete(fn); } }; },
       setState: function(s) { Object.assign(state, s); },
     };
@@ -58,7 +58,7 @@ function bridgeScript(viewId: string, extensionId: string | undefined, theme: Re
 
 export function buildWebviewSrcDoc(
   html: string,
-  opts: { viewId: string; extensionId?: string; theme?: RexaWebviewTheme },
+  opts: { viewId: string; extensionId?: string; theme?: StudioWebviewTheme },
 ): string {
   const theme = opts.theme ?? "dark";
   const injection = `${THEME_STYLE}${bridgeScript(opts.viewId, opts.extensionId, theme)}`;
@@ -89,7 +89,7 @@ export function ExtensionWebview({
   useEffect(() => {
     const postTheme = () => {
       iframeRef.current?.contentWindow?.postMessage(
-        { __rexaHost: true, payload: { __rexaTheme: getAppTheme() } },
+        { __studioHost: true, payload: { __studioTheme: getAppTheme() } },
         "*",
       );
     };
@@ -101,7 +101,7 @@ export function ExtensionWebview({
 
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
-      if (e.data?.__rexaWebview && e.data?.viewId === viewId) onMessage?.(e.data.payload);
+      if (e.data?.__studioWebview && e.data?.viewId === viewId) onMessage?.(e.data.payload);
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
@@ -124,6 +124,6 @@ export function ExtensionWebview({
 /** Post a message into a webview (host -> webview). Kept as a helper so callers don't touch iframes. */
 export function postToWebview(viewId: string, payload: unknown) {
   for (const frame of Array.from(document.querySelectorAll<HTMLIFrameElement>(`iframe[title="${CSS.escape(viewId)}"]`))) {
-    frame.contentWindow?.postMessage({ __rexaHost: true, payload }, "*");
+    frame.contentWindow?.postMessage({ __studioHost: true, payload }, "*");
   }
 }

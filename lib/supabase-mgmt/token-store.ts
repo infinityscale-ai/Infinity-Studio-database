@@ -1,5 +1,5 @@
-const LEGACY_TOKEN_KEY = "rexadb-supabase-mgmt-token";
-const ACCOUNTS_KEY = "rexadb-supabase-mgmt-accounts";
+const LEGACY_TOKEN_KEY = "infinity-studio-supabase-mgmt-token";
+const ACCOUNTS_KEY = "infinity-studio-supabase-mgmt-accounts";
 
 export interface SupabaseMgmtAccount {
   id: string;

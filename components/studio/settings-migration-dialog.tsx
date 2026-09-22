@@ -200,7 +200,7 @@ export function SettingsMigrationDialog({
                   Settings stored at:
                 </p>
                 <p className="text-xs text-muted-foreground font-mono mt-0.5 break-all">
-                  ~/.config/Rexa DB/settings.json
+                  ~/.config/Infinity Studio/settings.json
                 </p>
               </div>
             </div>

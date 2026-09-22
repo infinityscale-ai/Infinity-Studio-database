@@ -2,14 +2,14 @@ import { cn } from "@/lib/utils";
 
 type IconProps = React.SVGProps<SVGSVGElement>;
 
-/** RexaDB built-in agent — the RexaDB agent mark */
-export function RexaDBIcon({ className, ...props }: IconProps) {
+/** Infinity Studio built-in agent — the Infinity Studio agent mark */
+export function InfinityStudioIcon({ className, ...props }: IconProps) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       {...(props as React.ImgHTMLAttributes<HTMLImageElement>)}
       src="/ai-agent.png"
-      alt="RexaDB Agent"
+      alt="Infinity Studio Agent"
       className={cn("shrink-0 rounded-[3px] object-cover dark:invert", className)}
     />
   );

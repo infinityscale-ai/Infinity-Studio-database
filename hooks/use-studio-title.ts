@@ -10,6 +10,6 @@ export function useStudioTitle(connection: Connection | null, loading: boolean) 
       return;
     }
 
-    document.title = connection.name || "Rexa DB Studio";
+    document.title = connection.name || "Infinity Studio";
   }, [connection, loading]);
 }

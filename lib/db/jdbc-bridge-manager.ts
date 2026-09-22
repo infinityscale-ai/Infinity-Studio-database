@@ -73,8 +73,8 @@ function findResourceBase(): string | null {
     const candidates = [
       path.resolve(exeDir, "../Resources"),
       path.resolve(exeDir, "../../Resources"),
-      path.resolve(exeDir, "../share/rexa-db"),
-      path.resolve(exeDir, "../lib/RexaDB"),
+      path.resolve(exeDir, "../share/infinity-studio"),
+      path.resolve(exeDir, "../lib/Infinity Studio"),
     ];
     for (const c of candidates) {
       if (fs.existsSync(path.join(c, "bridge.jar"))) {
@@ -398,7 +398,7 @@ function redactJdbcUrl(url: string): string {
 async function resolveDriverJars(config: JdbcConfig): Promise<JdbcConfig> {
   if (config.jarPaths && config.jarPaths.length > 0) return config;
   const driversDir =
-    typeof process !== "undefined" ? process.env.REXADB_JDBC_DRIVERS_DIR : undefined;
+    typeof process !== "undefined" ? process.env.INFSTUDIO_JDBC_DRIVERS_DIR : undefined;
   if (!driversDir || !fs.existsSync(driversDir)) {
     log("resolveDriverJars: no drivers dir, leaving jarPaths empty");
     return config;

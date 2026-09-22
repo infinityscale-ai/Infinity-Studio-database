@@ -24,7 +24,7 @@ function readInitialIconTheme(): IconThemeState {
     return { iconThemeId: DEFAULT_ICON_THEME_ID, customIconThemes: [] };
   }
 
-  const el = document.getElementById("rexadb-initial-appearance") as HTMLTemplateElement | null;
+  const el = document.getElementById("infinity-studio-initial-appearance") as HTMLTemplateElement | null;
   const raw = el?.textContent || "{}";
   let initialAppearance: Record<string, unknown> = {};
   try { initialAppearance = JSON.parse(raw); } catch { initialAppearance = {}; }
