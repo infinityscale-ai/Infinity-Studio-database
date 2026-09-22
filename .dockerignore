@@ -1,0 +1,29 @@
+# dependencies — reinstalled from the lockfiles inside the image
+**/node_modules
+
+# build outputs
+.next
+out
+dist
+src-tauri/target
+src-tauri/binaries
+src-tauri/gen
+src-tauri/jdbc-drivers
+resources/java-bridge/dist
+resources/java-bridge/out
+release-*
+*.tsbuildinfo
+
+# local data and secrets
+*.db
+*.db-*
+data
+port.json
+.env*
+
+# not part of the image
+.git
+.github
+docker/README.md
+tests
+**/*.log

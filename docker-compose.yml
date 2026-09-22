@@ -1,0 +1,41 @@
+# Standalone Infinity Studio (full image) + an optional demo Postgres.
+#
+#   INFSTUDIO_API_KEY=... INFSTUDIO_ADMIN_KEY=... docker compose up -d
+#   docker compose --profile demo up -d      # also starts demo Postgres
+#
+# Inside the compose network the demo database is reachable at
+#   postgres://postgres:demo@postgres:5432/demo
+
+services:
+  studio:
+    build:
+      context: .
+      target: full
+    image: infinity-studio:full
+    ports:
+      - "3867:3867"            # web UI + API
+      - "127.0.0.1:3868:3868"  # admin API (embed sessions) — loopback only
+    volumes:
+      - studio-data:/data
+    environment:
+      INFSTUDIO_API_KEY: ${INFSTUDIO_API_KEY:?set INFSTUDIO_API_KEY (login key for the web UI)}
+      INFSTUDIO_ADMIN_KEY: ${INFSTUDIO_ADMIN_KEY:?set INFSTUDIO_ADMIN_KEY (at least 32 chars)}
+      INFSTUDIO_ADMIN_PORT: "3868"
+      INFSTUDIO_ADMIN_BIND: "0.0.0.0"
+      INFSTUDIO_EMBED_ALLOWED_ORIGINS: ${INFSTUDIO_EMBED_ALLOWED_ORIGINS:-}
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["demo"]
+    environment:
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: demo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d demo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  studio-data:

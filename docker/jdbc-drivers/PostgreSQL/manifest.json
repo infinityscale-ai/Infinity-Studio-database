@@ -1,0 +1,6 @@
+{
+  "name": "PostgreSQL",
+  "driver_class": "org.postgresql.Driver",
+  "jar_paths": ["/app/jdbc-drivers/PostgreSQL/postgresql-42.7.5.jar"],
+  "installed_at": 0
+}
