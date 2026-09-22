@@ -2,12 +2,19 @@ import express, { type Express, type NextFunction, type Request, type RequestHan
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { Server } from "node:http";
 import type { ManagedConnectionFilter, ManagedConnectionRepo } from "../../lib/db/managed-connections";
+import type { ThemeSelection } from "../../lib/studio/themes/theme-catalog";
 import type { EmbedStore } from "./sessions";
 import { engineToConnectionType } from "./connection-builder";
 import { EXTERNAL_ID_PATTERN, parseAdminSessionRequest, type AdminSessionRequest } from "./admin-validation";
 
 export type { AdminSessionRequest };
-export type AdminAppDeps = { key: string; store: EmbedStore; consoleOrigin: string; repo: ManagedConnectionRepo };
+export type AdminAppDeps = {
+  key: string;
+  store: EmbedStore;
+  consoleOrigin: string;
+  repo: ManagedConnectionRepo;
+  defaultTheme: ThemeSelection | null;
+};
 export type AdminListen = { port: number; bind: string };
 
 export class EmbedConfigError extends Error {
@@ -83,7 +90,7 @@ async function revokeAndRespond(deps: AdminAppDeps, res: Response, filter: Manag
 // Upserts the managed row, parks the password in memory, and mints a single-use claim token.
 function createSessionHandler(deps: AdminAppDeps): RequestHandler {
   return async (req, res) => {
-    const parsed = parseAdminSessionRequest(req.body);
+    const parsed = parseAdminSessionRequest(req.body, deps.defaultTheme);
     if (!parsed.ok) return res.status(400).json({ error: parsed.code, ...(parsed.field ? { field: parsed.field } : {}) });
     const v = parsed.value;
     try {
@@ -105,6 +112,7 @@ function createSessionHandler(deps: AdminAppDeps): RequestHandler {
         displayName: v.displayName,
         engine: v.engine,
         label: v.label,
+        theme: v.theme,
         ttlSeconds: v.ttlSeconds,
         tokenTtlSeconds: v.tokenTtlSeconds,
       });

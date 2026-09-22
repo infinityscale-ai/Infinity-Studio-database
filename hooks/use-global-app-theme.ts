@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "@/components/providers/theme-provider";
 import { isEmbedMode } from "@/lib/embed/session";
+import { getHostTheme } from "@/lib/embed/host-theme";
 
 import { readInitialAppearance } from "@/lib/studio/general-utils";
 import { saveGlobalAppThemeSettings, getGlobalAppThemeSettings } from "@/lib/api/actions-client";
@@ -76,10 +77,12 @@ function getSystemColorScheme(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+// The console's theme, when it chose one for this embedded session, wins over every stored or default id.
 function readInitialThemeAppearance() {
   const parsed = readInitialAppearance();
+  const hostThemeId = getHostTheme()?.app;
   return {
-    appThemeId: typeof parsed?.appThemeId === "string" ? parsed.appThemeId : DEFAULT_DARK_THEME_ID,
+    appThemeId: hostThemeId ?? (typeof parsed?.appThemeId === "string" ? parsed.appThemeId : DEFAULT_DARK_THEME_ID),
     customAppThemes: Array.isArray(parsed?.customAppThemes) ? parsed.customAppThemes as CustomAppTheme[] : [],
   };
 }
@@ -152,7 +155,8 @@ export function useGlobalAppTheme(persist = false) {
         (typeof result.data?.appThemeId === "string" && result.data.appThemeId) ||
         (typeof result.data?.customAppThemes === "string" && result.data.customAppThemes !== "[]")
       );
-      if (hasData && result) {
+      // A host-chosen theme is not a preference: the saved one stays on disk and never replaces it.
+      if (hasData && result && getHostTheme() === null) {
         const nextAppThemeId = typeof result.data?.appThemeId === "string"
           ? result.data.appThemeId || DEFAULT_DARK_THEME_ID
           : DEFAULT_DARK_THEME_ID;
@@ -224,7 +228,8 @@ export function useGlobalAppTheme(persist = false) {
   }, [appThemeId, isLoaded, selectedAppTheme, setTheme, systemColorScheme]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !isLoaded) return;
+    // The host theme is cached per tab in sessionStorage by lib/embed/host-theme.ts, never in localStorage.
+    if (typeof window === "undefined" || !isLoaded || getHostTheme() !== null) return;
     try {
       if (selectedAppTheme) {
         window.localStorage.setItem(

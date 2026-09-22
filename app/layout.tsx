@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
-import { Outfit, Tajawal } from "next/font/google";
+import { Inter, JetBrains_Mono, Outfit, Tajawal } from "next/font/google";
 import "./globals.css";
 import "@glideapps/glide-data-grid/dist/index.css";
 
@@ -33,20 +33,34 @@ const tajawalArabic = Tajawal({
   weight: ["200", "300", "400", "500", "700", "800", "900"],
 });
 
+// The self-hosted families a preset may name (lib/studio/themes/theme-fonts.ts): on <html> so root variables resolve them, fetched only once used.
+const interSelf = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter-self",
+  preload: false,
+});
+
+const jetbrainsMonoSelf = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono-self",
+  preload: false,
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${interSelf.variable} ${jetbrainsMonoSelf.variable}`} suppressHydrationWarning>
       <head>
         {/* Apply stored light/dark + custom app theme colors before paint, to
             avoid a splash/flash of the default theme. The theme vars cache is
-            kept warm by hooks/use-global-app-theme.ts. */}
+            kept warm by hooks/use-global-app-theme.ts; on /embed a host theme
+            cached per tab by lib/embed/host-theme.ts comes first. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var el=document.documentElement;var t=localStorage.getItem("theme");var d=window.matchMedia("(prefers-color-scheme: dark)").matches;var r=t==="light"||t==="dark"?t:(d?"dark":"light");var av=null;try{var raw=localStorage.getItem("infinity-studio-app-theme-vars");if(raw)av=JSON.parse(raw);}catch(e2){av=null;}if(av&&av.colors&&(av.base==="light"||av.base==="dark")){r=av.base;}el.classList.remove("light","dark");el.classList.add(r);el.style.colorScheme=r;if(av&&av.colors){for(var k in av.colors){if(Object.prototype.hasOwnProperty.call(av.colors,k)){el.style.setProperty(k,av.colors[k]);}}if(av.id)el.dataset.appTheme=av.id;}}catch(e){}})();`,
+            __html: `(function(){try{var el=document.documentElement;var p=location.pathname;var emb=p==="/embed"||p.indexOf("/embed/")===0;var t=localStorage.getItem("theme");var d=window.matchMedia("(prefers-color-scheme: dark)").matches;var r=t==="light"||t==="dark"?t:(d?"dark":"light");var av=null;try{var raw=emb?sessionStorage.getItem("infinity-studio:embed-theme-vars"):null;if(!raw)raw=localStorage.getItem("infinity-studio-app-theme-vars");if(raw)av=JSON.parse(raw);}catch(e2){av=null;}if(av&&av.colors&&(av.base==="light"||av.base==="dark")){r=av.base;}el.classList.remove("light","dark");el.classList.add(r);el.style.colorScheme=r;if(av&&av.colors){for(var k in av.colors){if(Object.prototype.hasOwnProperty.call(av.colors,k)){el.style.setProperty(k,av.colors[k]);}}if(av.id)el.dataset.appTheme=av.id;}}catch(e){}})();`,
           }}
         />
       </head>

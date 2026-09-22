@@ -17,6 +17,7 @@ import {
 } from "@/lib/icon-theme/lucide-react";
 import { filterSettingsSearch } from "@/components/studio/settings/settings-search";
 import { isEmbedMode } from "@/lib/embed/session";
+import { hasHostTheme } from "@/lib/embed/host-theme";
 
 export type SettingsSectionId =
   | "general"
@@ -31,9 +32,11 @@ export type SettingsSectionId =
 // The sections an embedded session may open: appearance and editing only, never AI, MCP, security or app internals.
 const EMBED_SECTIONS: ReadonlySet<SettingsSectionId> = new Set(["general", "editor", "themes", "keybindings"]);
 
-// Reports whether a settings section is offered in the current mode.
+// Reports whether a settings section is offered in the current mode; Themes leaves with the look when the console owns it.
 export function isSettingsSectionAvailable(id: SettingsSectionId): boolean {
-  return !isEmbedMode() || EMBED_SECTIONS.has(id);
+  if (!isEmbedMode()) return true;
+  if (id === "themes" && hasHostTheme()) return false;
+  return EMBED_SECTIONS.has(id);
 }
 
 const items: Array<{

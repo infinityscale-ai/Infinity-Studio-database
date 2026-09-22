@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import StudioClient from "@/app/studio/StudioClient";
 import { UNAUTHORIZED_EVENT, type UnauthorizedDetail } from "@/lib/api-base";
 import { claimEmbedSession, readTokenFromHash, type EmbedEndReason } from "@/lib/embed/claim";
+import { applyHostTheme } from "@/lib/embed/host-theme";
 import {
   clearEmbedSession,
   getEmbedSession,
   isEmbedSessionExpired,
   notifyParent,
   storeEmbedSession,
+  type EmbedSessionInfo,
 } from "@/lib/embed/session";
 import { EmbedExpired } from "./embed-expired";
 import { EmbedSkeleton } from "./embed-skeleton";
@@ -24,18 +26,24 @@ function stripHash(): void {
   window.history.replaceState(null, "", window.location.pathname + window.location.search);
 }
 
+// Paints the console's theme when it chose one, before the studio renders, and reports the session's connection ready.
+function ready(session: EmbedSessionInfo): BootState {
+  if (session.theme) applyHostTheme(document.documentElement, session.theme);
+  return { status: "ready", connectionId: session.connectionId };
+}
+
 // Decides how the page boots: reuse this tab's session, claim the token from the fragment, or report the end.
 export async function resolveBoot(): Promise<BootState> {
   const token = readTokenFromHash(window.location.hash);
   if (token) stripHash();
   const stored = getEmbedSession();
   const reusable = stored !== null && !isEmbedSessionExpired(stored) && (token === null || stored.claimedToken === token);
-  if (stored && reusable) return { status: "ready", connectionId: stored.connectionId };
+  if (stored && reusable) return ready(stored);
   if (!token) return { status: "ended", reason: stored ? "expired" : "missing" };
   const outcome = await claimEmbedSession(token);
   if (!outcome.ok) return { status: "ended", reason: outcome.reason };
   storeEmbedSession(outcome.session);
-  return { status: "ready", connectionId: outcome.session.connectionId };
+  return ready(outcome.session);
 }
 
 // Ends a running session when the server rejects its bearer; a 401 before the claim is just a call made too early.

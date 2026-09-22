@@ -1,4 +1,5 @@
 import express, { type Request, type RequestHandler, type Response, type Router } from "express";
+import type { ThemeSelection } from "../../lib/studio/themes/theme-catalog";
 import type { EmbedSession, EmbedStore } from "./sessions";
 import { buildConnectionString, redactForClient, type ManagedRowLike } from "./connection-builder";
 import { asRecord, classifyStatement, decideEmbedRequest, isAuthError, type EmbedActionTable } from "./policy";
@@ -24,6 +25,7 @@ export type EmbedSessionPayload = {
   engine: string;
   label: string;
   consoleOrigin: string;
+  theme: ThemeSelection | null;
 };
 
 type AuditLine = {
@@ -85,7 +87,7 @@ function writeAudit(line: AuditLine): void {
 // Shapes the session fields an embed client may see, with the bearer only right after a claim.
 function sessionPayload(session: EmbedSession, bearer: string | null, consoleOrigin: string): EmbedSessionPayload {
   const { connectionId, externalId, displayName, expiresAt, engine, label } = session;
-  const base = { connectionId, externalId, displayName, expiresAt, engine, label, consoleOrigin };
+  const base = { connectionId, externalId, displayName, expiresAt, engine, label, consoleOrigin, theme: session.theme ?? null };
   return bearer === null ? base : { session: bearer, ...base };
 }
 

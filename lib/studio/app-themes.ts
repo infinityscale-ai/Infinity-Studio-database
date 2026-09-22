@@ -1,3 +1,5 @@
+import { INFINITYSCALE_APP_THEME } from "./themes/infinityscale";
+
 export type CustomAppTheme = {
   id: string;
   name: string;
@@ -228,6 +230,7 @@ export const BUILTIN_APP_THEMES: CustomAppTheme[] = [
       "--studio-accent-purple": "#7c3aed",
     },
   },
+  INFINITYSCALE_APP_THEME,
 ];
 
 type AppThemeInput = {

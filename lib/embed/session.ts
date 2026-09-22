@@ -1,4 +1,6 @@
 // Embed-session state for the console-hosted studio: the claimed bearer, its identity, and the parent-window signals.
+import { parseThemeSelection, type ThemeSelection } from "@/lib/studio/themes/theme-catalog";
+
 export const EMBED_SESSION_STORAGE_KEY = "infinity-studio:embed-session";
 
 export type EmbedSessionInfo = {
@@ -11,6 +13,7 @@ export type EmbedSessionInfo = {
   label: string;
   consoleOrigin: string;
   claimedToken: string;
+  theme: ThemeSelection | null;
 };
 
 export type EmbedParentMessage = "infinity-studio:ready" | "infinity-studio:session-expired";
@@ -20,21 +23,22 @@ const STRING_FIELDS = ["bearer", "externalId", "displayName", "engine", "label",
 // The session read from sessionStorage once per page load; undefined until the first read.
 let cached: EmbedSessionInfo | null | undefined;
 
-// Reports whether this page runs as the console-embedded studio (served under /embed).
+// Reports whether this page runs as the console-embedded studio (served under /embed); no location means no page.
 export function isEmbedMode(): boolean {
   if (typeof window === "undefined") return false;
-  const { pathname } = window.location;
+  const pathname = window.location?.pathname ?? "";
   return pathname === "/embed" || pathname.startsWith("/embed/");
 }
 
-// Validates a parsed storage value into a session, or null when any field is missing or mistyped.
+// Validates a parsed storage value into a session, or null when any field is missing or mistyped; a malformed theme is just no theme.
 export function parseEmbedSession(value: unknown): EmbedSessionInfo | null {
   if (typeof value !== "object" || value === null) return null;
   const rec = value as Record<string, unknown>;
   if (!STRING_FIELDS.every((field) => typeof rec[field] === "string")) return null;
   if (typeof rec.connectionId !== "number" || typeof rec.expiresAt !== "number") return null;
   const { bearer, externalId, displayName, engine, label, consoleOrigin, claimedToken } = rec as Record<(typeof STRING_FIELDS)[number], string>;
-  return { bearer, externalId, displayName, engine, label, consoleOrigin, claimedToken, connectionId: rec.connectionId, expiresAt: rec.expiresAt };
+  const theme = parseThemeSelection(rec.theme);
+  return { bearer, externalId, displayName, engine, label, consoleOrigin, claimedToken, connectionId: rec.connectionId, expiresAt: rec.expiresAt, theme };
 }
 
 // Returns this tab's stored embed session, or null; read from sessionStorage once and cached.

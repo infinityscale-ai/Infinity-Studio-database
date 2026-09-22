@@ -1,4 +1,5 @@
 // Typed server configuration read from INFSTUDIO_* environment variables.
+import { isKnownAppThemeId, isKnownEditorThemeId, pairedEditorThemeId, type ThemeSelection } from "../../lib/studio/themes/theme-catalog";
 
 export type AdminConfig = { port: number; bind: string; key: string };
 
@@ -14,6 +15,7 @@ export type ServerConfig = {
   embedMode: boolean;
   embedAllowedOrigins: string[];
   consoleOrigin: string | null;
+  embedTheme: ThemeSelection | null;
   admin: AdminConfig | null;
   mcpDisabled: boolean;
 };
@@ -60,6 +62,26 @@ function readAdmin(env: Env): AdminConfig | null {
   };
 }
 
+// Reads the look every embedded session gets unless the console overrides it; the editor theme defaults to the app theme's pair.
+function readEmbedTheme(env: Env): ThemeSelection | null {
+  const app = env.INFSTUDIO_EMBED_THEME?.trim();
+  if (!app) return null;
+  return { app, editor: env.INFSTUDIO_EMBED_EDITOR_THEME?.trim() || pairedEditorThemeId(app) };
+}
+
+// Lists the embed theme ids this build does not know.
+function embedThemeProblems(theme: ThemeSelection | null): ConfigProblem[] {
+  if (!theme) return [];
+  const problems: ConfigProblem[] = [];
+  if (!isKnownAppThemeId(theme.app)) {
+    problems.push({ key: "INFSTUDIO_EMBED_THEME", message: `INFSTUDIO_EMBED_THEME names an unknown app theme "${theme.app}"` });
+  }
+  if (!isKnownEditorThemeId(theme.editor)) {
+    problems.push({ key: "INFSTUDIO_EMBED_EDITOR_THEME", message: `INFSTUDIO_EMBED_EDITOR_THEME names an unknown editor theme "${theme.editor}"` });
+  }
+  return problems;
+}
+
 // Reads the server configuration; explicit bind or port pins the port (no auto-increment).
 export function readServerConfig(env: Env = process.env): ServerConfig {
   return {
@@ -74,6 +96,7 @@ export function readServerConfig(env: Env = process.env): ServerConfig {
     embedMode: flag(env.INFSTUDIO_EMBED_MODE),
     embedAllowedOrigins: splitList(env.INFSTUDIO_EMBED_ALLOWED_ORIGINS),
     consoleOrigin: env.INFSTUDIO_CONSOLE_ORIGIN?.trim() || null,
+    embedTheme: readEmbedTheme(env),
     admin: readAdmin(env),
     mcpDisabled: flag(env.INFSTUDIO_MCP_DISABLED),
   };
@@ -104,5 +127,6 @@ export function validateServerConfig(cfg: ServerConfig): ConfigProblem[] {
       message: "INFSTUDIO_EMBED_MODE=1 requires the admin listener (INFSTUDIO_ADMIN_PORT and INFSTUDIO_ADMIN_KEY)",
     });
   }
+  problems.push(...embedThemeProblems(cfg.embedTheme));
   return problems;
 }

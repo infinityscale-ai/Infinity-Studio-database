@@ -44,8 +44,9 @@ body {
   --color-icon-muted: var(--icon-muted);
   --color-message: var(--message-surface);
   --color-message-foreground: var(--message-foreground);
-  --font-sans: var(--app-font-sans, "SF Pro", -apple-system, var(--font-outfit), var(--font-arabic), var(--font-inter), var(--font-geist-sans), "SF Arabic", "Geeza Pro", sans-serif);
-  --font-mono: var(--font-geist-mono), monospace;
+  /* The user's own font, then the active theme's (lib/studio/themes/theme-fonts.ts), then the defaults. */
+  --font-sans: var(--app-font-sans, var(--theme-font-sans, "SF Pro", -apple-system, var(--font-outfit), var(--font-arabic), var(--font-inter), var(--font-geist-sans), "SF Arabic", "Geeza Pro", sans-serif));
+  --font-mono: var(--theme-font-mono, var(--font-geist-mono)), monospace;
   --font-space: var(--font-space-grotesk), var(--font-inter), sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
 

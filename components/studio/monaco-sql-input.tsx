@@ -13,6 +13,7 @@ import { getSqlSuggestions } from "@/lib/studio/sql-suggestions";
 import { buildShortcutCombo } from "@/lib/studio/keybindings";
 import { useExtensions } from "@/lib/extensions/react";
 import type { BaseSqlInputProps } from "@/lib/studio/sql-input-types";
+import { resolveEditorFontFamily } from "@/lib/studio/themes/theme-fonts";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -289,7 +290,7 @@ export function MonacoSqlInput({
           options={{
             minimap: { enabled: false },
             fontSize,
-            fontFamily,
+            fontFamily: resolveEditorFontFamily(fontFamily),
             wordWrap: "off",
             scrollBeyondLastLine: false,
             automaticLayout: true,

@@ -1,3 +1,5 @@
+import { INFINITYSCALE_EDITOR_THEME, INFINITYSCALE_EDITOR_THEME_ID } from "./themes/infinityscale";
+
 export type CustomEditorTheme = {
   id: string;
   name: string;
@@ -201,12 +203,15 @@ export function createThemeNameFromId(id: string): string {
     .join(" ");
 }
 
+// The built-in Monaco themes every editor defines on its instance ahead of the custom ones.
+const BUILTIN_MONACO_THEMES: MonacoThemeRef[] = [{ id: INFINITYSCALE_EDITOR_THEME_ID, theme: INFINITYSCALE_EDITOR_THEME }];
+
 export function registerCustomMonacoThemes(
   monaco: any,
   themes: Array<{ id: string; theme: MonacoThemeDefinition | undefined }>
 ) {
   if (!monaco?.editor?.defineTheme) return;
-  themes.forEach((theme) => {
+  [...BUILTIN_MONACO_THEMES, ...themes].forEach((theme) => {
     if (!theme.theme) return;
     try {
       monaco.editor.defineTheme(theme.id, theme.theme);

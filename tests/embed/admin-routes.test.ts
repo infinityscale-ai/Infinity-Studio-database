@@ -105,7 +105,7 @@ async function call(method: string, path: string, body?: unknown, key: string | 
 beforeAll(async () => {
   store = createEmbedStore();
   fake = createFakeRepo();
-  const app = createAdminApp({ key: KEY, store, consoleOrigin: "https://console.example", repo: fake.repo });
+  const app = createAdminApp({ key: KEY, store, consoleOrigin: "https://console.example", repo: fake.repo, defaultTheme: null });
   server = await startAdminApp(app, { port: 0, bind: "127.0.0.1" });
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
@@ -116,7 +116,7 @@ afterAll(() => {
 
 describe("admin app", () => {
   test("refuses a short admin key at construction", () => {
-    expect(() => createAdminApp({ key: "short", store, consoleOrigin: "x", repo: fake.repo })).toThrow(EmbedConfigError);
+    expect(() => createAdminApp({ key: "short", store, consoleOrigin: "x", repo: fake.repo, defaultTheme: null })).toThrow(EmbedConfigError);
   });
 
   test("health is public", async () => {
@@ -158,11 +158,20 @@ describe("admin app", () => {
     ["missing label", sessionBody({ label: undefined }), "missing_field"],
     ["long field", sessionBody({ label: "x".repeat(513) }), "field_too_long"],
     ["options", sessionBody({ options: { sslmode: "yes" } }), "invalid_field"],
+    ["theme", sessionBody({ theme: { app: "nope" } }), "invalid_theme"],
     ["array body", [], "invalid_body"],
   ])("rejects %s with 400", async (_name, body, code) => {
     const res = await call("POST", "/admin/v1/embed-sessions", body);
     expect(res.status).toBe(400);
     expect(res.json.error).toBe(code);
+  });
+
+  test("a session's theme reaches the claimed session", async () => {
+    const created = await call("POST", "/admin/v1/embed-sessions", sessionBody({ externalId: "u1/d7", dbId: "d7", theme: { app: "infinityscale" } }));
+    expect(created.status).toBe(201);
+    const claimed = store.claim(String(created.json.token));
+    if ("error" in claimed) throw new Error(claimed.error);
+    expect(claimed.session.theme).toEqual({ app: "infinityscale", editor: "infinityscale-dark" });
   });
 
   test("malformed JSON is a typed 400", async () => {

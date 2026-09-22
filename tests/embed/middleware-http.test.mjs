@@ -16,10 +16,10 @@ let server;
 let base = "";
 let lastBody = null;
 
-// Mints a claim token for connection 7 and parks its secret.
-function mint() {
+// Mints a claim token for connection 7 with an optional theme and parks its secret.
+function mint(theme = null) {
   store.setSecret(7, { password: "s3cret", options: {} });
-  return store.mintToken({ connectionId: 7, externalId: "u1/d1", userId: "u1", dbId: "d1", displayName: "orders", engine: "postgres", label: "orders", ttlSeconds: 3600 }).token;
+  return store.mintToken({ connectionId: 7, externalId: "u1/d1", userId: "u1", dbId: "d1", displayName: "orders", engine: "postgres", label: "orders", theme, ttlSeconds: 3600 }).token;
 }
 
 // Sends a request with an optional embed bearer and JSON body.
@@ -73,12 +73,19 @@ describe("embed middleware over HTTP", () => {
     const first = await claim(token);
     expect(first.status).toBe(200);
     expect(first.bearer.startsWith("emb_")).toBe(true);
-    expect(first.json.data).toMatchObject({ connectionId: 7, externalId: "u1/d1", displayName: "orders", engine: "postgres", label: "orders", consoleOrigin: "https://console.example" });
+    expect(first.json.data).toMatchObject({ connectionId: 7, externalId: "u1/d1", displayName: "orders", engine: "postgres", label: "orders", consoleOrigin: "https://console.example", theme: null });
     expect((await claim(token)).json).toEqual({ success: false, error: "token_used" });
     expect(await call("POST", "/api/embed/claim", null, { token: "tok_nope" })).toEqual({ status: 410, json: { success: false, error: "token_expired" } });
     expect((await call("POST", "/api/embed/claim", null, "token=x", "text/plain")).status).toBe(415);
     expect(await call("POST", "/api/embed/claim", null, {})).toEqual({ status: 400, json: { success: false, error: "token_required" } });
     expect(await call("POST", "/api/embed/claim", null, "{bad")).toEqual({ status: 400, json: { success: false, error: "invalid_json" } });
+  });
+
+  test("the claim and the session echo carry the console's theme choice", async () => {
+    const theme = { app: "infinityscale", editor: "infinityscale-dark" };
+    const claimed = await claim(mint(theme));
+    expect(claimed.json.data.theme).toEqual(theme);
+    expect((await call("GET", "/api/embed/session", claimed.bearer)).json.data.theme).toEqual(theme);
   });
 
   test("the session echo needs a live bearer and never returns it", async () => {
@@ -87,6 +94,7 @@ describe("embed middleware over HTTP", () => {
     expect(echo.status).toBe(200);
     expect(echo.json.data.session).toBeUndefined();
     expect(echo.json.data.engine).toBe("postgres");
+    expect(echo.json.data.theme).toBeNull();
     expect(await call("GET", "/api/embed/session")).toEqual({ status: 401, json: { success: false, error: "embed_session_expired" } });
     expect(await call("GET", "/api/embed/session", "emb_bogus")).toEqual({ status: 401, json: { success: false, error: "embed_session_expired" } });
   });

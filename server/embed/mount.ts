@@ -82,6 +82,7 @@ export async function startEmbedAdmin(cfg: ServerConfig, runtime: EmbedRuntime):
     store: runtime.store,
     consoleOrigin: cfg.consoleOrigin ?? "",
     repo: managedConnectionRepo,
+    defaultTheme: cfg.embedTheme,
   });
   await startAdminApp(app, { port: cfg.admin.port, bind: cfg.admin.bind });
   return `${cfg.admin.bind}:${cfg.admin.port}`;

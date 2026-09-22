@@ -4,13 +4,16 @@ import { useEffect, useState } from "react";
 
 import { readInitialAppearance } from "@/lib/studio/general-utils";
 import { isEmbedMode } from "@/lib/embed/session";
+import { getHostTheme } from "@/lib/embed/host-theme";
 import { getGlobalEditorThemeSettings, saveGlobalEditorThemeSettings } from "@/lib/api/actions-client";
 import { type CustomEditorTheme } from "@/lib/studio/editor-themes";
 
+// The console's editor theme, when it chose one for this embedded session, wins over every stored or default id.
 function readInitialEditorAppearance() {
   const parsed = readInitialAppearance();
+  const hostEditorThemeId = getHostTheme()?.editor;
   return {
-    editorThemeId: typeof parsed?.editorThemeId === "string" ? parsed.editorThemeId : "auto",
+    editorThemeId: hostEditorThemeId ?? (typeof parsed?.editorThemeId === "string" ? parsed.editorThemeId : "auto"),
     customEditorThemes: Array.isArray(parsed?.customEditorThemes) ? parsed.customEditorThemes as CustomEditorTheme[] : [],
   };
 }
@@ -46,7 +49,7 @@ export function useGlobalEditorTheme(persist = false) {
           nextCustomThemes = [];
         }
       }
-      setEditorThemeId(nextThemeId);
+      setEditorThemeId(getHostTheme()?.editor ?? nextThemeId);
       setCustomEditorThemes(nextCustomThemes);
       setIsLoaded(true);
     };

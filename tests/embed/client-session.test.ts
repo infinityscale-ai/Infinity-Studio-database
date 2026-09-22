@@ -18,6 +18,7 @@ const PAYLOAD = {
   engine: "postgres",
   label: "orders",
   consoleOrigin: "https://console.example",
+  theme: null,
 };
 
 // Builds a fetcher that answers every call with one status and JSON body, recording the request it saw.
@@ -48,6 +49,13 @@ describe("parseEmbedSession / sessionFromClaim", () => {
     expect(sessionFromClaim({ ...PAYLOAD, connectionId: "7" }, "tok_1")).toBeNull();
     expect(sessionFromClaim(null, "tok_1")).toBeNull();
     expect(parseEmbedSession("nope")).toBeNull();
+  });
+
+  test("keeps the console's theme choice and treats a missing or malformed one as none", () => {
+    const theme = { app: "infinityscale", editor: "infinityscale-dark" };
+    expect(sessionFromClaim({ ...PAYLOAD, theme }, "tok_1")?.theme).toEqual(theme);
+    expect(sessionFromClaim({ ...PAYLOAD, theme: undefined }, "tok_1")?.theme).toBeNull();
+    expect(sessionFromClaim({ ...PAYLOAD, theme: { app: "infinityscale" } }, "tok_1")?.theme).toBeNull();
   });
 
   test("knows when a session has run out", () => {

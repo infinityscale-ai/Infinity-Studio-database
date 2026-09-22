@@ -85,6 +85,8 @@ sends is pinned server-side to that one connection.
 | `INFSTUDIO_USER_DATA_DIR` | Where `sqlite.db` (studio state, no secrets) lives. |
 | `INFSTUDIO_MCP_DISABLED=1` | Recommended: no MCP endpoint on an embedded studio. |
 | `INFSTUDIO_BIND`, `INFSTUDIO_SERVER_PORT` | The public listener (default `127.0.0.1:3867`). |
+| `INFSTUDIO_EMBED_THEME` | The app theme every embedded session opens with, by id (`infinityscale` carries the InfinityScale console's palette, radius and fonts). Unset: the studio's own look, which the viewer may change. An unknown id refuses to start. |
+| `INFSTUDIO_EMBED_EDITOR_THEME` | The Monaco theme to pair with it (`infinityscale-dark`, `studio-dark`, `light`, `vs-dark`, `hc-black`, `auto`). Default: the app theme's pair (`infinityscale-dark` for `infinityscale`, else `auto`). Read only with `INFSTUDIO_EMBED_THEME`. |
 
 ### Admin API (console → studio, loopback only)
 
@@ -106,7 +108,8 @@ Session request body:
   "engine": "postgres | mysql | mongo | redis",
   "host": "db.internal", "port": 5432, "username": "app", "password": "…", "database": "orders",
   "options": { "sslmode": "require", "authSource": "admin" },
-  "ttlSeconds": 28800, "tokenTtlSeconds": 60, "displayName": "Jane"
+  "ttlSeconds": 28800, "tokenTtlSeconds": 60, "displayName": "Jane",
+  "theme": { "app": "infinityscale", "editor": "infinityscale-dark" }
 }
 ```
 
@@ -116,6 +119,13 @@ Session request body:
 written to `sqlite.db`, a log line, or a response. A restart forgets it, and the next
 request on that session answers `401 embed_session_revoked` so the console mints again.
 `DELETE` answers `{ revoked, purged }`, or 404 when nothing matched.
+
+`theme` is optional and overrides `INFSTUDIO_EMBED_THEME` for that session: `app` is a
+built-in app theme id, `editor` a Monaco theme id (default: the app theme's pair). An
+unknown id answers `400 invalid_theme`. The claim response and `GET /api/embed/session`
+carry the resolved `theme: { app, editor }` (`null` when neither the environment nor the
+session named one), the page paints it before the studio renders, and the viewer's
+Theme, Editor Theme and Font pickers are hidden: the console owns the look.
 
 ### The iframe
 

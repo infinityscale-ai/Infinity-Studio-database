@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { ThemeSelection } from "../../lib/studio/themes/theme-catalog";
 
 export type EmbedEngine = "postgres" | "mysql" | "mongo" | "redis";
 export const EMBED_ENGINES: readonly EmbedEngine[] = ["postgres", "mysql", "mongo", "redis"];
@@ -14,6 +15,7 @@ export type EmbedIdentity = {
   displayName: string;
   engine: EmbedEngine;
   label: string;
+  theme?: ThemeSelection | null;
 };
 
 export type EmbedSession = EmbedIdentity & {
@@ -72,10 +74,10 @@ function clampTtl(value: number | undefined, fallback: number, max: number): num
   return Math.min(Math.max(n, 1), max);
 }
 
-// Copies only the identity fields off a pending token or session.
+// Copies only the identity fields off a pending token or session; the console's theme choice rides along.
 function identityOf(source: EmbedIdentity): EmbedIdentity {
   const { connectionId, externalId, userId, dbId, displayName, engine, label } = source;
-  return { connectionId, externalId, userId, dbId, displayName, engine, label };
+  return { connectionId, externalId, userId, dbId, displayName, engine, label, theme: source.theme ?? null };
 }
 
 // Creates the in-process store of single-use tokens, bearer sessions and per-connection secrets.

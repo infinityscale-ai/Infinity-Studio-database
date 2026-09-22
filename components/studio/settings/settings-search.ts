@@ -1,6 +1,7 @@
 "use client";
 
 import type { SettingsSectionId } from "./settings-sidebar";
+import { hasHostTheme } from "@/lib/embed/host-theme";
 
 export interface SettingsSearchEntry {
   /** Stable id. Matches the `data-setting-id` attribute rendered in SettingsView for deep-scroll. */
@@ -112,10 +113,19 @@ export const SETTINGS_SEARCH_INDEX: SettingsSearchEntry[] = [
   { id: "command-menu", section: "advanced", title: "Command Menu Customization", description: "Reorder or show/hide sections in the command menu (⌘K).", keywords: ["command", "menu", "palette", "cmdk", "reorder", "sections"] },
 ];
 
+// The settings the hosting console owns when it chose the theme: none of them is offered or found in that case.
+const HOST_OWNED_SETTINGS: ReadonlySet<string> = new Set(["appearance", "app-theme", "app-font", "editor-font-family", "editor-theme"]);
+
+// Reports whether a setting is offered right now; the look-and-feel settings leave when the console owns the look.
+export function isSettingOffered(id: string): boolean {
+  return !HOST_OWNED_SETTINGS.has(id) || !hasHostTheme();
+}
+
 export function filterSettingsSearch(query: string): SettingsSearchEntry[] {
   const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return [];
   return SETTINGS_SEARCH_INDEX.filter((entry) => {
+    if (!isSettingOffered(entry.id)) return false;
     const haystack =
       `${entry.title} ${entry.description} ${SETTINGS_SECTION_LABELS[entry.section]} ${entry.keywords.join(" ")}`.toLowerCase();
     return tokens.every((token) => haystack.includes(token));

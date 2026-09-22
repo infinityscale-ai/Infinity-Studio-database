@@ -1,3 +1,4 @@
+import { isKnownAppThemeId, isKnownEditorThemeId, pairedEditorThemeId, type ThemeSelection } from "../../lib/studio/themes/theme-catalog";
 import {
   DEFAULT_SESSION_TTL_SECONDS,
   DEFAULT_TOKEN_TTL_SECONDS,
@@ -23,6 +24,7 @@ export type AdminSessionRequest = {
   ttlSeconds: number;
   tokenTtlSeconds: number;
   displayName: string;
+  theme: ThemeSelection | null;
 };
 
 export type AdminValidationCode =
@@ -35,7 +37,8 @@ export type AdminValidationCode =
   | "invalid_engine"
   | "invalid_host"
   | "invalid_port"
-  | "invalid_ttl";
+  | "invalid_ttl"
+  | "invalid_theme";
 
 export type AdminParseFailure = { ok: false; code: AdminValidationCode; field?: string };
 export type AdminParseResult = { ok: true; value: AdminSessionRequest } | AdminParseFailure;
@@ -105,6 +108,19 @@ function readOptions(raw: unknown): EmbedConnectionOptions | null {
   return out;
 }
 
+// Reads the optional theme over the server default: an absent field keeps the default, an unknown app or editor id fails.
+function readTheme(raw: unknown, fallback: ThemeSelection | null): ThemeSelection | null | AdminParseFailure {
+  if (raw === undefined || raw === null) return fallback;
+  if (typeof raw !== "object" || Array.isArray(raw)) return { ok: false, code: "invalid_theme", field: "theme" };
+  const rec = raw as Record<string, unknown>;
+  const app = rec.app ?? fallback?.app;
+  if (typeof app !== "string" || !isKnownAppThemeId(app)) return { ok: false, code: "invalid_theme", field: "theme.app" };
+  const inheritedEditor = rec.app === undefined ? fallback?.editor : undefined;
+  const editor = rec.editor ?? inheritedEditor ?? pairedEditorThemeId(app);
+  if (typeof editor !== "string" || !isKnownEditorThemeId(editor)) return { ok: false, code: "invalid_theme", field: "theme.editor" };
+  return { app, editor };
+}
+
 // Checks the external id shape, its length, and that it is exactly `<userId>/<dbId>`.
 function externalIdValid(fields: StringFields): boolean {
   return (
@@ -115,7 +131,7 @@ function externalIdValid(fields: StringFields): boolean {
 }
 
 // Parses and validates an admin embed-session request body into a typed shape with a typed failure code.
-export function parseAdminSessionRequest(body: unknown): AdminParseResult {
+export function parseAdminSessionRequest(body: unknown, defaultTheme: ThemeSelection | null = null): AdminParseResult {
   if (typeof body !== "object" || body === null || Array.isArray(body)) return { ok: false, code: "invalid_body" };
   const rec = body as Record<string, unknown>;
   if (rec.readOnly === true) return { ok: false, code: "read_only_unsupported" };
@@ -132,10 +148,12 @@ export function parseAdminSessionRequest(body: unknown): AdminParseResult {
   if (ttlSeconds === null || tokenTtlSeconds === null) return { ok: false, code: "invalid_ttl" };
   const options = readOptions(rec.options);
   if (options === null) return { ok: false, code: "invalid_field", field: "options" };
+  const theme = readTheme(rec.theme, defaultTheme);
+  if (theme !== null && "ok" in theme) return theme;
   const { externalId, userId, dbId, label, host, username, password, database } = fields;
   const displayName = fields.displayName || label;
   return {
     ok: true,
-    value: { externalId, userId, dbId, label, engine, host, port, username, password, database, options, ttlSeconds, tokenTtlSeconds, displayName },
+    value: { externalId, userId, dbId, label, engine, host, port, username, password, database, options, ttlSeconds, tokenTtlSeconds, displayName, theme },
   };
 }

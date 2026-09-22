@@ -48,6 +48,7 @@ import {
   type FunctionEvent,
 } from "@/lib/studio/edge-functions-utils";
 import { cn } from "@/lib/utils";
+import { resolveEditorFontFamily } from "@/lib/studio/themes/theme-fonts";
 import { toast } from "sonner";
 import {
   Bar,
@@ -815,7 +816,7 @@ export function EdgeFunctionView({
                           minimap: { enabled: false },
                           fontSize: codeFontSize,
                           fontFamily:
-                            studio.editorFontFamily ||
+                            resolveEditorFontFamily(studio.editorFontFamily) ||
                             "'JetBrains Mono', 'Fira Code', monospace",
                           scrollBeyondLastLine: false,
                           automaticLayout: true,

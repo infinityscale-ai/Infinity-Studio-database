@@ -60,6 +60,8 @@ reachable at `postgres://postgres:demo@postgres:5432/demo`.
 | `INFSTUDIO_EMBED_MODE`            | —                     | `1` = console-embedded sessions                      |
 | `INFSTUDIO_EMBED_ALLOWED_ORIGINS` | —                     | origins allowed to embed the studio                  |
 | `INFSTUDIO_CONSOLE_ORIGIN`        | —                     | the console that mints sessions                      |
+| `INFSTUDIO_EMBED_THEME`           | —                     | app theme id every embedded session opens with (`infinityscale`) |
+| `INFSTUDIO_EMBED_EDITOR_THEME`    | the app theme's pair  | Monaco theme id paired with it (`infinityscale-dark`, `vs-dark`, …) |
 | `INFSTUDIO_ADMIN_PORT`            | —                     | admin API port (embed sessions)                      |
 | `INFSTUDIO_ADMIN_BIND`            | —                     | admin API listen address                             |
 | `INFSTUDIO_ADMIN_KEY`             | —                     | admin API key, at least 32 chars                     |

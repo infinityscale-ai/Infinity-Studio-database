@@ -58,6 +58,8 @@ import {
   BUILTIN_APP_THEMES,
   type CustomAppTheme,
 } from "@/lib/studio/app-themes";
+import { BUILTIN_EDITOR_THEMES } from "@/lib/studio/themes/theme-catalog";
+import { hasHostTheme } from "@/lib/embed/host-theme";
 import { AiSettingsSection } from "@/components/studio/ai/ai-settings-section";
 import { AiProvidersPage } from "@/components/studio/ai/ai-providers-page";
 import { IconThemeSetting } from "@/components/studio/settings/icon-theme-setting";
@@ -960,13 +962,9 @@ export function SettingsView({
     id: theme.id,
     label: theme.name,
   }));
-  const editorBuiltInThemes = [
-    { id: "auto", label: "Auto (follow app)" },
-    { id: "studio-dark", label: "Studio Dark" },
-    { id: "light", label: "Light" },
-    { id: "vs-dark", label: "VS Dark" },
-    { id: "hc-black", label: "High Contrast" },
-  ];
+  const editorBuiltInThemes = [...BUILTIN_EDITOR_THEMES];
+  // When the hosting console chose the theme, the look is not this viewer's to change.
+  const lookOwnedByHost = hasHostTheme();
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
@@ -1207,6 +1205,7 @@ export function SettingsView({
               <h2 className="text-sm font-semibold">General</h2>
 
               <div className="space-y-4">
+                {lookOwnedByHost ? null : (<>
                 {/* Appearance */}
                 <div data-setting-id="appearance" className="flex flex-col space-y-3">
                   <div className="flex flex-col">
@@ -1339,6 +1338,7 @@ export function SettingsView({
                     onChange={setCustomFontFamily}
                   />
                 </div>
+                </>)}
                 <div data-setting-id="icon-theme">
                   <IconThemeSetting
                     iconThemeId={iconThemeId}
@@ -1579,6 +1579,7 @@ export function SettingsView({
                   ]}
                 />
 
+                {lookOwnedByHost ? null : (
                 <div data-setting-id="editor-font-family">
                   <CustomFontSetting
                     value={editorFontFamily}
@@ -1587,6 +1588,7 @@ export function SettingsView({
                     description="Use a specific font for the SQL editor. If empty, it will follow the app font."
                   />
                 </div>
+                )}
 
                 <SwitchSetting
                   settingId="vim-mode"
@@ -1603,6 +1605,7 @@ export function SettingsView({
                   onChange={setResultTabsEnabled}
                 />
 
+                {lookOwnedByHost ? null : (
                 <div
                   data-setting-id="editor-theme"
                   className="flex items-start justify-between gap-3 border-t border-border py-3"
@@ -1624,6 +1627,7 @@ export function SettingsView({
                     icon={<Code className="w-3.5 h-3.5" />}
                   />
                 </div>
+                )}
               </div>
 
               {/* SQL Formatting */}

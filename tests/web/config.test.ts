@@ -17,8 +17,16 @@ describe("readServerConfig", () => {
     expect(cfg.embedMode).toBe(false);
     expect(cfg.embedAllowedOrigins).toEqual([]);
     expect(cfg.consoleOrigin).toBeNull();
+    expect(cfg.embedTheme).toBeNull();
     expect(cfg.admin).toBeNull();
     expect(cfg.mcpDisabled).toBe(false);
+  });
+
+  test("reads the embed theme and pairs its editor theme unless one is named", () => {
+    expect(readServerConfig({ INFSTUDIO_EMBED_THEME: "infinityscale" }).embedTheme).toEqual({ app: "infinityscale", editor: "infinityscale-dark" });
+    expect(readServerConfig({ INFSTUDIO_EMBED_THEME: " infinityscale ", INFSTUDIO_EMBED_EDITOR_THEME: "vs-dark" }).embedTheme).toEqual({ app: "infinityscale", editor: "vs-dark" });
+    expect(readServerConfig({ INFSTUDIO_EMBED_THEME: "zinc-dark-white" }).embedTheme).toEqual({ app: "zinc-dark-white", editor: "auto" });
+    expect(readServerConfig({ INFSTUDIO_EMBED_EDITOR_THEME: "vs-dark" }).embedTheme).toBeNull();
   });
 
   test("an explicit bind pins the port", () => {
@@ -114,5 +122,14 @@ describe("validateServerConfig", () => {
   test("embed mode without the admin listener is fatal", () => {
     const cfg = readServerConfig({ INFSTUDIO_EMBED_MODE: "1" });
     expect(validateServerConfig(cfg).map((p) => p.key)).toEqual(["INFSTUDIO_EMBED_MODE"]);
+  });
+
+  test("an embed theme this build does not know is fatal, a known one passes", () => {
+    expect(validateServerConfig(readServerConfig({ INFSTUDIO_EMBED_THEME: "infinityscale" }))).toEqual([]);
+    const unknownApp = validateServerConfig(readServerConfig({ INFSTUDIO_EMBED_THEME: "nope" }));
+    expect(unknownApp.map((p) => p.key)).toEqual(["INFSTUDIO_EMBED_THEME"]);
+    expect(unknownApp[0].message).toContain('"nope"');
+    const unknownEditor = validateServerConfig(readServerConfig({ INFSTUDIO_EMBED_THEME: "infinityscale", INFSTUDIO_EMBED_EDITOR_THEME: "nope" }));
+    expect(unknownEditor.map((p) => p.key)).toEqual(["INFSTUDIO_EMBED_EDITOR_THEME"]);
   });
 });
