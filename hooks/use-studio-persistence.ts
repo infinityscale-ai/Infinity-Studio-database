@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { API_BASE } from "@/lib/api-base";
+import { apiFetch } from "@/lib/api-base";
 
 interface UseStudioPersistenceProps {
   connectionId: number;
@@ -44,7 +44,7 @@ export function useStudioPersistence({ connectionId }: UseStudioPersistenceProps
     studioSaveQueueRef.current = studioSaveQueueRef.current
       .catch(() => undefined)
       .then(async () => {
-        const response = await fetch(`${API_BASE}/studio/${capturedConnectionId}/${endpoint}`, {
+        const response = await apiFetch(`/studio/${capturedConnectionId}/${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),

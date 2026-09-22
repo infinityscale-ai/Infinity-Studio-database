@@ -4,7 +4,7 @@ import type { Connection, ConnectionSettings, OpenTab } from "@/lib/db/schema";
 import type { QueryExecutionContext } from "@/lib/studio/table-permissions";
 import type { HistoryEntry } from "@/lib/api/history-entry-types";
 import { emitGlobalAiSettingsUpdated } from "@/lib/ai/ai-settings-events";
-import { API_BASE } from "@/lib/api-base";
+import { API_BASE, apiFetch } from "@/lib/api-base";
 import { isDesktopRuntime } from "@/lib/desktop";
 
 type ApiResult<T> = { success: boolean; data?: T; error?: string } & Record<
@@ -56,7 +56,7 @@ async function request<T = any>(
 
   let response: Response;
   try {
-    response = await fetch(apiUrl, init);
+    response = await apiFetch(apiUrl, init);
   } catch (err) {
     return {
       success: false,

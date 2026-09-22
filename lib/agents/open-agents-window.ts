@@ -19,7 +19,7 @@ export async function openAgentsWindow(connectionId: number): Promise<void> {
     }
 
     new WebviewWindow(label, {
-      url: `/studio/${connectionId}/agents`,
+      url: `/studio/agents?id=${connectionId}`,
       title: "Infinity Studio — Agents",
       width: 1200,
       height: 800,
@@ -35,6 +35,6 @@ export async function openAgentsWindow(connectionId: number): Promise<void> {
       skipTaskbar: false,
     });
   } catch {
-    window.open(`/studio/${connectionId}/agents`, `_blank_${label}`);
+    window.open(`/studio/agents?id=${connectionId}`, `_blank_${label}`);
   }
 }

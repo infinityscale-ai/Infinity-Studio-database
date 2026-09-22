@@ -139,7 +139,7 @@ import {
 import type { CustomIconTheme } from "@/lib/icon-theme/types";
 import { useDesktopWindow } from "@/hooks/use-desktop-window";
 import { openConnectionInNewWindow } from "@/lib/connections/open-connection-window";
-import { API_BASE } from "@/lib/api-base";
+import { apiFetch } from "@/lib/api-base";
 import { SupabaseLoginDialog } from "@/components/supabase/supabase-login-dialog";
 import { SupabaseAccountsScreen } from "@/components/supabase/supabase-account-screen";
 import {
@@ -1130,7 +1130,7 @@ export function ConnectionManager({
   const sidecarFetch = useCallback(
     async (path: string, options?: RequestInit) => {
       try {
-        const res = await fetch(`${API_BASE}${path}`, {
+        const res = await apiFetch(path, {
           headers: { "Content-Type": "application/json" },
           ...options,
         });

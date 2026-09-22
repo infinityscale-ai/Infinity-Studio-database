@@ -19,6 +19,7 @@ import { AppUpdateProvider } from "@/components/providers/app-update-context";
 import { ClientShim } from "@/components/client-shim";
 import { SettingsMigrationGate } from "@/components/gates/settings-migration-gate";
 import { SidecarGate } from "@/components/gates/sidecar-gate";
+import { ApiKeyGate } from "@/components/gates/api-key-gate";
 import { ExtensionProvider } from "@/lib/extensions/react";
 
 const outfit = Outfit({
@@ -61,6 +62,7 @@ export default function RootLayout({
             <SettingsMigrationGate />
             <ZoomWrapper>
               <SidecarGate>
+                <ApiKeyGate>
                 <ConfirmProvider>
                   <AppUpdateProvider>
                     <UpdateNotificationProvider>
@@ -84,6 +86,7 @@ export default function RootLayout({
                   </UpdateNotificationProvider>
                   </AppUpdateProvider>
                 </ConfirmProvider>
+                </ApiKeyGate>
               </SidecarGate>
             </ZoomWrapper>
           </ThemeProvider>

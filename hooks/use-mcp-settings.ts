@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { StudioAgentAppMode } from "@/lib/agents/app-modes";
 import type { McpExternalConfig, McpTransportSelection } from "@/lib/agents/mcp/external-config";
 import type { ExposedConnectionMeta } from "@/lib/agents/mcp/registry";
-import { API_BASE } from "@/lib/api-base";
+import { API_BASE, apiFetch } from "@/lib/api-base";
 
 export type McpConnectionOption = ExposedConnectionMeta & {
   exposed: boolean;
@@ -31,7 +31,7 @@ export type McpSettingsData = {
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await apiFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
   });

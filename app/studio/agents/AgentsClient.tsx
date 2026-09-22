@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useStudioBootstrap } from "@/hooks/use-studio-bootstrap";
 import { useGlobalAppTheme } from "@/hooks/use-global-app-theme";
 import { useTranslucentShell } from "@/hooks/use-translucent-shell";
@@ -89,10 +89,9 @@ function saveThreads(connectionId: number, threads: AgentThread[]) {
 /* -------------------------------------------------------------------------- */
 
 export default function AgentsClient() {
-  const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const rawId = params?.id || searchParams?.get("id") || "";
+  const rawId = searchParams?.get("id") || "";
   const numericId = Number(rawId);
 
   const { loading, connection } = useStudioBootstrap(
@@ -234,7 +233,7 @@ export default function AgentsClient() {
       if (conn.id === connection?.id) return;
       harness.clearMessages();
       setActiveThread(null);
-      router.replace(`/studio/${conn.id}/agents`);
+      router.replace(`/studio/agents?id=${conn.id}`);
     },
     [connection?.id, harness.clearMessages, router],
   );

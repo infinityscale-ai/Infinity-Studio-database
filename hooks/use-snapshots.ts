@@ -10,7 +10,7 @@ import {
   compareSnapshots as _compareSnapshots,
 } from "@/lib/api/actions-client";
 import type { DatabaseSnapshot, SnapshotMeta, SnapshotDiff, SnapshotProgressEvent } from "@/lib/db/snapshot-types";
-import { API_BASE } from "@/lib/api-base";
+import { apiFetch } from "@/lib/api-base";
 
 export function useSnapshots(connectionIdP: string | number | null) {
   const connectionId = connectionIdP != null ? String(connectionIdP) : null;
@@ -138,9 +138,7 @@ function createStreamed(
   onProgress: (event: SnapshotProgressEvent) => void,
 ): Promise<SnapshotMeta | null> {
   return new Promise((resolve, reject) => {
-    const url = `${API_BASE}/api/snapshots/create-stream`;
-
-    fetch(url, {
+    apiFetch("/api/snapshots/create-stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ connectionString, connectionId, name, description, tableNames }),

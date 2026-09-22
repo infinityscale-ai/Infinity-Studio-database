@@ -474,7 +474,7 @@ function ConnectionSwitcher({
     if (id === current?.id || switchingToId !== null) return;
     setSwitchingToId(id);
     setMenuOpen(true);
-    router.push(`/studio/${id}`);
+    router.push(`/studio?id=${id}`);
   }
 
   return (

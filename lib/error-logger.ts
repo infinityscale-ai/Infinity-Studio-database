@@ -1,6 +1,6 @@
 "use client";
 
-import { API_BASE } from "@/lib/api-base";
+import { apiFetch } from "@/lib/api-base";
 
 export interface ErrorLogPayload {
   errorType: string;
@@ -23,7 +23,7 @@ export async function logAppError(payload: ErrorLogPayload): Promise<void> {
     payload.stack = payload.stack?.slice(0, MAX_STACK_CHARS) ?? null;
   }
   try {
-    await fetch(`${API_BASE}/api/errors/log`, {
+    await apiFetch("/api/errors/log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

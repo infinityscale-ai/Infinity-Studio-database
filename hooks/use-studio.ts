@@ -6,7 +6,7 @@ import { useToggleRowSelection } from "@/hooks/use-selection-utils";
 import { useGlobalAppTheme } from "@/hooks/use-global-app-theme";
 import { useGlobalEditorTheme } from "@/hooks/use-global-editor-theme";
 import { useGlobalAppFontFamily } from "@/hooks/use-global-app-font-family";
-import { apiFetch, API_BASE } from "@/lib/api-base";
+import { apiFetch } from "@/lib/api-base";
 import { toast } from "sonner";
 import { useConfirm } from "./use-confirm";
 import { format as formatSql } from "sql-formatter";
@@ -2497,7 +2497,7 @@ export function useStudio({ connection: propConnection, initialUiState }: UseStu
     connectionString: string,
     queryId: string,
   ): Promise<{ success: boolean; error?: string }> => {
-    const response = await fetch("/api/sql/cancel", {
+    const response = await apiFetch("/api/sql/cancel", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

@@ -8,7 +8,7 @@ import { LogicalPosition } from "@tauri-apps/api/dpi";
 export async function openConnectionInNewWindow(
   connectionId: number,
 ): Promise<void> {
-  const url = `/studio/${connectionId}`;
+  const url = `/studio?id=${connectionId}`;
   const label = `studio-${connectionId}`;
 
   try {

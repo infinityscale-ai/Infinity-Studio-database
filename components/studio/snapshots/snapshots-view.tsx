@@ -24,7 +24,7 @@ import { SnapshotCompareView } from "./snapshot-compare-view";
 import type { DatabaseSnapshot, SnapshotMeta, SnapshotDiff, SnapshotProgressEvent, DataChange } from "@/lib/db/snapshot-types";
 import { snapshotTableDataStore, diffTableDataStore } from "@/lib/db/snapshot-types";
 import { detectConnectionDbType } from "@/lib/db/connection-type";
-import { API_BASE } from "@/lib/api-base";
+import { apiFetch } from "@/lib/api-base";
 
 type ViewState =
   | { mode: "list" }
@@ -84,7 +84,7 @@ export function SnapshotsView({ connectionId, connectionString, onOpenSnapshotTa
     try {
       const dbType = detectConnectionDbType(connectionString);
       const schema = dbType === "sqlite" ? "main" : dbType === "postgres" ? "public" : "";
-      const res = await fetch(`${API_BASE}/api/tables`, {
+      const res = await apiFetch("/api/tables", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ connectionString, schema }),

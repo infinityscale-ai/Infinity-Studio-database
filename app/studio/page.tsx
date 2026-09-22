@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import StudioClient from "./[id]/StudioClient";
+import StudioClient from "./StudioClient";
 
 export default function StudioPage() {
   return (
