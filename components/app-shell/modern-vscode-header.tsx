@@ -1,5 +1,6 @@
 "use client";
 
+import { InfinityScaleBrand } from "@/components/shared/infinityscale-brand";
 import { Button } from "@/components/ui/button";
 import { NavUser } from "@/components/navigation/nav-user";
 import {
@@ -145,6 +146,9 @@ export function ModernVscodeHeader({
           : undefined,
       }}
     >
+      <div className="relative z-10 flex items-center">
+        <InfinityScaleBrand compact />
+      </div>
       {/* True horizontal center of the title bar (not biased by the right chrome). */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="pointer-events-auto flex select-none items-center justify-center gap-1">

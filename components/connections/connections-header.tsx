@@ -25,6 +25,7 @@ import {
 } from "@/components/edit-profile-modal";
 import { WindowControls } from "@/components/shared/window-controls";
 import { HeaderIconButton } from "@/components/shared/header-icon-button";
+import { InfinityScaleBrand } from "@/components/shared/infinityscale-brand";
 
 interface ConnectionsHeaderProps {
   displayName?: string;
@@ -94,6 +95,7 @@ export function ConnectionsHeader({
         <div className="flex items-center gap-2 w-1/3">
           {isMac && <div className="w-[72px] shrink-0" />}
           {!isMac && avatarMenu}
+          <InfinityScaleBrand />
           {showBackButton && onBack && (
             <Button
               variant="ghost"
