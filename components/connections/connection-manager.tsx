@@ -44,6 +44,9 @@ import {
 import { Connection } from "@/lib/db/schema";
 
 import { detectConnectionDbType } from "@/lib/db/connection-type";
+import { Radar } from "lucide-react";
+import { DiscoverDialog } from "@/components/connections/discover-dialog";
+import { InfinityScaleBrand } from "@/components/shared/infinityscale-brand";
 import {
   buildConnectionStringFromFields,
   parseFieldsFromConnectionString,
@@ -1012,6 +1015,7 @@ export function ConnectionManager({
   const [jdbcPassword, setJdbcPassword] = useState("");
   const [jdbcJarPaths, setJdbcJarPaths] = useState<string[]>([]);
   const [jdbcDriverManagerOpen, setJdbcDriverManagerOpen] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
   const [pendingInstallDriver, setPendingInstallDriver] =
     useState<JdbcDriverTemplate | null>(null);
   const [installPromptOpen, setInstallPromptOpen] = useState(false);
@@ -1822,6 +1826,28 @@ export function ConnectionManager({
       setConnectionScreen("new-select");
     }
   }, [newConnectionTrigger, resetConnectionDraft]);
+
+  // applyPastedConnectionString takes a whole connection string, picks its provider, fills the form and opens it.
+  const applyPastedConnectionString = (next: string) => {
+    setConnectionString(next);
+    const detected = detectProvider(next, null);
+    if (!detected || !next.includes("://") || next.length <= 16) return;
+    setSelectedProvider(detected);
+    if (detected === "postgresql") {
+      const parsed = parsePostgresConnectionString(next);
+      if (parsed) {
+        setPgHost(parsed.host);
+        setPgPort(parsed.port);
+        setPgDatabase(parsed.database);
+        setPgUsername(parsed.username);
+        setPgPassword(parsed.password);
+        setPgSslMode(parsed.sslMode);
+      }
+    } else if (isFieldBasedProvider(detected)) {
+      setFieldValues(parseFieldsFromConnectionString(detected as FieldProviderId, next));
+    }
+    setConnectionScreen("new-form");
+  };
 
   const handleCopyDetails = async (conn: Connection) => {
     await navigator.clipboard.writeText(conn.connectionString);
@@ -3106,6 +3132,19 @@ export function ConnectionManager({
           </DialogContent>
         </Dialog>
 
+        <DiscoverDialog
+          open={discoverOpen}
+          onOpenChange={setDiscoverOpen}
+          onPick={(cs) => {
+            setDiscoverOpen(false);
+            applyPastedConnectionString(cs);
+          }}
+          onSaved={() => {
+            setDiscoverOpen(false);
+            void loadConnections();
+          }}
+        />
+
         <DriverInstallPrompt
           open={installPromptOpen}
           onOpenChange={setInstallPromptOpen}
@@ -3127,10 +3166,22 @@ export function ConnectionManager({
               <div className="flex flex-col h-full flex-1 max-w-5xl mx-auto px-6 py-8">
                 {/* Top row — matches reference image: large title with avatar + settings on the right */}
                 <div className="flex items-center justify-between mb-6">
-                  <h1 className="text-[28px] font-semibold tracking-tight text-foreground">
-                    Connections
-                  </h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-[28px] font-semibold tracking-tight text-foreground">
+                      Connections
+                    </h1>
+                    <InfinityScaleBrand className="mt-1" />
+                  </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDiscoverOpen(true)}
+                      title="Discover databases"
+                      aria-label="Discover databases on this machine or in Oracle Cloud"
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-studio-border bg-background/15 hover:bg-background/25 no-drag"
+                    >
+                      <Radar className="h-4 w-4" aria-hidden />
+                    </button>
                     <ConnectionsUpdatePill
                       updateState={updateState}
                       installing={installing}
@@ -3906,31 +3957,7 @@ export function ConnectionManager({
                     placeholder="postgresql://user:password@host:5432/database"
                     className="h-11 rounded-lg border-border/60 bg-background font-mono text-sm focus:border-border"
                     value={connectionString}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setConnectionString(next);
-                      const detected = detectProvider(next, null);
-                      if (
-                        detected &&
-                        next.includes("://") &&
-                        next.length > 16
-                      ) {
-                        setSelectedProvider(detected);
-                        // Auto-fill logic...
-                        if (detected === "postgresql") {
-                          const parsed = parsePostgresConnectionString(next);
-                          if (parsed) {
-                            setPgHost(parsed.host);
-                            setPgPort(parsed.port);
-                            setPgDatabase(parsed.database);
-                            setPgUsername(parsed.username);
-                            setPgPassword(parsed.password);
-                            setPgSslMode(parsed.sslMode);
-                          }
-                        }
-                        setConnectionScreen("new-form");
-                      }
-                    }}
+                    onChange={(e) => applyPastedConnectionString(e.target.value)}
                     ref={connectionStringInputRef}
                   />
 

@@ -13,12 +13,52 @@ against your databases with scoped tokens.
 | Mode | What it is | Status |
 |---|---|---|
 | **Desktop app** | Tauri shell around the studio with a bundled Bun sidecar. macOS, Windows, Linux. | Available |
-| **Standalone web** | The same studio served from a Docker image, reachable in any browser. | In progress |
-| **Embedded** | The studio mounted inside a hosting console; the host opens an *embed session* scoped to one database. | In progress |
+| **Standalone web** | The same studio served from a Docker image, reachable in any browser. | Available |
+| **Embedded** | The studio mounted inside a hosting console; the host opens an *embed session* scoped to one database. | Available |
 
 All three share one codebase: a Next.js static-export SPA (`app/`, `components/`, `lib/`,
 `hooks/`) and a Bun + Express sidecar (`server/index.ts`) that owns the database drivers,
 local settings, and the MCP endpoint.
+
+## Run it locally
+
+```bash
+docker compose up -d                  # http://localhost:3867 — no access key on your own machine
+docker compose --profile demo up -d   # also starts a demo Postgres (postgres://postgres:demo@postgres:5432/demo)
+```
+
+The UI is published on `127.0.0.1` only, so nobody else on the network can reach it and no login
+is asked. To open it to other machines, set `INFSTUDIO_API_KEY` (the key the login screen asks
+for) and `INFSTUDIO_LISTEN=0.0.0.0` in a `.env` next to the compose file.
+
+To use your own machine's Docker containers and `oci` sign-in from the **Discover** dialog, run
+the sidecar natively instead of in Docker (the desktop app does this for you):
+
+```bash
+bun install && bun run server:install && bun run build
+INFSTUDIO_STATIC_DIR=out bun run server/index.ts     # http://127.0.0.1:3867
+```
+
+## Finding databases
+
+The **Discover** button (radar icon, top right of the connections list) looks in two places:
+
+- **This machine** — the usual database ports on `127.0.0.1`, running Docker containers that
+  publish a database port (with the credentials from their environment), and `~/.pgpass` /
+  `~/.my.cnf`. Pick one and the connection form opens filled in.
+- **Oracle Cloud** — uses your local `oci` CLI sign-in (`oci session authenticate`) to list the
+  MySQL HeatWave, OCI PostgreSQL and Autonomous databases of the tenancy. Those services only
+  have private endpoints, so the studio opens an [OCI Bastion](https://docs.oracle.com/en-us/iaas/Content/Bastion/home.htm)
+  port-forwarding session (creating a bastion in the VCN when there is none, on request) and
+  saves a connection that tunnels through it with a throwaway SSH key. Only the database
+  user and password are asked; the database never gets a public endpoint. Sessions last up to
+  three hours: run Discover again to reopen one. Autonomous databases still go through the
+  JDBC connection with their wallet (see the two *Oracle Autonomous* templates; the wallet one
+  needs `oraclepki.jar` beside `ojdbc11.jar`, which the Docker image already carries).
+
+Both live on a standalone studio (desktop or web on your own machine) and are never served in
+embed mode. Inside Docker, the machine scan sees the container, not your host, unless you run
+it with `network_mode: host`.
 
 ## Supported databases
 
@@ -167,7 +207,11 @@ app/          Next.js routes (static export)
 components/   React UI, grouped by feature
 hooks/        React hooks
 lib/          drivers (lib/db), AI (lib/ai), MCP (lib/agents/mcp), extensions, workflows
+lib/discovery/  what a found database looks like and the string it prefills
+lib/oci/        the OCI database, bastion and profile shapes shared with the sidecar
 server/       Bun + Express sidecar
+server/discovery/  scans this machine: ports, Docker containers, ~/.pgpass and ~/.my.cnf
+server/oci/        drives the local oci CLI: profiles, inventory, bastion sessions
 src-tauri/    desktop shell
 resources/    Java bridge, sample extension
 tests/        bun test suites

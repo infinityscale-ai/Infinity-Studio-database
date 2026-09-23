@@ -15,6 +15,8 @@ import { getAgentSandboxCwd } from "../lib/agents/sandbox-cwd";
 import { ensureEnrichedPath } from "../lib/system/shell-path";
 import { isLoopback, readServerConfig, validateServerConfig } from "./web/config";
 import { isStaticPageRequest, mountStatic } from "./web/static";
+import { mountDiscoveryRoutes } from "./discovery/routes";
+import { mountOciRoutes } from "./oci/routes";
 import { lookupAction } from "./api-actions";
 import { assertEmbedRequest, cacheOptionsFor, mountEmbedClaim, mountEmbedSession, respondEmbedFailure, startEmbedAdmin } from "./embed/mount";
 import { clearSearchIndex, getSearchIndexStatus, saveSearchResultsToIndex, searchLocalIndex } from "../lib/db/search-index-actions";
@@ -177,6 +179,12 @@ app.get("/health", (_req, res) => {
 app.get("/api/auth/probe", (_req, res) => {
   res.json({ success: true });
 });
+
+// Local database detection and OCI access run only on a standalone studio, never inside a console.
+if (!cfg.embedMode) {
+  mountDiscoveryRoutes(app);
+  mountOciRoutes(app);
+}
 
 // Supabase Management API proxy (avoids CORS in the browser)
 app.all("/api/supabase-mgmt/proxy/*", async (req, res) => {

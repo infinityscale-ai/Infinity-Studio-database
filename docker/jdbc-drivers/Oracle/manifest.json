@@ -1,6 +1,6 @@
 {
   "name": "Oracle",
   "driver_class": "oracle.jdbc.OracleDriver",
-  "jar_paths": ["/app/jdbc-drivers/Oracle/ojdbc11-23.7.0.25.01.jar"],
+  "jar_paths": ["/app/jdbc-drivers/Oracle/ojdbc11-23.7.0.25.01.jar", "/app/jdbc-drivers/Oracle/oraclepki-23.7.0.25.01.jar"],
   "installed_at": 0
 }
