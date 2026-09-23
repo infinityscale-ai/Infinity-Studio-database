@@ -34,7 +34,7 @@ function armCleanup(): void {
   process.once("beforeExit", () => void closeAllTunnels());
 }
 
-// getOrOpenTunnel reuses the relay already serving a database, or opens the only one there will be.
+// getOrOpenTunnel reuses the live relay serving a database, or opens the only one there will be; a relay that has gone is forgotten at once.
 export async function getOrOpenTunnel(key: TunnelKey, open: TunnelOpener): Promise<KubeTunnel> {
   armCleanup();
   const id = tunnelKey(key);
@@ -46,13 +46,19 @@ export async function getOrOpenTunnel(key: TunnelKey, open: TunnelOpener): Promi
       live.delete(id);
     }
   }
-  const started = open().then((tunnel) => ({
-    ...tunnel,
-    close: async () => {
-      live.delete(id);
-      await tunnel.close();
-    },
-  }));
+  const forget = () => {
+    if (live.get(id) === started) live.delete(id);
+  };
+  const started: Promise<KubeTunnel> = open().then((tunnel) => {
+    void tunnel.closed.then(forget);
+    return {
+      ...tunnel,
+      close: async () => {
+        forget();
+        await tunnel.close();
+      },
+    };
+  });
   live.set(id, started);
   try {
     return await started;

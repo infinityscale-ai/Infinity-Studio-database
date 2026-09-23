@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { closeAllTunnels, getOrOpenTunnel, tunnelKey } from "../../server/k8s/tunnel-registry";
-import { RELAY_MAX_LIFETIME_SECONDS, relayPodManifest } from "../../server/k8s/relay-pod";
+import { RELAY_IMAGE, RELAY_MAX_LIFETIME_SECONDS, relayPodManifest } from "../../server/k8s/relay-pod";
 import type { KubeTunnel } from "../../server/k8s/tunnel";
 
 const PREPROD = { clusterId: "ocid1.cluster.preprod", namespace: "default", host: "10.0.10.111", port: 3306 };
 
-// fakeTunnel stands in for a real relay and counts how often it was closed.
-function fakeTunnel(podName: string, state: { opened: number; closed: string[] }): KubeTunnel {
+// fakeTunnel stands in for a real relay, counts how often it was closed, and can be made to go away on its own.
+function fakeTunnel(podName: string, state: { opened: number; closed: string[] }, gone: Promise<void> = new Promise(() => {})): KubeTunnel {
   state.opened += 1;
-  return { localPort: 40000 + state.opened, podName, close: async () => void state.closed.push(podName) };
+  return { localPort: 40000 + state.opened, podName, close: async () => void state.closed.push(podName), closed: gone };
 }
 
 describe("the tunnel registry", () => {
@@ -57,6 +57,21 @@ describe("the tunnel registry", () => {
     await closeAllTunnels();
   });
 
+  test("a relay that goes away on its own is forgotten, so the next call opens a fresh one", async () => {
+    await closeAllTunnels();
+    const state = { opened: 0, closed: [] as string[] };
+    let endFirst: () => void = () => {};
+    const firstGone = new Promise<void>((resolve) => (endFirst = resolve));
+    await getOrOpenTunnel(PREPROD, () => Promise.resolve(fakeTunnel("relay-1", state, firstGone)));
+    endFirst();
+    await firstGone;
+    await Promise.resolve();
+    const next = await getOrOpenTunnel(PREPROD, () => Promise.resolve(fakeTunnel("relay-2", state)));
+    expect(next.podName).toBe("relay-2");
+    expect(state.opened).toBe(2);
+    await closeAllTunnels();
+  });
+
   test("the key names the cluster, the namespace and the database endpoint", () => {
     expect(tunnelKey(PREPROD)).toBe("ocid1.cluster.preprod|default|10.0.10.111:3306");
   });
@@ -73,5 +88,11 @@ describe("the relay pod's own limits", () => {
   test("it is labelled so the studio only ever removes its own", () => {
     const meta = relayPodManifest("relay", { host: "10.0.10.111", port: 3306 }).metadata as Record<string, unknown>;
     expect((meta.labels as Record<string, string>)["app.kubernetes.io/managed-by"]).toBe("infinity-studio");
+  });
+
+  test("its image is pinned by digest, so what runs is exactly what was tested", () => {
+    expect(RELAY_IMAGE).toMatch(/^docker\.io\/alpine\/socat:[\w.]+@sha256:[0-9a-f]{64}$/);
+    const spec = relayPodManifest("relay", { host: "10.0.10.111", port: 3306 }).spec as { containers: Array<{ image: string }> };
+    expect(spec.containers[0].image).toBe(RELAY_IMAGE);
   });
 });

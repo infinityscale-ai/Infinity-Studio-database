@@ -27,12 +27,11 @@ const runningPgQueries = new Map<string, {
   effectiveConnectionString: string;
 }>();
 
+/** One pool, the tunnel it dials through, and the connection string as the pool sees it. */
+type PgPoolEntry = { pool: PoolType; effectiveConnectionString: string; tunnel: TunnelHandle };
+
 const pgPoolEntries = new Map<string, {
-  entry: Promise<{
-    pool: PoolType;
-    effectiveConnectionString: string;
-    tunnel: TunnelHandle;
-  }>;
+  entry: Promise<PgPoolEntry>;
   lastUsed: number;
 }>();
 
@@ -143,8 +142,8 @@ function getPgPort(connectionString: string): number {
 
 
 async function getPgPoolEntry(connectionString: string) {
-  const config = parsePgConfig(connectionString);
-  const cacheKey = `${config.host}:${config.port}:${config.database}:${config.username}:${config.password}`;
+  // The whole string is the key: two routes to the same private address are two different databases.
+  const cacheKey = normalizePgConnectionString(connectionString);
 
   const cached = pgPoolEntries.get(cacheKey);
   if (cached) {
@@ -155,12 +154,14 @@ async function getPgPoolEntry(connectionString: string) {
   const pending = (async () => {
     const tunnel = await startTunnelIfNeeded(connectionString, 5432, normalizePgConnectionString);
     const effectiveConnectionString = tunnel.connectionString;
+    // The pool dials the tunnel's local end when there is one, never the address the tunnel stands in for.
+    const target = parsePgConfig(effectiveConnectionString);
     const pool = new Pool({
-      host: config.host,
-      port: config.port,
-      database: config.database,
-      user: config.username,
-      password: config.password,
+      host: target.host,
+      port: target.port,
+      database: target.database,
+      user: target.username,
+      password: target.password,
       connectionTimeoutMillis: 15000,
       idleTimeoutMillis: 30000,
       max: 6,
@@ -182,6 +183,7 @@ async function getPgPoolEntry(connectionString: string) {
     entry: pending,
     lastUsed: Date.now(),
   });
+  void pending.then((e) => e.tunnel.closed?.then(() => dropPoolEntry(cacheKey, pending)), () => {});
 
   try {
     return await pending;
@@ -189,6 +191,14 @@ async function getPgPoolEntry(connectionString: string) {
     pgPoolEntries.delete(cacheKey);
     throw error;
   }
+}
+
+// dropPoolEntry forgets a pool whose tunnel has gone, so the next query opens a fresh tunnel instead of dialling a dead port.
+async function dropPoolEntry(key: string, entry: Promise<PgPoolEntry>): Promise<void> {
+  if (pgPoolEntries.get(key)?.entry !== entry) return;
+  pgPoolEntries.delete(key);
+  const resolved = await entry.catch(() => null);
+  await resolved?.pool.end().catch(() => {});
 }
 
 // quotePgIdentifier imported from quote-identifier.ts

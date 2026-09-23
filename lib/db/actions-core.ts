@@ -2201,15 +2201,9 @@ export async function testConnection(
         return { success: true };
       }
       case "postgres": {
-        const effectiveConnectionString = connectionString;
-        const pgMod = (globalThis as any).__pg || (await import("pg")).default;
-        const client = new pgMod.Client({ connectionString: effectiveConnectionString });
-        try {
-          await client.connect();
-          await client.query("SELECT 1");
-        } finally {
-          await client.end();
-        }
+        // Same path as real queries, so the test honours the connection's tunnel and TLS settings.
+        const { executeQuery } = await import("./pg-client");
+        await executeQuery(connectionString, "SELECT 1");
         return { success: true };
       }
       case "mysql": {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildKubeConnectionString, readKubeTunnelParams, stripKubeParams } from "../../lib/db/kube-tunnel";
-import { readServerAndCa, renderKubeconfig } from "../../server/k8s/kubeconfig";
+import { readServerAndCa, renderKubeconfig, writeKubeconfig } from "../../server/k8s/kubeconfig";
 import { buildOkeToken, clusterRequestUrl } from "../../server/k8s/oke-token";
 import { relayPodManifest, RELAY_IMAGE, RELAY_PORT } from "../../server/k8s/relay-pod";
 
@@ -28,6 +28,19 @@ describe("the kubeconfig", () => {
     expect(rendered).toContain("token: tok");
     expect(rendered).not.toContain("exec:");
   });
+  test("the written file can take a fresh token, because OKE tokens outlive only minutes", async () => {
+    const file = writeKubeconfig({ server: "https://51.170.141.213:6443", caData: "Q0E=", token: "first-token" });
+    try {
+      expect(await Bun.file(file.path).text()).toContain("token: first-token");
+      file.rewrite({ server: "https://51.170.141.213:6443", caData: "Q0E=", token: "renewed-token" });
+      const text = await Bun.file(file.path).text();
+      expect(text).toContain("token: renewed-token");
+      expect(text).not.toContain("first-token");
+    } finally {
+      file.remove();
+    }
+  });
+
   test("a kubeconfig without a server is refused", () => {
     expect(() => readServerAndCa("clusters: []")).toThrow(/no API server/);
   });

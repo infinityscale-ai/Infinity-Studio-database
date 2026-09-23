@@ -1,8 +1,8 @@
 /** Where the relay must connect once it runs inside the cluster. */
 export type RelayTarget = { host: string; port: number };
 
-/** The image that relays one TCP port: small, public, pulled through the cluster's own egress, and fully qualified because some runtimes refuse short names. */
-export const RELAY_IMAGE = "docker.io/alpine/socat:1.8.0.0";
+/** The image that relays one TCP port, pinned by digest so what runs is exactly what was tested, and fully qualified because some runtimes refuse short names. */
+export const RELAY_IMAGE = "docker.io/alpine/socat:1.8.0.0@sha256:a6be4c0262b339c53ddad723cdd178a1a13271e1137c65e27f90a08c16de02b8";
 /** The port the relay listens on inside the pod. */
 export const RELAY_PORT = 15432;
 /** The label every relay carries, so the studio can find and remove its own pods and nobody else's. */

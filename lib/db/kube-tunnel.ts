@@ -1,8 +1,8 @@
 /** The connection-string parameters that say a database is reached through a Kubernetes cluster. */
 export type KubeTunnelParams = { profile: string; cluster: string; namespace: string };
 
-/** What a started tunnel hands back: where to connect now, and how to close it. */
-export type KubeTunnelHandle = { connectionString: string; close: () => Promise<void> };
+/** What a started tunnel hands back: where to connect now, how to close it, and a signal that settles once it has gone. */
+export type KubeTunnelHandle = { connectionString: string; close: () => Promise<void>; closed: Promise<void> };
 
 const PREFIX = "infstudio_k8s_";
 /** The default namespace for the throwaway relay pod. */
@@ -50,5 +50,5 @@ export async function startKubeTunnelIfNeeded(connectionString: string, defaultP
   const local = stripKubeParams(new URL(url.toString()));
   local.hostname = "127.0.0.1";
   local.port = String(tunnel.localPort);
-  return { connectionString: local.toString(), close: tunnel.close };
+  return { connectionString: local.toString(), close: tunnel.close, closed: tunnel.closed };
 }

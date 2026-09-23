@@ -5,8 +5,8 @@ import path from "node:path";
 /** What kubectl needs to reach one cluster without any helper program. */
 export type KubeAccess = { server: string; caData: string; token: string };
 
-/** A kubeconfig written for one tunnel, removed when the tunnel closes. */
-export type KubeconfigFile = { path: string; remove: () => void };
+/** A kubeconfig written for one tunnel: rewritten when its short-lived token needs renewing, removed when the tunnel closes. */
+export type KubeconfigFile = { path: string; rewrite: (access: KubeAccess) => void; remove: () => void };
 
 // readServerAndCa pulls the API server URL and its certificate authority out of the kubeconfig OKE returns.
 export function readServerAndCa(yaml: string): { server: string; caData: string } {
@@ -45,6 +45,7 @@ export function renderKubeconfig(access: KubeAccess): string {
 export function writeKubeconfig(access: KubeAccess): KubeconfigFile {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "infinity-studio-kube-"));
   const file = path.join(dir, "config");
-  fs.writeFileSync(file, renderKubeconfig(access), { mode: 0o600 });
-  return { path: file, remove: () => fs.rmSync(dir, { recursive: true, force: true }) };
+  const write = (next: KubeAccess) => fs.writeFileSync(file, renderKubeconfig(next), { mode: 0o600 });
+  write(access);
+  return { path: file, rewrite: write, remove: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }

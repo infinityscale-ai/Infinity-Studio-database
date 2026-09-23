@@ -5,7 +5,7 @@ import os from "os";
 import path from "path";
 import { parseExtendedConnection as _parseExtendedConnection } from "./ssh-tunnel-common";
 
-export type TunnelHandle = { connectionString: string; close: () => Promise<void> };
+export type TunnelHandle = { connectionString: string; close: () => Promise<void>; closed?: Promise<void> };
 
 function parseExtendedConnection(connectionString: string, normalizeFn: (s: string) => string) {
   return _parseExtendedConnection(connectionString, normalizeFn) as ReturnType<typeof _parseExtendedConnection>;
