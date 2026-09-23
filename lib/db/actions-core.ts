@@ -19,7 +19,6 @@ import {
   getPgDatabase,
   getPgHost,
   getPgPort,
-  getPgSslConfig,
   isPostgresConnection,
 } from "./pg-connection";
 import { resolvePgDumpBinary } from "./pg-dump";
