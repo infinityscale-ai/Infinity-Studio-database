@@ -49,14 +49,18 @@ with the same list:
   studio, and `~/.pgpass` / `~/.my.cnf`. Pick one and the connection form opens filled in.
 - **Oracle Cloud databases** — uses the sign-in the OCI CLI keeps in `~/.oci` (a session from
   `oci session authenticate`, or an API-key profile) and calls Oracle Cloud's API itself to list
-  the MySQL HeatWave, OCI PostgreSQL and Autonomous databases of the tenancy. Those
-  services only have private endpoints, so the studio opens an [OCI Bastion](https://docs.oracle.com/en-us/iaas/Content/Bastion/home.htm)
-  port-forwarding session (creating a bastion in the VCN when there is none, on request) and
-  saves a connection that tunnels through it with a throwaway SSH key. Only the database
-  user and password are asked; the database never gets a public endpoint. Sessions last up to
-  three hours: open Add Connection again to reopen one. Autonomous databases still go through
-  the JDBC connection with their wallet (see the two *Oracle Autonomous* templates; the wallet
-  one needs `oraclepki.jar` beside `ojdbc11.jar`, which the Docker image already carries).
+  the MySQL HeatWave, OCI PostgreSQL and Autonomous databases of the tenancy. **Every one of
+  those calls is a read: the studio has no code path that creates, changes or deletes anything
+  in Oracle Cloud**, and a guard refuses any request that is not a read. When a session has
+  expired the studio says so in a dialog and refreshes it in one click.
+
+  Those databases answer only on private addresses. To reach one, the studio uses a Kubernetes
+  cluster of yours that sits in the same network: opening the connection starts one small relay
+  pod, forwards its port to your machine, and removes the pod when you close the connection. It
+  needs `kubectl` where the studio runs, which the Docker image carries. Nothing is added to
+  Oracle Cloud and none of your manifests change. Autonomous databases still go through the
+  JDBC connection with their wallet (see the two *Oracle Autonomous* templates; the wallet one
+  needs `oraclepki.jar` beside `ojdbc11.jar`, which the Docker image already carries).
 
 In Docker, the compose file mounts the Docker socket read-only and maps
 `host.docker.internal` to your machine, so the studio in the container sees your other

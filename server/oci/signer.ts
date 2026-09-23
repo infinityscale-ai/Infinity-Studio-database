@@ -49,6 +49,11 @@ export function signingString(headers: SignedHeaders, names: string[]): string {
   return names.map((n) => `${n}: ${headers[n]}`).join("\n");
 }
 
+// authorizationHeader writes the Signature header the way Oracle's own clients do: fields in alphabetical order, no version.
+export function authorizationHeader(keyId: string, names: string[], signature: string): string {
+  return `Signature algorithm="rsa-sha256",headers="${names.join(" ")}",keyId="${keyId}",signature="${signature}"`;
+}
+
 // signRequest returns the headers to send: date, content headers when there is a body, and the Signature authorization.
 export function signRequest(req: SignableRequest, identity: SigningIdentity): SignedHeaders {
   const values = headerValues(req);
@@ -56,6 +61,6 @@ export function signRequest(req: SignableRequest, identity: SigningIdentity): Si
   const signature = crypto.sign("RSA-SHA256", Buffer.from(signingString(values, names), "utf8"), identity.privateKey).toString("base64");
   const out: SignedHeaders = { date: values.date, host: values.host };
   for (const n of BODY_HEADERS) if (values[n] !== undefined) out[n] = values[n];
-  out.authorization = `Signature version="1",keyId="${identity.keyId}",algorithm="rsa-sha256",headers="${names.join(" ")}",signature="${signature}"`;
+  out.authorization = authorizationHeader(identity.keyId, names, signature);
   return out;
 }

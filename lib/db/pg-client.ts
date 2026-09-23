@@ -12,7 +12,8 @@ try {
   );
 }
 import type { QueryExecutionContext } from "@/lib/studio/table-permissions";
-import { startSshTunnelIfNeeded, type TunnelHandle } from "./ssh-tunnel";
+import { startTunnelIfNeeded } from "./db-tunnel";
+import type { TunnelHandle } from "./ssh-tunnel";
 import { normalizePgConnectionString, validateSslMode, recoverPgCredentials } from "./pg-connection";
 import { getPgSslConfig } from "./pg-ssl";
 import { quotePgIdentifier } from "./quote-identifier";
@@ -152,7 +153,7 @@ async function getPgPoolEntry(connectionString: string) {
   }
 
   const pending = (async () => {
-    const tunnel = await startSshTunnelIfNeeded(connectionString, 5432, normalizePgConnectionString);
+    const tunnel = await startTunnelIfNeeded(connectionString, 5432, normalizePgConnectionString);
     const effectiveConnectionString = tunnel.connectionString;
     const pool = new Pool({
       host: config.host,
@@ -511,7 +512,7 @@ export async function updateRows(
   table: string,
   updates: Array<{ where: Record<string, any>, set: Record<string, any> }>
 ) {
-  const tunnel = await startSshTunnelIfNeeded(connectionString, 5432, normalizePgConnectionString);
+  const tunnel = await startTunnelIfNeeded(connectionString, 5432, normalizePgConnectionString);
   const effectiveConnectionString = tunnel.connectionString;
   
   const client = new Client({

@@ -30,7 +30,7 @@ describe("signRequest", () => {
     expect(headers["content-type"]).toBeUndefined();
     const expected = signingString({ date: headers.date, "(request-target)": "get /20160918/subnets/ocid1.subnet.x?x=1", host: url.host }, signed);
     expect(crypto.verify("RSA-SHA256", Buffer.from(expected), publicKey, Buffer.from(signature, "base64"))).toBe(true);
-    expect(headers.authorization.startsWith('Signature version="1",keyId="ST$tok",algorithm="rsa-sha256"')).toBe(true);
+    expect(headers.authorization.startsWith('Signature algorithm="rsa-sha256",headers="date (request-target) host",keyId="ST$tok"')).toBe(true);
   });
 
   test("a POST also signs content-length, content-type and the body hash", () => {

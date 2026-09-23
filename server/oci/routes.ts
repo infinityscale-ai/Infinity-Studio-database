@@ -1,21 +1,25 @@
 import type { Express, Request, Response } from "express";
-import type { OciBastionAnswer, OciConnectRequest, OciDatabaseKind, OciDatabaseSummary, OciProfile, OciStatus, OciTunnelResult } from "../../lib/oci/oci-database";
+import { buildKubeConnectionString } from "../../lib/db/kube-tunnel";
+import type { OciConnectRequest, OciDatabaseKind, OciDatabaseSummary, OciDatabaseTarget, OciProfile, OciRouteAnswer, OciStatus, OciTunnelResult } from "../../lib/oci/oci-database";
+import { findKubectl } from "../k8s/kubectl";
 import { clientFor, OciApiError, type OciClient } from "./api";
-import { bastionName, createBastion, createPortForwardingSession, findBastion, tunnelConnectionString, type DatabaseLogin } from "./bastion";
 import { findOciBinary } from "./cli";
+import { findClusterForDatabase, type OkeCluster } from "./clusters";
 import { describeDatabase, listDatabases } from "./inventory";
 import { publicProfile, readCredentialProfiles, type OciCredentialProfile } from "./profiles";
 import { authenticateInBrowser, sessionValidity, signInCommand } from "./session-login";
-import { generateSessionKeyPair, type SshKeyPair } from "./ssh-keypair";
 
 /** How the routes reach the machine and the cloud; injected so tests never touch either. */
 export type OciRouteDeps = {
   profiles: () => OciCredentialProfile[];
   client: (profile: OciCredentialProfile) => OciClient;
   cliBinary: () => string | null;
+  kubectlBinary: () => string | null;
   login: (profile: OciProfile, binary: string | null) => Promise<void>;
-  keyPair: () => Promise<SshKeyPair>;
 };
+
+/** The database login the user typed. */
+type DatabaseLogin = { username: string; password: string; database: string };
 
 /** A request the routes refuse, with the status to say so. */
 class RouteError extends Error {
@@ -32,19 +36,21 @@ const DEFAULT_DEPS: OciRouteDeps = {
   profiles: () => readCredentialProfiles(),
   client: clientFor,
   cliBinary: () => findOciBinary(),
+  kubectlBinary: () => findKubectl(),
   login: authenticateInBrowser,
-  keyPair: generateSessionKeyPair,
 };
 
 const KINDS: ReadonlySet<string> = new Set<OciDatabaseKind>(["mysql", "postgres", "autonomous"]);
+/** Where the throwaway relay pod runs unless the caller names another namespace. */
+const DEFAULT_NAMESPACE = "default";
 
-// statusOf reports the sign-in files found, whether the browser sign-in can run here, and each session's validity.
+// statusOf reports the sign-in found on this machine, what it can still do, and each session's validity.
 function statusOf(deps: OciRouteDeps): OciStatus {
   const profiles = deps.profiles().map((p) => {
     const v = sessionValidity(p);
     return { ...publicProfile(p), sessionValid: p.sessionAuth ? v.valid : null, validUntil: v.until };
   });
-  return { configured: profiles.length > 0, cliAvailable: deps.cliBinary() !== null, profiles };
+  return { configured: profiles.length > 0, cliAvailable: deps.cliBinary() !== null, kubectlAvailable: deps.kubectlBinary() !== null, profiles };
 }
 
 // profileNamed finds the profile a request names, or refuses it.
@@ -71,31 +77,35 @@ function loginFrom(value: unknown): DatabaseLogin {
   return { username, password, database: typeof v.database === "string" ? v.database.trim() : "" };
 }
 
-// prepareBastion resolves a database's private endpoint and the bastion for its VCN, creating one only when asked.
-async function prepareBastion(deps: OciRouteDeps, body: Record<string, unknown>): Promise<OciBastionAnswer> {
+// resolveRoute works out the database's private endpoint and which of the user's clusters can carry the connection.
+async function resolveRoute(deps: OciRouteDeps, body: Record<string, unknown>): Promise<OciRouteAnswer> {
   const client = deps.client(profileNamed(deps, body.profile));
   const target = await describeDatabase(client, summaryFrom(body.database));
-  if (!target.privateIp) throw new RouteError(409, "This database has no private endpoint the studio can reach through a bastion.", "oci_no_private_endpoint");
-  let bastion = await findBastion(client, target.compartmentId, target.vcnId);
-  if (!bastion && body.create === true) {
-    const cidrs = Array.isArray(body.clientCidrs) ? body.clientCidrs.filter((c): c is string => typeof c === "string") : undefined;
-    bastion = await createBastion(client, { compartmentId: target.compartmentId, subnetId: target.subnetId, name: bastionName(target), clientCidrs: cidrs });
-  }
-  return { target, bastion };
+  if (!target.privateIp) throw new RouteError(409, "This database has no private address the studio can reach.", "oci_no_private_endpoint");
+  const cluster = await findClusterForDatabase(client, target);
+  return { target, cluster: cluster ? { id: cluster.id, name: cluster.name, publicEndpoint: cluster.publicEndpoint } : null };
 }
 
-// openTunnel opens a bastion session to the database and returns the connection string that goes through it.
-async function openTunnel(deps: OciRouteDeps, body: Record<string, unknown>): Promise<OciTunnelResult> {
+// directConnectionString is the plain connection string for the database's own private address.
+function directConnectionString(target: OciDatabaseTarget, login: DatabaseLogin): string {
+  const scheme = target.engine === "mysql" ? "mysql" : "postgresql";
+  const auth = `${encodeURIComponent(login.username)}:${encodeURIComponent(login.password)}@`;
+  const db = login.database ? `/${encodeURIComponent(login.database)}` : "";
+  const query = target.engine === "postgres" ? "?sslmode=require" : "";
+  return `${scheme}://${auth}${target.privateIp}:${target.port}${db}${query}`;
+}
+
+// buildConnection settles the route and returns the connection string that carries it through the user's own cluster.
+async function buildConnection(deps: OciRouteDeps, body: Record<string, unknown>): Promise<OciTunnelResult> {
   const request: OciConnectRequest = { profile: String(body.profile ?? ""), database: summaryFrom(body.database), login: loginFrom(body.login) };
-  const client = deps.client(profileNamed(deps, request.profile));
-  const target = await describeDatabase(client, request.database);
-  if (target.engine === "oracle") throw new RouteError(409, "Autonomous Database through a bastion is not supported yet; use its wallet with the JDBC connection.", "oci_engine_unsupported");
-  if (!target.privateIp) throw new RouteError(409, "This database has no private endpoint the studio can reach through a bastion.", "oci_no_private_endpoint");
-  const bastion = await findBastion(client, target.compartmentId, target.vcnId);
-  if (!bastion) throw new RouteError(409, "No active bastion targets this database's network. Create one first.", "oci_bastion_missing");
-  const keys = await deps.keyPair();
-  const session = await createPortForwardingSession(client, { bastionId: bastion.id, target, publicKey: keys.publicKey });
-  return { connectionString: tunnelConnectionString(target, session, keys.privateKey, request.login), expiresAt: session.expiresAt, sessionId: session.sessionId, target };
+  const profile = profileNamed(deps, request.profile);
+  const answer = await resolveRoute(deps, { profile: request.profile, database: request.database });
+  if (answer.target.engine === "oracle") throw new RouteError(409, "Autonomous Database is not supported on this route yet; use its wallet with the JDBC connection.", "oci_engine_unsupported");
+  if (!answer.cluster) throw new RouteError(409, "None of your Kubernetes clusters sits in this database's network, so the studio has no way in that adds nothing to Oracle Cloud.", "oci_no_cluster");
+  if (!deps.kubectlBinary()) throw new RouteError(409, "kubectl is not installed where the studio runs, so it cannot open a tunnel into your cluster.", "oci_kubectl_missing");
+  const namespace = typeof body.namespace === "string" && body.namespace.trim() ? body.namespace.trim() : DEFAULT_NAMESPACE;
+  const connectionString = buildKubeConnectionString(directConnectionString(answer.target, request.login), { profile: profile.name, cluster: answer.cluster.id, namespace });
+  return { connectionString, target: answer.target, cluster: answer.cluster, namespace };
 }
 
 // statusFor maps a failure to the HTTP status and code the panel keys its next step on.
@@ -120,17 +130,17 @@ function handle(body: (req: Request) => Promise<unknown>) {
   };
 }
 
-// mountOciRoutes adds the OCI endpoints; the caller never mounts them in embed mode, and they sit behind the access key.
+// mountOciRoutes adds the Oracle Cloud endpoints. Every call here reads; nothing the studio does creates anything in the tenancy.
 export function mountOciRoutes(app: Express, deps: OciRouteDeps = DEFAULT_DEPS): void {
   app.get("/api/oci/status", handle(async () => statusOf(deps)));
   app.post("/api/oci/login", handle(async (req) => {
     const profile = profileNamed(deps, (req.body ?? {}).profile);
     const binary = deps.cliBinary();
-    if (!binary) throw new RouteError(409, `Sign in on your computer with: ${signInCommand(profile)}`, "oci_cli_missing");
+    if (!binary) throw new RouteError(409, `Sign in on this computer with: ${signInCommand(profile)}`, "oci_cli_missing");
     await deps.login(publicProfile(profile), binary);
     return { ok: true };
   }));
   app.get("/api/oci/databases", handle((req) => listDatabases(deps.client(profileNamed(deps, req.query.profile)))));
-  app.post("/api/oci/bastion", handle((req) => prepareBastion(deps, req.body ?? {})));
-  app.post("/api/oci/connect", handle((req) => openTunnel(deps, req.body ?? {})));
+  app.post("/api/oci/route", handle((req) => resolveRoute(deps, req.body ?? {})));
+  app.post("/api/oci/connect", handle((req) => buildConnection(deps, req.body ?? {})));
 }

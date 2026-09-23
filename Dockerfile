@@ -99,8 +99,14 @@ FROM runtime-base AS embed
 FROM runtime-base AS full
 USER root
 RUN apt-get update \
- && apt-get install -y --no-install-recommends postgresql-client openssh-client \
+ && apt-get install -y --no-install-recommends postgresql-client openssh-client ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
+# kubectl lets a local studio reach a database that only answers inside the user's own Kubernetes network.
+ARG KUBECTL_VERSION=v1.34.1
+RUN arch="$(dpkg --print-architecture)" \
+ && curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${arch}/kubectl" \
+ && chmod 0755 /usr/local/bin/kubectl \
+ && kubectl version --client >/dev/null
 COPY --from=java /bridge /app/resources
 COPY docker/jdbc-drivers /app/jdbc-drivers
 ENV RESOURCEDIR=/app/resources \

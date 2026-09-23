@@ -1,6 +1,6 @@
 import { API_BASE, apiFetch } from "@/lib/api-base";
 import type { DiscoverResult } from "@/lib/discovery/database-candidate";
-import type { OciBastionAnswer, OciConnectRequest, OciDatabaseSummary, OciStatus, OciTunnelResult } from "@/lib/oci/oci-database";
+import type { OciConnectRequest, OciDatabaseSummary, OciRouteAnswer, OciStatus, OciTunnelResult } from "@/lib/oci/oci-database";
 
 /** A failed studio API call, with the code the panels branch on. */
 export class DiscoverApiError extends Error {
@@ -54,12 +54,12 @@ export function ociDatabases(profile: string): Promise<OciDatabaseSummary[]> {
   return call<OciDatabaseSummary[]>(`/api/oci/databases?profile=${encodeURIComponent(profile)}`);
 }
 
-// ociBastion resolves a database's endpoint and the bastion for its network, creating one only when asked.
-export function ociBastion(profile: string, database: OciDatabaseSummary, create: boolean): Promise<OciBastionAnswer> {
-  return call<OciBastionAnswer>("/api/oci/bastion", { method: "POST", body: JSON.stringify({ profile, database, create }) });
+// ociRoute reports a database's private address and which of the user's clusters can carry the connection. It changes nothing.
+export function ociRoute(profile: string, database: OciDatabaseSummary): Promise<OciRouteAnswer> {
+  return call<OciRouteAnswer>("/api/oci/route", { method: "POST", body: JSON.stringify({ profile, database }) });
 }
 
-// ociConnect opens a bastion session and returns the connection string that tunnels through it.
+// ociConnect returns the connection string that reaches the database through the user's own cluster.
 export function ociConnect(request: OciConnectRequest): Promise<OciTunnelResult> {
   return call<OciTunnelResult>("/api/oci/connect", { method: "POST", body: JSON.stringify(request) });
 }

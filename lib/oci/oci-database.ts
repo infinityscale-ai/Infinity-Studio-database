@@ -16,23 +16,23 @@ export type OciDatabaseTarget = OciDatabaseSummary & {
   version: string;
 };
 
-/** A bastion the studio can open port-forwarding sessions on. */
-export type OciBastion = { id: string; name: string; state: string; vcnId: string; subnetId: string; compartmentId: string };
+/** The Kubernetes cluster that will carry the connection into the database's private network. */
+export type OciCarrierCluster = { id: string; name: string; publicEndpoint: string };
 
 /** A profile from the user's ~/.oci/config. */
 export type OciProfile = { name: string; region: string; tenancy: string; sessionAuth: boolean };
 
-/** What the connection form receives once a bastion session is open. */
-export type OciTunnelResult = { connectionString: string; expiresAt: number; sessionId: string; target: OciDatabaseTarget };
+/** What the connection form receives once the route into the database is settled. */
+export type OciTunnelResult = { connectionString: string; target: OciDatabaseTarget; cluster: OciCarrierCluster; namespace: string };
 
 /** A profile plus whether its session token is currently usable (null for API-key profiles). */
 export type OciProfileStatus = OciProfile & { sessionValid: boolean | null; validUntil: string | null };
 
-/** What the OCI panel learns before listing anything: sign-in files found, whether the browser sign-in can run here, and the profiles. */
-export type OciStatus = { configured: boolean; cliAvailable: boolean; profiles: OciProfileStatus[] };
+/** What the OCI panel learns before listing anything: sign-in files found, whether the browser sign-in and kubectl can run here, and the profiles. */
+export type OciStatus = { configured: boolean; cliAvailable: boolean; kubectlAvailable: boolean; profiles: OciProfileStatus[] };
 
 /** What the panel sends to open a connection through a bastion. */
 export type OciConnectRequest = { profile: string; database: OciDatabaseSummary; login: { username: string; password: string; database: string } };
 
-/** What the panel gets back when a bastion is looked up or created for a database. */
-export type OciBastionAnswer = { target: OciDatabaseTarget; bastion: OciBastion | null };
+/** What the panel gets back when it asks how a database would be reached. */
+export type OciRouteAnswer = { target: OciDatabaseTarget; cluster: OciCarrierCluster | null };

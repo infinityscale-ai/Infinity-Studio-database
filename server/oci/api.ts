@@ -10,7 +10,7 @@ export type ApiRecord = Record<string, unknown>;
 export type OciErrorKind = "session-expired" | "not-signed-in" | "failed";
 
 /** The services the studio talks to, keyed by the hostname prefix OCI gives them. */
-type Service = "query" | "mysql" | "postgresql" | "database" | "iaas" | "bastion";
+type Service = "query" | "mysql" | "postgresql" | "database" | "iaas" | "containerengine";
 
 /** Hostname shape and API version per service, from the OCI SDK's endpoint templates. */
 const SERVICES: Record<Service, { host: (region: string, domain: string) => string; version: string }> = {
@@ -19,7 +19,7 @@ const SERVICES: Record<Service, { host: (region: string, domain: string) => stri
   postgresql: { host: (r, d) => `postgresql.${r}.oci.${d}`, version: "20220915" },
   database: { host: (r, d) => `database.${r}.${d}`, version: "20160918" },
   iaas: { host: (r, d) => `iaas.${r}.${d}`, version: "20160918" },
-  bastion: { host: (r, d) => `bastion.${r}.oci.${d}`, version: "20210331" },
+  containerengine: { host: (r, d) => `containerengine.${r}.oci.${d}`, version: "20180222" },
 };
 
 /** The commercial realm's domain; other realms set INFSTUDIO_OCI_DOMAIN. */
@@ -29,7 +29,10 @@ const REQUEST_TIMEOUT_MS = 60_000;
 /** Sends one signed request and returns the parsed JSON; injected so tests never reach the network. */
 export type OciTransport = (service: Service, method: "GET" | "POST", path: string, body?: unknown) => Promise<unknown>;
 
-/** What inventory and bastion code need from Oracle Cloud. */
+/** The only non-GET calls the studio may make. Both read: Resource Search runs a query, and kubeconfig/content returns a file. Neither creates anything. */
+const READ_ONLY_POSTS: ReadonlyArray<RegExp> = [/^query \/resources$/, /^containerengine \/clusters\/[^/]+\/kubeconfig\/content$/];
+
+/** What the studio reads from Oracle Cloud. Every call is a read: nothing here can create, change or delete anything. */
 export type OciClient = {
   region: string;
   search: (query: string) => Promise<ApiRecord[]>;
@@ -37,11 +40,8 @@ export type OciClient = {
   getPostgresDbSystem: (id: string) => Promise<ApiRecord>;
   getAutonomousDatabase: (id: string) => Promise<ApiRecord>;
   getSubnet: (id: string) => Promise<ApiRecord>;
-  listBastions: (compartmentId: string) => Promise<ApiRecord[]>;
-  getBastion: (id: string) => Promise<ApiRecord>;
-  createBastion: (body: ApiRecord) => Promise<ApiRecord>;
-  createSession: (body: ApiRecord) => Promise<ApiRecord>;
-  getSession: (id: string) => Promise<ApiRecord>;
+  listClusters: (compartmentId: string) => Promise<ApiRecord[]>;
+  getClusterKubeconfig: (clusterId: string) => Promise<string>;
 };
 
 // OciApiError carries the failure kind so routes can pick a status and the UI a next step.
@@ -82,9 +82,18 @@ function errorMessage(status: number, text: string): string {
   }
 }
 
+// assertReadOnly refuses anything that could change the tenancy: the studio never writes to Oracle Cloud.
+export function assertReadOnly(service: string, method: string, path: string): void {
+  if (method === "GET") return;
+  const route = `${service} ${path.split("?")[0]}`;
+  if (method === "POST" && READ_ONLY_POSTS.some((r) => r.test(route))) return;
+  throw new OciApiError("failed", `Refused: the studio only reads from Oracle Cloud (${method} ${route}).`);
+}
+
 // signedTransport signs and sends requests for one profile over fetch.
 export function signedTransport(profile: OciCredentialProfile, domain: string = process.env.INFSTUDIO_OCI_DOMAIN?.trim() || DEFAULT_DOMAIN): OciTransport {
   return async (service, method, path, body) => {
+    assertReadOnly(service, method, path);
     const identity = signingIdentity(profile);
     const url = serviceUrl(service, profile.region, path, domain);
     const payload = body === undefined ? null : JSON.stringify(body);
@@ -94,7 +103,9 @@ export function signedTransport(profile: OciCredentialProfile, domain: string = 
     if (res.status === 401) throw new OciApiError("session-expired", "Oracle Cloud rejected the sign-in; the session has probably expired.", 401);
     if (res.status === 404 && /NotAuthorizedOrNotFound/.test(text)) throw new OciApiError("failed", "Oracle Cloud refused this request: the session may have expired, the sign-in lacks permission, or the resource is gone.", 404);
     if (!res.ok) throw new OciApiError("failed", errorMessage(res.status, text), res.status);
-    return text ? JSON.parse(text) : null;
+    if (!text) return null;
+    const type = res.headers.get("content-type") ?? "";
+    return type.includes("json") ? JSON.parse(text) : text;
   };
 }
 
@@ -112,11 +123,8 @@ export function createOciClient(region: string, send: OciTransport): OciClient {
     getPostgresDbSystem: (id) => rec(send("postgresql", "GET", `/dbSystems/${encodeURIComponent(id)}`)),
     getAutonomousDatabase: (id) => rec(send("database", "GET", `/autonomousDatabases/${encodeURIComponent(id)}`)),
     getSubnet: (id) => rec(send("iaas", "GET", `/subnets/${encodeURIComponent(id)}`)),
-    listBastions: (compartmentId) => list(send("bastion", "GET", `/bastions?compartmentId=${encodeURIComponent(compartmentId)}&limit=100`)),
-    getBastion: (id) => rec(send("bastion", "GET", `/bastions/${encodeURIComponent(id)}`)),
-    createBastion: (body) => rec(send("bastion", "POST", "/bastions", body)),
-    createSession: (body) => rec(send("bastion", "POST", "/sessions", body)),
-    getSession: (id) => rec(send("bastion", "GET", `/sessions/${encodeURIComponent(id)}`)),
+    listClusters: (compartmentId) => list(rec(send("containerengine", "GET", `/clusters?compartmentId=${encodeURIComponent(compartmentId)}&limit=100`)).then((r) => r.items ?? r)),
+    getClusterKubeconfig: (clusterId) => send("containerengine", "POST", `/clusters/${encodeURIComponent(clusterId)}/kubeconfig/content`, { endpoint: "PUBLIC_ENDPOINT" }) as Promise<string>,
   };
 }
 

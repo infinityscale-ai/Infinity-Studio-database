@@ -24,11 +24,8 @@ function fakeClient(over: Partial<OciClient> = {}): OciClient & { calls: string[
     getPostgresDbSystem: rec("postgres", PG_RAW),
     getAutonomousDatabase: rec("adb", { dbName: "adb1", dbVersion: "23ai" }),
     getSubnet: rec("subnet", SUBNET_RAW),
-    listBastions: async () => [],
-    getBastion: rec("bastion", {}),
-    createBastion: async () => ({}),
-    createSession: async () => ({}),
-    getSession: rec("session", {}),
+    listClusters: async () => [],
+    getClusterKubeconfig: async () => "apiVersion: v1",
     ...over,
   };
 }

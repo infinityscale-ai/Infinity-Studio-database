@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DiscoverApiError, ociDatabases, ociLogin, ociStatus } from "@/lib/api/discover-client";
 import type { OciDatabaseSummary, OciProfileStatus, OciStatus } from "@/lib/oci/oci-database";
 import { OciConnectForm } from "@/components/connections/oci-connect-form";
+import { OciSessionDialog } from "@/components/connections/oci-session-dialog";
 
 /** What the panel knows about the machine and the chosen profile. */
 type PanelState =
@@ -77,6 +78,7 @@ export function DiscoverOciPanel({ onSaved }: { onSaved: () => void }) {
   const [panel, setPanel] = useState<PanelState>({ status: "loading" });
   const [list, setList] = useState<ListState>({ status: "idle" });
   const [chosen, setChosen] = useState<OciDatabaseSummary | null>(null);
+  const [expiredOpen, setExpiredOpen] = useState(false);
 
   const loadStatus = useCallback(async () => {
     setPanel({ status: "loading" });
@@ -112,8 +114,8 @@ export function DiscoverOciPanel({ onSaved }: { onSaved: () => void }) {
   useEffect(() => {
     if (panel.status !== "ready" || !panel.profile) return;
     if (panel.profile.sessionValid === false) {
-      const hint = panel.oci.cliAvailable ? "" : ` Sign in on your computer with: oci session authenticate --profile-name ${panel.profile.name} --region ${panel.profile.region}`;
-      setList({ status: "error", message: `This profile's session has expired.${hint}`, expired: true });
+      setList({ status: "error", message: "This profile's session has expired.", expired: true });
+      setExpiredOpen(true);
     }
     else void loadDatabases(panel.profile.name);
   }, [panel, loadDatabases]);
@@ -122,10 +124,21 @@ export function DiscoverOciPanel({ onSaved }: { onSaved: () => void }) {
   if (panel.status === "error") return <p className="text-sm text-destructive">Could not read the OCI setup: {panel.message}</p>;
   if (!panel.oci.configured || !panel.profile) return <NoSignIn onCheckAgain={() => void loadStatus()} />;
   const profile = panel.profile;
-  if (chosen) return <OciConnectForm profile={profile.name} database={chosen} onBack={() => setChosen(null)} onSaved={onSaved} />;
+  const expiredDialog = (
+    <OciSessionDialog open={expiredOpen} profile={profile} cliAvailable={panel.oci.cliAvailable} onOpenChange={setExpiredOpen} onRefreshed={() => void loadStatus()} />
+  );
+  if (chosen) {
+    return (
+      <>
+        {expiredDialog}
+        <OciConnectForm profile={profile.name} database={chosen} onBack={() => setChosen(null)} onSaved={onSaved} />
+      </>
+    );
+  }
 
   return (
     <div className="space-y-3">
+      {expiredDialog}
       <div className="flex items-center justify-between gap-3">
         <ProfilePicker profiles={panel.oci.profiles} value={profile.name} onChange={(name) => setPanel({ ...panel, profile: panel.oci.profiles.find((p) => p.name === name) ?? null })} />
         <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => void loadDatabases(profile.name)} disabled={list.status === "loading"}>
@@ -149,14 +162,10 @@ function DatabaseList({ list, cliAvailable, onSignIn, onCheckAgain, onConnect }:
     return (
       <div className="space-y-3 text-sm">
         <p className={list.expired ? "text-muted-foreground" : "text-destructive"}>{list.message}</p>
-        {list.expired && cliAvailable && (
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={onSignIn}>
-            <LogIn className="size-3.5" aria-hidden /> Sign in to Oracle Cloud
-          </Button>
-        )}
-        {list.expired && !cliAvailable && (
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={onCheckAgain}>
-            <RefreshCw className="size-3.5" aria-hidden /> I signed in, check again
+        {list.expired && (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={cliAvailable ? onSignIn : onCheckAgain}>
+            {cliAvailable ? <LogIn className="size-3.5" aria-hidden /> : <RefreshCw className="size-3.5" aria-hidden />}
+            {cliAvailable ? "Sign in to Oracle Cloud" : "I signed in, check again"}
           </Button>
         )}
       </div>

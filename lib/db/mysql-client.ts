@@ -1,6 +1,7 @@
 import type { FieldPacket, OkPacket, RowDataPacket } from "mysql2/promise";
 import { inferFieldsFromRows } from "./field-utils";
-import { startSshTunnelIfNeeded, type TunnelHandle } from "./ssh-tunnel";
+import { startTunnelIfNeeded } from "./db-tunnel";
+import type { TunnelHandle } from "./ssh-tunnel";
 import { quoteMysqlIdentifier, buildDeleteByIdsQuery } from "./quote-identifier";
 
 let MYSQL_TYPE_NAMES: Record<number, string>;
@@ -192,7 +193,7 @@ async function createMysqlConnection(
   connectionString: string,
   options?: { multipleStatements?: boolean },
 ) {
-  const tunnel = await startSshTunnelIfNeeded(
+  const tunnel = await startTunnelIfNeeded(
     connectionString,
     3306,
     normalizeMysqlConnectionString,
