@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, Cloud, Laptop } from "lucide-react";
 import { DiscoverLocalPanel } from "@/components/connections/discover-local-panel";
 import { DiscoverOciPanel } from "@/components/connections/discover-oci-panel";
+import { localToolsEnabled } from "@/lib/api/discover-client";
 
 /** What the section hands back: a string to prefill, or the news that a connection was saved. */
 export type DiscoverSectionProps = { onPick: (connectionString: string) => void; onSaved: () => void };
@@ -18,9 +19,14 @@ function SectionTitle({ icon: Icon, children }: { icon: typeof Laptop; children:
   );
 }
 
-// DiscoverSection lists the databases already running on this machine and, on request, the ones in Oracle Cloud, inline in the add-connection screen.
+// DiscoverSection lists the databases already running on this machine and, on request, the ones in Oracle Cloud; it renders nothing on a studio that does not serve local tools.
 export function DiscoverSection({ onPick, onSaved }: DiscoverSectionProps) {
   const [ociOpen, setOciOpen] = useState(false);
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    void localToolsEnabled().then(setEnabled);
+  }, []);
+  if (!enabled) return null;
   return (
     <div className="space-y-4">
       <section className="space-y-2">

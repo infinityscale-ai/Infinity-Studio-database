@@ -1,12 +1,6 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { OciBastion, OciDatabaseTarget } from "../../lib/oci/oci-database";
-import { OciCliError, type OciRunner } from "./cli";
-import { str } from "./inventory";
-
-/** One CLI record, read field by field. */
-type Raw = Record<string, unknown>;
+import { OciApiError, type ApiRecord, type OciClient } from "./api";
+import { num, rec, str } from "./inventory";
 
 /** A live port-forwarding session and the SSH endpoint it is reached through. */
 export type BastionSession = { sessionId: string; sshHost: string; sshUser: string; sshPort: number; expiresAt: number };
@@ -15,7 +9,7 @@ export type BastionSession = { sessionId: string; sshHost: string; sshUser: stri
 export type CreateBastionInput = { compartmentId: string; subnetId: string; name: string; clientCidrs?: string[] };
 
 /** What a port-forwarding session needs. */
-export type CreateSessionInput = { bastionId: string; target: OciDatabaseTarget; publicKey: string; region: string; ttlSeconds?: number };
+export type CreateSessionInput = { bastionId: string; target: OciDatabaseTarget; publicKey: string; ttlSeconds?: number };
 
 /** The login the user typed for the database itself. */
 export type DatabaseLogin = { username: string; password: string; database: string };
@@ -29,14 +23,13 @@ const SESSION_READY_TIMEOUT_MS = 3 * 60_000;
 const DEFAULT_CLIENT_CIDRS = ["0.0.0.0/0"];
 
 // toBastion normalizes one bastion record.
-export function toBastion(raw: Raw): OciBastion {
-  return { id: str(raw, "id"), name: str(raw, "name"), state: str(raw, "lifecycle-state"), vcnId: str(raw, "target-vcn-id"), subnetId: str(raw, "target-subnet-id"), compartmentId: str(raw, "compartment-id") };
+export function toBastion(raw: ApiRecord): OciBastion {
+  return { id: str(raw, "id"), name: str(raw, "name"), state: str(raw, "lifecycleState"), vcnId: str(raw, "targetVcnId"), subnetId: str(raw, "targetSubnetId"), compartmentId: str(raw, "compartmentId") };
 }
 
 // findBastion returns an active bastion of the compartment that targets the VCN, or null.
-export async function findBastion(run: OciRunner, compartmentId: string, vcnId: string): Promise<OciBastion | null> {
-  const data = (await run(["bastion", "bastion", "list", "--compartment-id", compartmentId, "--all"])) as Raw[] | null;
-  const all = Array.isArray(data) ? data.map(toBastion) : [];
+export async function findBastion(client: OciClient, compartmentId: string, vcnId: string): Promise<OciBastion | null> {
+  const all = (await client.listBastions(compartmentId)).map(toBastion);
   return all.find((b) => b.vcnId === vcnId && b.state === "ACTIVE") ?? null;
 }
 
@@ -51,26 +44,48 @@ function sleep(ms: number): Promise<void> {
 }
 
 // waitForState polls a record until it reaches the wanted state, failing on a terminal one or at the deadline.
-async function waitForState(get: () => Promise<Raw>, wanted: string, timeoutMs: number, what: string): Promise<Raw> {
+async function waitForState(get: () => Promise<ApiRecord>, wanted: string, timeoutMs: number, what: string): Promise<ApiRecord> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const raw = await get();
-    const state = str(raw, "lifecycle-state");
+    const state = str(raw, "lifecycleState");
     if (state === wanted) return raw;
-    if (/FAILED|DELET/.test(state)) throw new OciCliError("failed", `${what} ended in state ${state}.`);
-    if (Date.now() > deadline) throw new OciCliError("failed", `${what} did not become ${wanted} in time.`);
+    if (/FAILED|DELET/.test(state)) throw new OciApiError("failed", `${what} ended in state ${state}.`);
+    if (Date.now() > deadline) throw new OciApiError("failed", `${what} did not become ${wanted} in time.`);
     await sleep(POLL_MS);
   }
 }
 
+// createBastionBody is the request that creates a standard bastion on the target's subnet.
+export function createBastionBody(input: CreateBastionInput): ApiRecord {
+  return {
+    bastionType: "STANDARD",
+    name: input.name,
+    compartmentId: input.compartmentId,
+    targetSubnetId: input.subnetId,
+    clientCidrBlockAllowList: input.clientCidrs?.length ? input.clientCidrs : DEFAULT_CLIENT_CIDRS,
+    maxSessionTtlInSeconds: MAX_SESSION_TTL_SECONDS,
+  };
+}
+
 // createBastion creates a standard bastion on the target's subnet and waits until it is active.
-export async function createBastion(run: OciRunner, input: CreateBastionInput): Promise<OciBastion> {
-  const cidrs = JSON.stringify(input.clientCidrs?.length ? input.clientCidrs : DEFAULT_CLIENT_CIDRS);
-  const args = ["bastion", "bastion", "create", "--bastion-type", "standard", "--compartment-id", input.compartmentId, "--target-subnet-id", input.subnetId, "--name", input.name, "--client-cidr-list", cidrs, "--max-session-ttl", String(MAX_SESSION_TTL_SECONDS)];
-  const id = str(((await run(args)) as Raw | null) ?? undefined, "id");
-  if (!id) throw new OciCliError("failed", "OCI did not return the new bastion.");
-  const ready = await waitForState(async () => ((await run(["bastion", "bastion", "get", "--bastion-id", id])) as Raw) ?? {}, "ACTIVE", BASTION_READY_TIMEOUT_MS, "The bastion");
-  return toBastion(ready);
+export async function createBastion(client: OciClient, input: CreateBastionInput): Promise<OciBastion> {
+  const id = str(await client.createBastion(createBastionBody(input)), "id");
+  if (!id) throw new OciApiError("failed", "Oracle Cloud did not return the new bastion.");
+  return toBastion(await waitForState(() => client.getBastion(id), "ACTIVE", BASTION_READY_TIMEOUT_MS, "The bastion"));
+}
+
+// createSessionBody is the request that opens a port-forwarding session to the target's private endpoint.
+export function createSessionBody(input: CreateSessionInput): ApiRecord {
+  const ttl = Math.min(input.ttlSeconds ?? MAX_SESSION_TTL_SECONDS, MAX_SESSION_TTL_SECONDS);
+  return {
+    bastionId: input.bastionId,
+    displayName: `infinity-studio-${input.target.name}`.replace(/[^a-z0-9_.-]/gi, "-").slice(0, 100),
+    keyType: "PUB",
+    keyDetails: { publicKeyContent: input.publicKey },
+    targetResourceDetails: { sessionType: "PORT_FORWARDING", targetResourcePrivateIpAddress: input.target.privateIp, targetResourcePort: input.target.port },
+    sessionTtlInSeconds: ttl,
+  };
 }
 
 // parseSshCommand reads user, host and port out of the ssh command OCI suggests for a session.
@@ -82,24 +97,21 @@ export function parseSshCommand(command: string): { sshUser: string; sshHost: st
   return { sshUser, sshHost, sshPort: port ? Number(port[1]) : 22 };
 }
 
+// sessionEndpoint reads where to ssh from a ready session: its own metadata first, else the regional bastion host.
+export function sessionEndpoint(ready: ApiRecord, id: string, region: string): { sshUser: string; sshHost: string; sshPort: number } {
+  const parsed = parseSshCommand(str(rec(ready, "sshMetadata"), "command"));
+  if (parsed) return parsed;
+  return { sshUser: str(ready, "bastionUserName") || id, sshHost: `host.bastion.${region}.oci.oraclecloud.com`, sshPort: 22 };
+}
+
 // createPortForwardingSession opens a session to the target's private endpoint and waits until it is active.
-export async function createPortForwardingSession(run: OciRunner, input: CreateSessionInput): Promise<BastionSession> {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "infinity-studio-oci-"));
-  const pubFile = path.join(dir, "session.pub");
-  fs.writeFileSync(pubFile, `${input.publicKey}\n`, { mode: 0o600 });
-  try {
-    const ttl = Math.min(input.ttlSeconds ?? MAX_SESSION_TTL_SECONDS, MAX_SESSION_TTL_SECONDS);
-    const display = `infinity-studio-${input.target.name}`.replace(/[^a-z0-9_.-]/gi, "-").slice(0, 100);
-    const args = ["bastion", "session", "create-port-forwarding", "--bastion-id", input.bastionId, "--target-private-ip", input.target.privateIp, "--target-port", String(input.target.port), "--ssh-public-key-file", pubFile, "--session-ttl", String(ttl), "--display-name", display];
-    const id = str(((await run(args)) as Raw | null) ?? undefined, "id");
-    if (!id) throw new OciCliError("failed", "OCI did not return the new bastion session.");
-    const ready = await waitForState(async () => ((await run(["bastion", "session", "get", "--session-id", id])) as Raw) ?? {}, "ACTIVE", SESSION_READY_TIMEOUT_MS, "The bastion session");
-    const meta = (ready["ssh-metadata"] ?? {}) as Raw;
-    const endpoint = parseSshCommand(str(meta, "command")) ?? { sshUser: id, sshHost: `host.bastion.${input.region}.oci.oraclecloud.com`, sshPort: 22 };
-    return { sessionId: id, ...endpoint, expiresAt: Date.now() + ttl * 1000 };
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
+export async function createPortForwardingSession(client: OciClient, input: CreateSessionInput): Promise<BastionSession> {
+  const body = createSessionBody(input);
+  const id = str(await client.createSession(body), "id");
+  if (!id) throw new OciApiError("failed", "Oracle Cloud did not return the new bastion session.");
+  const ready = await waitForState(() => client.getSession(id), "ACTIVE", SESSION_READY_TIMEOUT_MS, "The bastion session");
+  const ttl = num(ready, "sessionTtlInSeconds", body.sessionTtlInSeconds as number);
+  return { sessionId: id, ...sessionEndpoint(ready, id, client.region), expiresAt: Date.now() + ttl * 1000 };
 }
 
 // tunnelConnectionString builds the studio connection string that reaches the target through the session's SSH tunnel.

@@ -180,8 +180,11 @@ app.get("/api/auth/probe", (_req, res) => {
   res.json({ success: true });
 });
 
-// Local database detection and OCI access run only on a standalone studio, never inside a console.
-if (!cfg.embedMode) {
+// The machine scan and the local Oracle Cloud sign-in are served only where nobody else can reach the studio; the UI asks first.
+app.get("/api/local-tools", (_req, res) => {
+  res.json({ success: true, data: { enabled: cfg.localTools } });
+});
+if (cfg.localTools) {
   mountDiscoveryRoutes(app);
   mountOciRoutes(app);
 }

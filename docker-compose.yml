@@ -22,12 +22,16 @@ services:
     volumes:
       - studio-data:/data
       - /var/run/docker.sock:/var/run/docker.sock:ro # lets Discover list your containers; drop this line if you'd rather not
+      - ${HOME}/.oci:${HOME}/.oci:ro                  # your Oracle Cloud sign-in (config, key, session token), read-only
     group_add:
       - "${DOCKER_GID:-999}"                         # your docker group: DOCKER_GID=$(stat -c %g /var/run/docker.sock) docker compose up -d
     environment:
       INFSTUDIO_API_KEY: ${INFSTUDIO_API_KEY:-}
       # Only consulted when INFSTUDIO_API_KEY is empty: the port above is loopback-only by default.
       INFSTUDIO_ALLOW_UNAUTHENTICATED: "1"
+      # The machine scan, the Docker socket and ~/.oci are served only while no access key is set
+      # (a studio you share always has one). INFSTUDIO_LOCAL_TOOLS=1 or 0 forces it either way.
+      INFSTUDIO_OCI_DIR: ${HOME}/.oci
       # Embedding in a hosting console needs the admin listener; see deploy docs in README.
       # INFSTUDIO_ADMIN_PORT: "3868"
       # INFSTUDIO_ADMIN_BIND: "0.0.0.0"

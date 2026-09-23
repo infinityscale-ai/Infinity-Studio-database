@@ -1,57 +1,68 @@
 import { describe, expect, test } from "bun:test";
+import type { ApiRecord, OciClient } from "../../server/oci/api";
 import { describeDatabase, listDatabases, summarizeSearchItem } from "../../server/oci/inventory";
-import type { OciRunner } from "../../server/oci/cli";
 
-const MYSQL_RAW = { "display-name": "Preprod_DB", "lifecycle-state": "ACTIVE", "mysql-version": "8.4.11", "subnet-id": "ocid1.subnet.oc1..s1", endpoints: [{ "ip-address": "10.0.10.111", port: 3306, "port-x": 33060 }] };
-const PG_RAW = { "display-name": "postgres-db", "lifecycle-state": "ACTIVE", "db-version": "16.13", "admin-username": "admin", "network-details": { "subnet-id": "ocid1.subnet.oc1..s2", "primary-db-endpoint-private-ip": "10.0.10.110" } };
-const SUBNET_RAW = { "vcn-id": "ocid1.vcn.oc1..v1", "cidr-block": "10.0.10.0/24" };
+const MYSQL_RAW = { displayName: "Preprod_DB", lifecycleState: "ACTIVE", mysqlVersion: "8.4.11", subnetId: "ocid1.subnet.oc1..s1", endpoints: [{ ipAddress: "10.0.10.111", port: 3306, portX: 33060 }] };
+const PG_RAW = { displayName: "postgres-db", lifecycleState: "ACTIVE", dbVersion: "16.13", adminUsername: "admin", networkDetails: { subnetId: "ocid1.subnet.oc1..s2", primaryDbEndpointPrivateIp: "10.0.10.110" } };
+const SUBNET_RAW = { vcnId: "ocid1.vcn.oc1..v1", cidrBlock: "10.0.10.0/24" };
 
-// fakeRunner answers CLI calls from a table keyed by the command's first words and records every call.
-function fakeRunner(answers: Record<string, unknown>): { run: OciRunner; calls: string[][] } {
-  const calls: string[][] = [];
-  const run: OciRunner = async (args) => {
-    calls.push(args);
-    const key = Object.keys(answers).find((k) => args.join(" ").startsWith(k));
-    return key ? answers[key] : null;
+// fakeClient answers the inventory's calls from fixtures and records what was asked.
+function fakeClient(over: Partial<OciClient> = {}): OciClient & { calls: string[] } {
+  const calls: string[] = [];
+  const rec = (name: string, value: ApiRecord) => async (id: string) => {
+    calls.push(`${name} ${id}`);
+    return value;
   };
-  return { run, calls };
+  return {
+    calls,
+    region: "af-casablanca-1",
+    search: async (q) => {
+      calls.push(`search ${q}`);
+      return [];
+    },
+    getMysqlDbSystem: rec("mysql", MYSQL_RAW),
+    getPostgresDbSystem: rec("postgres", PG_RAW),
+    getAutonomousDatabase: rec("adb", { dbName: "adb1", dbVersion: "23ai" }),
+    getSubnet: rec("subnet", SUBNET_RAW),
+    listBastions: async () => [],
+    getBastion: rec("bastion", {}),
+    createBastion: async () => ({}),
+    createSession: async () => ({}),
+    getSession: rec("session", {}),
+    ...over,
+  };
 }
 
 describe("summarizeSearchItem", () => {
   test("keeps live databases and drops deleted ones", () => {
-    const live = summarizeSearchItem("mysql", { identifier: "id1", "display-name": "DB_Prod", "lifecycle-state": "ACTIVE", "compartment-id": "c1" });
-    expect(live).toEqual({ id: "id1", kind: "mysql", name: "DB_Prod", state: "ACTIVE", compartmentId: "c1" });
-    expect(summarizeSearchItem("mysql", { identifier: "id2", "lifecycle-state": "DELETED" })).toBeNull();
+    expect(summarizeSearchItem("mysql", { identifier: "id1", displayName: "DB_Prod", lifecycleState: "ACTIVE", compartmentId: "c1" })).toEqual({ id: "id1", kind: "mysql", name: "DB_Prod", state: "ACTIVE", compartmentId: "c1" });
+    expect(summarizeSearchItem("mysql", { identifier: "id2", lifecycleState: "DELETED" })).toBeNull();
   });
 });
 
 describe("listDatabases", () => {
   test("searches every kind and sorts by name", async () => {
-    const { run, calls } = fakeRunner({
-      "search resource structured-search --query-text query mysqldbsystem": { items: [{ identifier: "m1", "display-name": "Preprod_DB", "lifecycle-state": "ACTIVE", "compartment-id": "c" }] },
-      "search resource structured-search --query-text query postgresqldbsystem": { items: [{ identifier: "p1", "display-name": "postgres-db", "lifecycle-state": "ACTIVE", "compartment-id": "c" }] },
-      "search resource structured-search --query-text query autonomousdatabase": { items: [] },
+    const client = fakeClient({
+      search: async (q) => (q.includes("mysqldbsystem") ? [{ identifier: "m1", displayName: "Preprod_DB", lifecycleState: "ACTIVE", compartmentId: "c" }] : q.includes("postgresqldbsystem") ? [{ identifier: "p1", displayName: "postgres-db", lifecycleState: "ACTIVE", compartmentId: "c" }] : []),
     });
-    const list = await listDatabases(run);
+    const list = await listDatabases(client);
     expect(list.map((d) => d.name)).toEqual(["postgres-db", "Preprod_DB"].sort((a, b) => a.localeCompare(b)));
-    expect(calls).toHaveLength(3);
   });
 });
 
 describe("describeDatabase", () => {
   test("a MySQL DB System exposes its first endpoint and the VCN of its subnet", async () => {
-    const { run } = fakeRunner({ "mysql db-system get": MYSQL_RAW, "network subnet get": SUBNET_RAW });
-    const t = await describeDatabase(run, { id: "m1", kind: "mysql", name: "Preprod_DB", state: "ACTIVE", compartmentId: "c" });
+    const client = fakeClient();
+    const t = await describeDatabase(client, { id: "m1", kind: "mysql", name: "Preprod_DB", state: "ACTIVE", compartmentId: "c" });
     expect(t).toMatchObject({ engine: "mysql", privateIp: "10.0.10.111", port: 3306, subnetId: "ocid1.subnet.oc1..s1", vcnId: "ocid1.vcn.oc1..v1", version: "8.4.11", adminUser: "" });
+    expect(client.calls).toEqual(["mysql m1", "subnet ocid1.subnet.oc1..s1"]);
   });
   test("an OCI PostgreSQL system exposes its primary private IP and admin user", async () => {
-    const { run } = fakeRunner({ "psql db-system get": PG_RAW, "network subnet get": SUBNET_RAW });
-    const t = await describeDatabase(run, { id: "p1", kind: "postgres", name: "postgres-db", state: "ACTIVE", compartmentId: "c" });
+    const t = await describeDatabase(fakeClient(), { id: "p1", kind: "postgres", name: "postgres-db", state: "ACTIVE", compartmentId: "c" });
     expect(t).toMatchObject({ engine: "postgres", privateIp: "10.0.10.110", port: 5432, adminUser: "admin", dbName: "postgres", subnetId: "ocid1.subnet.oc1..s2" });
   });
   test("an Autonomous Database without a private endpoint has no address to tunnel to", async () => {
-    const { run } = fakeRunner({ "db autonomous-database get": { "db-name": "adb1", "db-version": "23ai" } });
-    const t = await describeDatabase(run, { id: "a1", kind: "autonomous", name: "adb1", state: "AVAILABLE", compartmentId: "c" });
+    const t = await describeDatabase(fakeClient(), { id: "a1", kind: "autonomous", name: "adb1", state: "AVAILABLE", compartmentId: "c" });
     expect(t).toMatchObject({ engine: "oracle", privateIp: "", port: 1522, adminUser: "ADMIN", dbName: "adb1", vcnId: "" });
   });
 });

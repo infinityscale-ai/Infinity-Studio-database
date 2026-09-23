@@ -47,8 +47,9 @@ with the same list:
 - **Found on this machine** — the usual database ports, running Docker containers that publish
   a database port (with the credentials from their environment) or share a network with the
   studio, and `~/.pgpass` / `~/.my.cnf`. Pick one and the connection form opens filled in.
-- **Oracle Cloud databases** — uses your local `oci` CLI sign-in (`oci session authenticate`) to
-  list the MySQL HeatWave, OCI PostgreSQL and Autonomous databases of the tenancy. Those
+- **Oracle Cloud databases** — uses the sign-in the OCI CLI keeps in `~/.oci` (a session from
+  `oci session authenticate`, or an API-key profile) and calls Oracle Cloud's API itself to list
+  the MySQL HeatWave, OCI PostgreSQL and Autonomous databases of the tenancy. Those
   services only have private endpoints, so the studio opens an [OCI Bastion](https://docs.oracle.com/en-us/iaas/Content/Bastion/home.htm)
   port-forwarding session (creating a bastion in the VCN when there is none, on request) and
   saves a connection that tunnels through it with a throwaway SSH key. Only the database
@@ -66,8 +67,15 @@ if the list says the socket is not readable, start with your group id:
 DOCKER_GID=$(stat -c %g /var/run/docker.sock) docker compose up -d
 ```
 
-Neither feature is served in embed mode. The Oracle Cloud part needs the `oci` CLI where the
-sidecar runs, so in Docker it stays hidden; run natively (below) or use the desktop app.
+**Local only.** Both features read things that belong to the machine the studio runs on, so
+they are served only by a studio nobody else can reach: one that asks no access key (on
+loopback, or the loopback-published compose run). The moment you set `INFSTUDIO_API_KEY` to
+share the studio, the section disappears, the first-run step is skipped and the routes are not
+mounted. `INFSTUDIO_LOCAL_TOOLS=1` or `0` forces it either way. Neither feature is served in
+embed mode. The compose file also shares `~/.oci` read-only with
+the container, so the Oracle Cloud list works in Docker too; only the browser sign-in itself
+(`oci session authenticate`) runs on your computer, and the panel tells you the exact command
+when a session has expired.
 
 ## Supported databases
 

@@ -18,6 +18,8 @@ export type ServerConfig = {
   embedTheme: ThemeSelection | null;
   admin: AdminConfig | null;
   mcpDisabled: boolean;
+  /** Whether the machine scan and the local Oracle Cloud sign-in are served: only on a studio nobody else can reach. */
+  localTools: boolean;
 };
 
 export type ConfigProblem = { key: string; message: string };
@@ -82,23 +84,39 @@ function embedThemeProblems(theme: ThemeSelection | null): ConfigProblem[] {
   return problems;
 }
 
+/** What decides whether local tools are on when INFSTUDIO_LOCAL_TOOLS is not set. */
+type LocalToolsInput = { embedMode: boolean; apiKey: string; bind: string; allowUnauthenticated: boolean };
+
+// readLocalTools serves local tools only where nobody else can reach the studio: no access key, on loopback or a deliberately open bind; INFSTUDIO_LOCAL_TOOLS forces either way.
+export function readLocalTools(env: Env, input: LocalToolsInput): boolean {
+  const forced = env.INFSTUDIO_LOCAL_TOOLS?.trim();
+  if (forced) return flag(forced);
+  if (input.embedMode || input.apiKey) return false;
+  return isLoopback(input.bind) || input.allowUnauthenticated;
+}
+
 // Reads the server configuration; explicit bind or port pins the port (no auto-increment).
 export function readServerConfig(env: Env = process.env): ServerConfig {
+  const embedMode = flag(env.INFSTUDIO_EMBED_MODE);
+  const apiKey = env.INFSTUDIO_API_KEY?.trim() || "";
+  const bind = env.INFSTUDIO_BIND?.trim() || DEFAULT_BIND;
+  const allowUnauthenticated = flag(env.INFSTUDIO_ALLOW_UNAUTHENTICATED);
   return {
     port: parsePort(env.INFSTUDIO_SERVER_PORT, DEFAULT_PORT),
-    bind: env.INFSTUDIO_BIND?.trim() || DEFAULT_BIND,
+    bind,
     strictPort: Boolean(env.INFSTUDIO_BIND || env.INFSTUDIO_SERVER_PORT),
     staticDir: env.INFSTUDIO_STATIC_DIR?.trim() || null,
     dataDir: env.INFSTUDIO_USER_DATA_DIR?.trim() || process.cwd(),
-    apiKey: env.INFSTUDIO_API_KEY?.trim() || "",
-    allowUnauthenticated: flag(env.INFSTUDIO_ALLOW_UNAUTHENTICATED),
+    apiKey,
+    allowUnauthenticated,
     corsOrigins: splitList(env.INFSTUDIO_CORS_ORIGINS),
-    embedMode: flag(env.INFSTUDIO_EMBED_MODE),
+    embedMode,
     embedAllowedOrigins: splitList(env.INFSTUDIO_EMBED_ALLOWED_ORIGINS),
     consoleOrigin: env.INFSTUDIO_CONSOLE_ORIGIN?.trim() || null,
     embedTheme: readEmbedTheme(env),
     admin: readAdmin(env),
     mcpDisabled: flag(env.INFSTUDIO_MCP_DISABLED),
+    localTools: readLocalTools(env, { embedMode, apiKey, bind, allowUnauthenticated }),
   };
 }
 

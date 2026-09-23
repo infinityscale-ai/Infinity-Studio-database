@@ -1,7 +1,8 @@
 "use client";
 
 import { DiscoverLocalPanel } from "@/components/connections/discover-local-panel";
-import { useState, type FormEvent } from "react";
+import { localToolsEnabled } from "@/lib/api/discover-client";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,8 @@ import { toast } from "sonner";
 
 type Step = "welcome" | "theme" | "name" | "databases";
 
-const STEPS: Step[] = ["welcome", "theme", "name", "databases"];
+const BASE_STEPS: Step[] = ["welcome", "theme", "name"];
+const LOCAL_STEPS: Step[] = [...BASE_STEPS, "databases"];
 
 const DARK_THEME = BUILTIN_APP_THEMES.find((t) => t.id === "infinity-studio-dark");
 const DARK_THEME_ID = DARK_THEME?.id ?? "dark";
@@ -221,10 +223,10 @@ function DatabasesStep({ onUse, onSkip }: { onUse: (connectionString: string) =>
 }
 
 // Progress dots, one per step.
-function StepDots({ stepIndex }: { stepIndex: number }) {
+function StepDots({ steps, stepIndex }: { steps: Step[]; stepIndex: number }) {
   return (
     <div className="flex items-center gap-1.5" aria-hidden="true">
-      {STEPS.map((s, i) => (
+      {steps.map((s, i) => (
         <span
           key={s}
           className={cn(
@@ -251,7 +253,12 @@ export function OnboardingFlow({
 }) {
   const [step, setStep] = useState<Step>("welcome");
   const [name, setName] = useState("");
-  const stepIndex = STEPS.indexOf(step);
+  const [localTools, setLocalTools] = useState(false);
+  useEffect(() => {
+    void localToolsEnabled().then(setLocalTools);
+  }, []);
+  const steps = localTools ? LOCAL_STEPS : BASE_STEPS;
+  const stepIndex = steps.indexOf(step);
 
   // Steps back one screen; the welcome screen has no back button.
   function goBack() {
@@ -301,7 +308,8 @@ export function OnboardingFlow({
                 <NameStep
                   onComplete={(typed) => {
                     setName(typed);
-                    setStep("databases");
+                    if (localTools) setStep("databases");
+                    else onComplete({ name: typed });
                   }}
                 />
               )}
@@ -310,7 +318,7 @@ export function OnboardingFlow({
               )}
             </div>
 
-            <StepDots stepIndex={stepIndex} />
+            <StepDots steps={steps} stepIndex={stepIndex} />
           </div>
         </div>
       </DialogContent>

@@ -25,6 +25,15 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return body.data as T;
 }
 
+// localToolsEnabled asks whether this studio serves the machine scan and the Oracle Cloud sign-in at all.
+export async function localToolsEnabled(): Promise<boolean> {
+  try {
+    return (await call<{ enabled: boolean }>("/api/local-tools")).enabled === true;
+  } catch {
+    return false;
+  }
+}
+
 // discoverLocal scans this machine for databases.
 export function discoverLocal(): Promise<DiscoverResult> {
   return call<DiscoverResult>("/api/discover/local", { method: "POST", body: "{}" });

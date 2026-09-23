@@ -28,8 +28,8 @@ export type OciTunnelResult = { connectionString: string; expiresAt: number; ses
 /** A profile plus whether its session token is currently usable (null for API-key profiles). */
 export type OciProfileStatus = OciProfile & { sessionValid: boolean | null; validUntil: string | null };
 
-/** What the OCI panel learns about this machine before listing anything. */
-export type OciStatus = { installed: boolean; profiles: OciProfileStatus[] };
+/** What the OCI panel learns before listing anything: sign-in files found, whether the browser sign-in can run here, and the profiles. */
+export type OciStatus = { configured: boolean; cliAvailable: boolean; profiles: OciProfileStatus[] };
 
 /** What the panel sends to open a connection through a bastion. */
 export type OciConnectRequest = { profile: string; database: OciDatabaseSummary; login: { username: string; password: string; database: string } };
