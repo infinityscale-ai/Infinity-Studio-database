@@ -44,8 +44,7 @@ import {
 import { Connection } from "@/lib/db/schema";
 
 import { detectConnectionDbType } from "@/lib/db/connection-type";
-import { Radar } from "lucide-react";
-import { DiscoverDialog } from "@/components/connections/discover-dialog";
+import { DiscoverSection } from "@/components/connections/discover-section";
 import { InfinityScaleBrand } from "@/components/shared/infinityscale-brand";
 import {
   buildConnectionStringFromFields,
@@ -272,6 +271,8 @@ export function ConnectionManager({
   initialScreen = "list",
   onOpenSupabaseAccounts,
   onOpenBrowser,
+  prefillConnectionString = "",
+  prefillTrigger = 0,
 }: {
   hideHeader?: boolean;
   /** When `true`, renders as a content pane nested inside an external shell
@@ -287,6 +288,9 @@ export function ConnectionManager({
   initialScreen?: ConnectionScreen;
   onOpenSupabaseAccounts?: () => void;
   onOpenBrowser?: () => void;
+  /** A whole connection string to open the form with; applied each time prefillTrigger changes. */
+  prefillConnectionString?: string;
+  prefillTrigger?: number;
 }) {
   useGlobalAppFontFamily();
   const isStandalone = !embedded;
@@ -1015,7 +1019,6 @@ export function ConnectionManager({
   const [jdbcPassword, setJdbcPassword] = useState("");
   const [jdbcJarPaths, setJdbcJarPaths] = useState<string[]>([]);
   const [jdbcDriverManagerOpen, setJdbcDriverManagerOpen] = useState(false);
-  const [discoverOpen, setDiscoverOpen] = useState(false);
   const [pendingInstallDriver, setPendingInstallDriver] =
     useState<JdbcDriverTemplate | null>(null);
   const [installPromptOpen, setInstallPromptOpen] = useState(false);
@@ -1848,6 +1851,14 @@ export function ConnectionManager({
     }
     setConnectionScreen("new-form");
   };
+
+  const lastPrefillTriggerRef = useRef(prefillTrigger);
+  useEffect(() => {
+    if (prefillTrigger === lastPrefillTriggerRef.current) return;
+    lastPrefillTriggerRef.current = prefillTrigger;
+    if (prefillConnectionString) applyPastedConnectionString(prefillConnectionString);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the handler reads the latest form setters; the trigger is the only signal.
+  }, [prefillTrigger, prefillConnectionString]);
 
   const handleCopyDetails = async (conn: Connection) => {
     await navigator.clipboard.writeText(conn.connectionString);
@@ -3132,19 +3143,6 @@ export function ConnectionManager({
           </DialogContent>
         </Dialog>
 
-        <DiscoverDialog
-          open={discoverOpen}
-          onOpenChange={setDiscoverOpen}
-          onPick={(cs) => {
-            setDiscoverOpen(false);
-            applyPastedConnectionString(cs);
-          }}
-          onSaved={() => {
-            setDiscoverOpen(false);
-            void loadConnections();
-          }}
-        />
-
         <DriverInstallPrompt
           open={installPromptOpen}
           onOpenChange={setInstallPromptOpen}
@@ -3173,15 +3171,6 @@ export function ConnectionManager({
                     <InfinityScaleBrand className="mt-1" />
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDiscoverOpen(true)}
-                      title="Discover databases"
-                      aria-label="Discover databases on this machine or in Oracle Cloud"
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-studio-border bg-background/15 hover:bg-background/25 no-drag"
-                    >
-                      <Radar className="h-4 w-4" aria-hidden />
-                    </button>
                     <ConnectionsUpdatePill
                       updateState={updateState}
                       installing={installing}
@@ -3960,6 +3949,8 @@ export function ConnectionManager({
                     onChange={(e) => applyPastedConnectionString(e.target.value)}
                     ref={connectionStringInputRef}
                   />
+
+                  <DiscoverSection onPick={applyPastedConnectionString} onSaved={() => void loadConnections()} />
 
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">

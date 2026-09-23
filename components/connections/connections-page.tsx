@@ -57,6 +57,7 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
   const [newConnectionTrigger, setNewConnectionTrigger] = useState(0);
+  const [prefill, setPrefill] = useState<{ value: string; nonce: number }>({ value: "", nonce: 0 });
   const { appThemeId, setAppThemeId } = useAppSettings();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -383,6 +384,8 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
             hideHeader
             editConnectionId={editConnectionId}
             newConnectionTrigger={newConnectionTrigger}
+            prefillConnectionString={prefill.value}
+            prefillTrigger={prefill.nonce}
             isAnalyticsEnabled={false}
             onAnalyticsToggle={() => {}}
             onViewAnalytics={(id) => handleSelectConnection(id)}
@@ -473,6 +476,8 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
               embedded
               editConnectionId={editConnectionId}
               newConnectionTrigger={newConnectionTrigger}
+              prefillConnectionString={prefill.value}
+              prefillTrigger={prefill.nonce}
               isAnalyticsEnabled={false}
               onAnalyticsToggle={() => {}}
               onViewAnalytics={(id) => {
@@ -492,13 +497,17 @@ export function ConnectionsPage({ embedded = false }: { embedded?: boolean } = {
         open={onboardingOpen}
         appThemeId={appThemeId}
         setAppThemeId={setAppThemeId}
-        onComplete={({ name }) => {
+        onComplete={({ name, connectionString }) => {
           setDisplayName(name);
           try {
             window.localStorage.setItem(ONBOARDING_COMPLETE_KEY, "1");
           } catch {}
           setOnboardingOpen(false);
           void loadConns();
+          if (connectionString) {
+            openTab(CONNECTIONS_TAB);
+            setPrefill((p) => ({ value: connectionString, nonce: p.nonce + 1 }));
+          }
         }}
       />
       {embedded ? (

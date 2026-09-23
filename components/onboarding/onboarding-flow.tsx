@@ -1,5 +1,6 @@
 "use client";
 
+import { DiscoverLocalPanel } from "@/components/connections/discover-local-panel";
 import { useState, type FormEvent } from "react";
 import {
   Dialog,
@@ -14,9 +15,9 @@ import { activateLocalUserProfile } from "@/lib/auth/user-profile";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type Step = "welcome" | "theme" | "name";
+type Step = "welcome" | "theme" | "name" | "databases";
 
-const STEPS: Step[] = ["welcome", "theme", "name"];
+const STEPS: Step[] = ["welcome", "theme", "name", "databases"];
 
 const DARK_THEME = BUILTIN_APP_THEMES.find((t) => t.id === "infinity-studio-dark");
 const DARK_THEME_ID = DARK_THEME?.id ?? "dark";
@@ -201,6 +202,24 @@ function NameStep({ onComplete }: { onComplete: (name: string) => void }) {
   );
 }
 
+// Step 4: show the databases already running on this machine; using one finishes onboarding with it, skipping finishes without.
+function DatabasesStep({ onUse, onSkip }: { onUse: (connectionString: string) => void; onSkip: () => void }) {
+  return (
+    <>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Databases found here</h1>
+        <p className="text-muted-foreground">
+          These are already running on this machine. Pick one to open it right away, or skip and add a connection later.
+        </p>
+      </div>
+      <DiscoverLocalPanel onPick={onUse} />
+      <button type="button" onClick={onSkip} className={PRIMARY_BTN}>
+        Skip for now
+      </button>
+    </>
+  );
+}
+
 // Progress dots, one per step.
 function StepDots({ stepIndex }: { stepIndex: number }) {
   return (
@@ -218,7 +237,7 @@ function StepDots({ stepIndex }: { stepIndex: number }) {
   );
 }
 
-// First-run wizard: welcome, appearance, then the local user's name.
+// First-run wizard: welcome, appearance, the local user's name, then the databases already running here.
 export function OnboardingFlow({
   open,
   appThemeId,
@@ -228,15 +247,17 @@ export function OnboardingFlow({
   open: boolean;
   appThemeId: string;
   setAppThemeId: (id: string) => void;
-  onComplete: (info: { name: string }) => void;
+  onComplete: (info: { name: string; connectionString?: string }) => void;
 }) {
   const [step, setStep] = useState<Step>("welcome");
+  const [name, setName] = useState("");
   const stepIndex = STEPS.indexOf(step);
 
   // Steps back one screen; the welcome screen has no back button.
   function goBack() {
     if (step === "theme") setStep("welcome");
     else if (step === "name") setStep("theme");
+    else if (step === "databases") setStep("name");
   }
 
   return (
@@ -249,7 +270,7 @@ export function OnboardingFlow({
       >
         <DialogTitle className="sr-only">Welcome to Infinity Studio</DialogTitle>
         <DialogDescription className="sr-only">
-          Set up Infinity Studio: pick an appearance and tell us your name.
+          Set up Infinity Studio: pick an appearance, tell us your name, and pick a database already running here.
         </DialogDescription>
 
         <div className="flex h-full">
@@ -276,7 +297,17 @@ export function OnboardingFlow({
                   onContinue={() => setStep("name")}
                 />
               )}
-              {step === "name" && <NameStep onComplete={(name) => onComplete({ name })} />}
+              {step === "name" && (
+                <NameStep
+                  onComplete={(typed) => {
+                    setName(typed);
+                    setStep("databases");
+                  }}
+                />
+              )}
+              {step === "databases" && (
+                <DatabasesStep onUse={(connectionString) => onComplete({ name, connectionString })} onSkip={() => onComplete({ name })} />
+              )}
             </div>
 
             <StepDots stepIndex={stepIndex} />

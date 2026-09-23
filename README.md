@@ -41,24 +41,33 @@ INFSTUDIO_STATIC_DIR=out bun run server/index.ts     # http://127.0.0.1:3867
 
 ## Finding databases
 
-The **Discover** button (radar icon, top right of the connections list) looks in two places:
+The **Add Connection** screen starts with what is already running, and the first-run steps end
+with the same list:
 
-- **This machine** — the usual database ports on `127.0.0.1`, running Docker containers that
-  publish a database port (with the credentials from their environment), and `~/.pgpass` /
-  `~/.my.cnf`. Pick one and the connection form opens filled in.
-- **Oracle Cloud** — uses your local `oci` CLI sign-in (`oci session authenticate`) to list the
-  MySQL HeatWave, OCI PostgreSQL and Autonomous databases of the tenancy. Those services only
-  have private endpoints, so the studio opens an [OCI Bastion](https://docs.oracle.com/en-us/iaas/Content/Bastion/home.htm)
+- **Found on this machine** — the usual database ports, running Docker containers that publish
+  a database port (with the credentials from their environment) or share a network with the
+  studio, and `~/.pgpass` / `~/.my.cnf`. Pick one and the connection form opens filled in.
+- **Oracle Cloud databases** — uses your local `oci` CLI sign-in (`oci session authenticate`) to
+  list the MySQL HeatWave, OCI PostgreSQL and Autonomous databases of the tenancy. Those
+  services only have private endpoints, so the studio opens an [OCI Bastion](https://docs.oracle.com/en-us/iaas/Content/Bastion/home.htm)
   port-forwarding session (creating a bastion in the VCN when there is none, on request) and
   saves a connection that tunnels through it with a throwaway SSH key. Only the database
   user and password are asked; the database never gets a public endpoint. Sessions last up to
-  three hours: run Discover again to reopen one. Autonomous databases still go through the
-  JDBC connection with their wallet (see the two *Oracle Autonomous* templates; the wallet one
-  needs `oraclepki.jar` beside `ojdbc11.jar`, which the Docker image already carries).
+  three hours: open Add Connection again to reopen one. Autonomous databases still go through
+  the JDBC connection with their wallet (see the two *Oracle Autonomous* templates; the wallet
+  one needs `oraclepki.jar` beside `ojdbc11.jar`, which the Docker image already carries).
 
-Both live on a standalone studio (desktop or web on your own machine) and are never served in
-embed mode. Inside Docker, the machine scan sees the container, not your host, unless you run
-it with `network_mode: host`.
+In Docker, the compose file mounts the Docker socket read-only and maps
+`host.docker.internal` to your machine, so the studio in the container sees your other
+containers and anything published on your ports. The socket belongs to the `docker` group;
+if the list says the socket is not readable, start with your group id:
+
+```bash
+DOCKER_GID=$(stat -c %g /var/run/docker.sock) docker compose up -d
+```
+
+Neither feature is served in embed mode. The Oracle Cloud part needs the `oci` CLI where the
+sidecar runs, so in Docker it stays hidden; run natively (below) or use the desktop app.
 
 ## Supported databases
 

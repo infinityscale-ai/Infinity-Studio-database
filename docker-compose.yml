@@ -17,8 +17,13 @@ services:
     image: infinity-studio:full
     ports:
       - "${INFSTUDIO_LISTEN:-127.0.0.1}:3867:3867"   # web UI + API
+    extra_hosts:
+      - "host.docker.internal:host-gateway"          # lets the studio reach databases published on your machine
     volumes:
       - studio-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro # lets Discover list your containers; drop this line if you'd rather not
+    group_add:
+      - "${DOCKER_GID:-999}"                         # your docker group: DOCKER_GID=$(stat -c %g /var/run/docker.sock) docker compose up -d
     environment:
       INFSTUDIO_API_KEY: ${INFSTUDIO_API_KEY:-}
       # Only consulted when INFSTUDIO_API_KEY is empty: the port above is loopback-only by default.
