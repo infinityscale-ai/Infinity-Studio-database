@@ -30,6 +30,7 @@ export function OciConnectForm({ profile, database, onBack, onSaved }: FormProps
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [dbName, setDbName] = useState("");
+  const [namespace, setNamespace] = useState("default");
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const resolve = useCallback(async () => {
@@ -52,14 +53,14 @@ export function OciConnectForm({ profile, database, onBack, onSaved }: FormProps
     setStep({ status: "connecting" });
     setSaveError(null);
     try {
-      const route = await ociConnect({ profile, database, login: { username, password, database: dbName } });
+      const route = await ociConnect({ profile, database, login: { username, password, database: dbName }, namespace });
       await saveConnection({ name: `${database.name} (Oracle Cloud)`, connectionString: route.connectionString, connectionType: connectionTypeFor(route.target.engine) });
       onSaved();
     } catch (e) {
       setSaveError((e as DiscoverApiError).message);
       setStep(ready);
     }
-  }, [step, profile, database, username, password, dbName, onSaved]);
+  }, [step, profile, database, username, password, dbName, namespace, onSaved]);
 
   return (
     <div className="space-y-4">
@@ -82,9 +83,15 @@ export function OciConnectForm({ profile, database, onBack, onSaved }: FormProps
               <Input id="oci-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
             </div>
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="oci-db">Database name <span className="text-muted-foreground">(optional)</span></Label>
-            <Input id="oci-db" value={dbName} onChange={(e) => setDbName(e.target.value)} autoComplete="off" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="oci-db">Database name <span className="text-muted-foreground">(optional)</span></Label>
+              <Input id="oci-db" value={dbName} onChange={(e) => setDbName(e.target.value)} autoComplete="off" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="oci-ns">Cluster namespace</Label>
+              <Input id="oci-ns" value={namespace} onChange={(e) => setNamespace(e.target.value)} autoComplete="off" placeholder="default" />
+            </div>
           </div>
           {saveError && <p className="text-sm text-destructive">{saveError}</p>}
           <Button type="submit" size="sm" className="gap-1.5" disabled={step.status === "connecting"}>

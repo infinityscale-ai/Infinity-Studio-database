@@ -5,7 +5,8 @@ import { readCredentialProfiles, type OciCredentialProfile } from "../oci/profil
 import { findKubectl, KubectlMissingError, runKubectl, spawnPortForward } from "./kubectl";
 import { readServerAndCa, writeKubeconfig, type KubeconfigFile } from "./kubeconfig";
 import { mintOkeToken } from "./oke-token";
-import { relayPodManifest, relayPodName, RELAY_PORT, type RelayTarget } from "./relay-pod";
+import { RELAY_LABEL, relayPodManifest, relayPodName, RELAY_PORT, type RelayTarget } from "./relay-pod";
+import { getOrOpenTunnel } from "./tunnel-registry";
 
 /** What the caller must say to open a tunnel into a cluster. */
 export type KubeTunnelRequest = { profileName: string; clusterId: string; namespace: string; target: RelayTarget };
@@ -53,8 +54,21 @@ async function teardown(binary: string, config: KubeconfigFile, namespace: strin
   }
 }
 
-// openKubeTunnel runs one throwaway relay pod in the cluster and forwards its port to this machine.
-export async function openKubeTunnel(request: KubeTunnelRequest): Promise<KubeTunnel> {
+// reapFinishedRelays deletes the studio's own relays that have stopped, so a dead tunnel never lingers as an object.
+async function reapFinishedRelays(binary: string, kubeconfig: string, namespace: string): Promise<void> {
+  const selector = `${RELAY_LABEL.key}=${RELAY_LABEL.value}`;
+  const args = ["-n", namespace, "delete", "pod", "-l", selector, "--field-selector", "status.phase!=Running,status.phase!=Pending", "--ignore-not-found", "--wait=false"];
+  await runKubectl(binary, kubeconfig, args).catch(() => {});
+}
+
+// openKubeTunnel reuses the relay already serving this database, or starts the one relay it will have.
+export function openKubeTunnel(request: KubeTunnelRequest): Promise<KubeTunnel> {
+  const key = { clusterId: request.clusterId, namespace: request.namespace, host: request.target.host, port: request.target.port };
+  return getOrOpenTunnel(key, () => startKubeTunnel(request));
+}
+
+// startKubeTunnel runs one relay pod in the cluster and forwards its port to this machine.
+async function startKubeTunnel(request: KubeTunnelRequest): Promise<KubeTunnel> {
   const binary = findKubectl();
   if (!binary) throw new KubectlMissingError();
   const profile = profileNamed(request.profileName);
@@ -62,6 +76,7 @@ export async function openKubeTunnel(request: KubeTunnelRequest): Promise<KubeTu
   const podName = relayPodName();
   let child: ChildProcess | null = null;
   try {
+    await reapFinishedRelays(binary, config.path, request.namespace);
     const manifest = JSON.stringify(relayPodManifest(podName, request.target));
     await runKubectl(binary, config.path, ["-n", request.namespace, "create", "-f", "-"], manifest);
     await runKubectl(binary, config.path, ["-n", request.namespace, "wait", "--for=condition=Ready", `pod/${podName}`, `--timeout=${READY_TIMEOUT}`]);

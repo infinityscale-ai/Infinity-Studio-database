@@ -5,6 +5,10 @@ export type RelayTarget = { host: string; port: number };
 export const RELAY_IMAGE = "docker.io/alpine/socat:1.8.0.0";
 /** The port the relay listens on inside the pod. */
 export const RELAY_PORT = 15432;
+/** The label every relay carries, so the studio can find and remove its own pods and nobody else's. */
+export const RELAY_LABEL = { key: "app.kubernetes.io/managed-by", value: "infinity-studio" };
+/** The cluster stops the relay itself after this long, so a studio that dies can never leave one running. */
+export const RELAY_MAX_LIFETIME_SECONDS = 3600;
 
 // relayPodName names one throwaway relay so it is recognisable and never collides.
 export function relayPodName(): string {
@@ -18,13 +22,14 @@ export function relayPodManifest(name: string, target: RelayTarget): Record<stri
     kind: "Pod",
     metadata: {
       name,
-      labels: { "app.kubernetes.io/name": "infinity-studio-tunnel", "app.kubernetes.io/managed-by": "infinity-studio" },
+      labels: { "app.kubernetes.io/name": "infinity-studio-tunnel", [RELAY_LABEL.key]: RELAY_LABEL.value },
       annotations: { "infinity-studio/target": `${target.host}:${target.port}` },
     },
     spec: {
       restartPolicy: "Never",
       automountServiceAccountToken: false,
       terminationGracePeriodSeconds: 1,
+      activeDeadlineSeconds: RELAY_MAX_LIFETIME_SECONDS,
       containers: [
         {
           name: "relay",

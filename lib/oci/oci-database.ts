@@ -32,7 +32,7 @@ export type OciProfileStatus = OciProfile & { sessionValid: boolean | null; vali
 export type OciStatus = { configured: boolean; cliAvailable: boolean; kubectlAvailable: boolean; profiles: OciProfileStatus[] };
 
 /** What the panel sends to open a connection through a bastion. */
-export type OciConnectRequest = { profile: string; database: OciDatabaseSummary; login: { username: string; password: string; database: string } };
+export type OciConnectRequest = { profile: string; database: OciDatabaseSummary; login: { username: string; password: string; database: string }; namespace?: string };
 
 /** What the panel gets back when it asks how a database would be reached. */
 export type OciRouteAnswer = { target: OciDatabaseTarget; cluster: OciCarrierCluster | null };
