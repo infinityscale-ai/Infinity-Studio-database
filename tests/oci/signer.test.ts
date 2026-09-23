@@ -34,7 +34,7 @@ describe("signRequest", () => {
   });
 
   test("a POST also signs content-length, content-type and the body hash", () => {
-    const url = new URL("https://query.af-casablanca-1.oci.oraclecloud.com/20180409/resources/actions/search");
+    const url = new URL("https://query.af-casablanca-1.oci.oraclecloud.com/20180409/resources");
     const body = JSON.stringify({ type: "Structured", query: "query mysqldbsystem resources" });
     const headers = signRequest({ method: "POST", url, body, now: NOW }, { keyId: "ST$tok", privateKey: loadPrivateKey(PEM, null) });
     const { headers: signed, signature } = signatureOf(headers.authorization);
@@ -42,7 +42,7 @@ describe("signRequest", () => {
     expect(headers["content-length"]).toBe(String(Buffer.byteLength(body)));
     expect(headers["content-type"]).toBe("application/json");
     expect(headers["x-content-sha256"]).toBe(crypto.createHash("sha256").update(body).digest("base64"));
-    const values = { date: headers.date, "(request-target)": "post /20180409/resources/actions/search", host: url.host, "content-length": headers["content-length"], "content-type": "application/json", "x-content-sha256": headers["x-content-sha256"] };
+    const values = { date: headers.date, "(request-target)": "post /20180409/resources", host: url.host, "content-length": headers["content-length"], "content-type": "application/json", "x-content-sha256": headers["x-content-sha256"] };
     expect(crypto.verify("RSA-SHA256", Buffer.from(signingString(values, signed)), publicKey, Buffer.from(signature, "base64"))).toBe(true);
   });
 });

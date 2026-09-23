@@ -107,7 +107,7 @@ export function createOciClient(region: string, send: OciTransport): OciClient {
   };
   return {
     region,
-    search: async (query) => list(rec(send("query", "POST", "/resources/actions/search", { type: "Structured", query })).then((r) => r.items)),
+    search: async (query) => list(rec(send("query", "POST", "/resources", { type: "Structured", query })).then((r) => r.items)),
     getMysqlDbSystem: (id) => rec(send("mysql", "GET", `/dbSystems/${encodeURIComponent(id)}`)),
     getPostgresDbSystem: (id) => rec(send("postgresql", "GET", `/dbSystems/${encodeURIComponent(id)}`)),
     getAutonomousDatabase: (id) => rec(send("database", "GET", `/autonomousDatabases/${encodeURIComponent(id)}`)),

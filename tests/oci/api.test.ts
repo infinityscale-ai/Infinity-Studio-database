@@ -3,7 +3,7 @@ import { createOciClient, serviceUrl, type OciTransport } from "../../server/oci
 
 describe("serviceUrl", () => {
   test("follows the SDK's endpoint templates and API versions", () => {
-    expect(serviceUrl("query", "af-casablanca-1", "/resources/actions/search").toString()).toBe("https://query.af-casablanca-1.oci.oraclecloud.com/20180409/resources/actions/search");
+    expect(serviceUrl("query", "af-casablanca-1", "/resources").toString()).toBe("https://query.af-casablanca-1.oci.oraclecloud.com/20180409/resources");
     expect(serviceUrl("mysql", "af-casablanca-1", "/dbSystems/x").toString()).toBe("https://mysql.af-casablanca-1.ocp.oraclecloud.com/20190415/dbSystems/x");
     expect(serviceUrl("postgresql", "af-casablanca-1", "/dbSystems/x").toString()).toBe("https://postgresql.af-casablanca-1.oci.oraclecloud.com/20220915/dbSystems/x");
     expect(serviceUrl("database", "af-casablanca-1", "/autonomousDatabases/x").toString()).toBe("https://database.af-casablanca-1.oraclecloud.com/20160918/autonomousDatabases/x");
@@ -18,7 +18,7 @@ describe("createOciClient", () => {
     const calls: Array<[string, string, string, unknown]> = [];
     const send: OciTransport = async (service, method, path, body) => {
       calls.push([service, method, path, body]);
-      return path.endsWith("/search") ? { items: [{ identifier: "a" }] } : path.startsWith("/bastions?") ? [{ id: "b" }] : { id: "x" };
+      return path === "/resources" ? { items: [{ identifier: "a" }] } : path.startsWith("/bastions?") ? [{ id: "b" }] : { id: "x" };
     };
     const c = createOciClient("af-casablanca-1", send);
     expect(await c.search("query mysqldbsystem resources")).toEqual([{ identifier: "a" }]);
@@ -32,7 +32,7 @@ describe("createOciClient", () => {
     await c.createSession({ bastionId: "b" });
     await c.getSession("s1");
     expect(calls.map(([svc, m, p]) => `${svc} ${m} ${p}`)).toEqual([
-      "query POST /resources/actions/search",
+      "query POST /resources",
       "bastion GET /bastions?compartmentId=ocid1.compartment%2Fx&limit=100",
       "mysql GET /dbSystems/m%2F1",
       "postgresql GET /dbSystems/p",
