@@ -3,174 +3,130 @@
 import { useCallback, useEffect, useState } from "react";
 import { Cloud, LogIn, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { DiscoverApiError, ociDatabases, ociLogin, ociStatus } from "@/lib/api/discover-client";
-import type { OciDatabaseSummary, OciProfileStatus, OciStatus } from "@/lib/oci/oci-database";
+import { FoundDatabaseCard } from "@/components/connections/found-database-card";
+import { FoundGroup, FoundNotice, FoundSkeleton, foundGridClass, type FoundColumns } from "@/components/connections/found-group";
 import { OciConnectForm } from "@/components/connections/oci-connect-form";
 import { OciSessionDialog } from "@/components/connections/oci-session-dialog";
+import { DiscoverApiError, ociDatabases, ociStatus } from "@/lib/api/discover-client";
+import { savedForOciDatabase, type SavedLike } from "@/lib/discovery/saved-match";
+import type { OciDatabaseSummary, OciProfileStatus, OciStatus } from "@/lib/oci/oci-database";
 
-/** What the panel knows about the machine and the chosen profile. */
-type PanelState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; oci: OciStatus; profile: OciProfileStatus | null };
+/** What the Oracle Cloud group needs: how to report a saved connection, and the saved list to recognise one. */
+export type DiscoverOciPanelProps = { onSaved: () => void; saved?: SavedLike[]; onOpenSaved?: (id: number) => void; columns?: FoundColumns };
 
-/** The database list for the chosen profile. */
-type ListState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "signing-in" }
-  | { status: "error"; message: string; expired: boolean }
-  | { status: "ready"; databases: OciDatabaseSummary[] };
+/** The sign-in this machine has, once read. */
+type StatusState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; oci: OciStatus };
 
-/** How each kind reads in the list. */
-const KIND_LABELS: Record<OciDatabaseSummary["kind"], string> = { mysql: "MySQL HeatWave", postgres: "OCI PostgreSQL", autonomous: "Autonomous Database" };
+/** The databases of the chosen profile. */
+type ListState = { status: "loading" } | { status: "expired" } | { status: "error"; message: string } | { status: "ready"; databases: OciDatabaseSummary[] };
 
-// NoSignIn explains where the studio looks for an Oracle Cloud sign-in and how to create one.
-function NoSignIn({ onCheckAgain }: { onCheckAgain: () => void }) {
-  return (
-    <div className="space-y-2 text-sm">
-      <p>No Oracle Cloud sign-in found. The studio reads the files the OCI CLI keeps in <code className="font-mono text-xs">~/.oci</code>.</p>
-      <p className="text-muted-foreground">
-        On your computer run <code className="font-mono text-xs">oci session authenticate --profile-name &lt;name&gt; --region &lt;region&gt;</code> once (or set up an API-key profile), then check again.
-      </p>
-      <Button size="sm" variant="outline" className="gap-1.5" onClick={onCheckAgain}>
-        <RefreshCw className="size-3.5" aria-hidden /> Check again
-      </Button>
-    </div>
-  );
-}
-
-// ProfilePicker lists the profiles of ~/.oci/config with their session state.
-function ProfilePicker({ profiles, value, onChange }: { profiles: OciProfileStatus[]; value: string; onChange: (name: string) => void }) {
-  return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-muted-foreground">Profile</span>
-      <select className="h-8 rounded-md border border-studio-border bg-background px-2 text-sm" value={value} onChange={(e) => onChange(e.target.value)}>
-        {profiles.map((p) => (
-          <option key={p.name} value={p.name}>
-            {p.name} · {p.region}{p.sessionValid === false ? " · signed out" : ""}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-// DatabaseRow shows one cloud database and the button that starts its connection.
-function DatabaseRow({ db, onConnect }: { db: OciDatabaseSummary; onConnect: () => void }) {
-  return (
-    <li className="flex items-center gap-3 rounded-lg border border-studio-border/60 bg-studio-bg/60 px-3 py-2">
-      <Cloud className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{db.name}</div>
-        <div className="truncate text-xs text-muted-foreground">{KIND_LABELS[db.kind]} · {db.state.toLowerCase()}</div>
-      </div>
-      <Button size="sm" variant="outline" onClick={onConnect} disabled={db.state !== "ACTIVE"}>
-        Connect
-      </Button>
-    </li>
-  );
-}
-
-// DiscoverOciPanel uses the Oracle Cloud sign-in kept in ~/.oci to list the tenancy's databases and open one through a bastion.
-export function DiscoverOciPanel({ onSaved }: { onSaved: () => void }) {
-  const [panel, setPanel] = useState<PanelState>({ status: "loading" });
-  const [list, setList] = useState<ListState>({ status: "idle" });
-  const [chosen, setChosen] = useState<OciDatabaseSummary | null>(null);
-  const [expiredOpen, setExpiredOpen] = useState(false);
-
-  const loadStatus = useCallback(async () => {
-    setPanel({ status: "loading" });
+// useOciStatus reads the sign-in files once and on request.
+function useOciStatus(): { state: StatusState; reload: () => void } {
+  const [state, setState] = useState<StatusState>({ status: "loading" });
+  const reload = useCallback(async () => {
+    setState({ status: "loading" });
     try {
-      const oci = await ociStatus();
-      setPanel({ status: "ready", oci, profile: oci.profiles[0] ?? null });
+      setState({ status: "ready", oci: await ociStatus() });
     } catch (e) {
-      setPanel({ status: "error", message: (e as Error).message });
+      setState({ status: "error", message: (e as Error).message });
     }
   }, []);
-  useEffect(() => void loadStatus(), [loadStatus]);
+  useEffect(() => void reload(), [reload]);
+  return { state, reload: () => void reload() };
+}
 
-  const loadDatabases = useCallback(async (profile: string) => {
+// useOciDatabases lists the profile's databases whenever the profile or its sign-in changes.
+function useOciDatabases(profile: OciProfileStatus | null): { list: ListState; reload: () => void } {
+  const [list, setList] = useState<ListState>({ status: "loading" });
+  const reload = useCallback(async () => {
+    if (!profile) return;
+    if (profile.sessionValid === false) return setList({ status: "expired" });
     setList({ status: "loading" });
     try {
-      setList({ status: "ready", databases: await ociDatabases(profile) });
+      setList({ status: "ready", databases: await ociDatabases(profile.name) });
     } catch (e) {
-      const expired = e instanceof DiscoverApiError && e.status === 401;
-      setList({ status: "error", message: (e as Error).message, expired });
+      setList(e instanceof DiscoverApiError && e.status === 401 ? { status: "expired" } : { status: "error", message: (e as Error).message });
     }
-  }, []);
+  }, [profile]);
+  useEffect(() => void reload(), [reload]);
+  return { list, reload: () => void reload() };
+}
 
-  const signIn = useCallback(async (profile: string) => {
-    setList({ status: "signing-in" });
-    try {
-      await ociLogin(profile);
-      await loadStatus();
-    } catch (e) {
-      setList({ status: "error", message: (e as Error).message, expired: true });
-    }
-  }, [loadStatus]);
-
-  useEffect(() => {
-    if (panel.status !== "ready" || !panel.profile) return;
-    if (panel.profile.sessionValid === false) {
-      setList({ status: "error", message: "This profile's session has expired.", expired: true });
-      setExpiredOpen(true);
-    }
-    else void loadDatabases(panel.profile.name);
-  }, [panel, loadDatabases]);
-
-  if (panel.status === "loading") return <Skeleton className="h-24 w-full rounded-lg" />;
-  if (panel.status === "error") return <p className="text-sm text-destructive">Could not read the OCI setup: {panel.message}</p>;
-  if (!panel.oci.configured || !panel.profile) return <NoSignIn onCheckAgain={() => void loadStatus()} />;
-  const profile = panel.profile;
-  const expiredDialog = (
-    <OciSessionDialog open={expiredOpen} profile={profile} cliAvailable={panel.oci.cliAvailable} onOpenChange={setExpiredOpen} onRefreshed={() => void loadStatus()} />
-  );
-  if (chosen) {
-    return (
-      <>
-        {expiredDialog}
-        <OciConnectForm profile={profile.name} database={chosen} onBack={() => setChosen(null)} onSaved={onSaved} />
-      </>
-    );
-  }
-
+// ProfileControls shows which sign-in is used, until when, and lets the user refresh the list.
+function ProfileControls({ oci, profile, onProfile, onRefresh }: { oci: OciStatus; profile: OciProfileStatus; onProfile: (name: string) => void; onRefresh: () => void }) {
   return (
-    <div className="space-y-3">
-      {expiredDialog}
-      <div className="flex items-center justify-between gap-3">
-        <ProfilePicker profiles={panel.oci.profiles} value={profile.name} onChange={(name) => setPanel({ ...panel, profile: panel.oci.profiles.find((p) => p.name === name) ?? null })} />
-        <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => void loadDatabases(profile.name)} disabled={list.status === "loading"}>
-          <RefreshCw className="size-3.5" aria-hidden /> Refresh
-        </Button>
-      </div>
-      <DatabaseList list={list} cliAvailable={panel.oci.cliAvailable} onSignIn={() => void signIn(profile.name)} onCheckAgain={() => void loadStatus()} onConnect={setChosen} />
-      {profile.validUntil && <p className="text-xs text-muted-foreground">Signed in until {profile.validUntil}.</p>}
+    <>
+      {oci.profiles.length > 1 ? (
+        <select aria-label="Oracle Cloud profile" className="h-7 rounded-md border border-studio-border bg-background px-2 text-xs" value={profile.name} onChange={(e) => onProfile(e.target.value)}>
+          {oci.profiles.map((p) => <option key={p.name} value={p.name}>{p.name} · {p.region}</option>)}
+        </select>
+      ) : (
+        <span>{profile.name} · {profile.region}</span>
+      )}
+      {profile.validUntil && profile.sessionValid !== false ? <span>signed in until {profile.validUntil}</span> : null}
+      <Button size="sm" variant="ghost" className="h-7 gap-1.5 px-2" onClick={onRefresh}>
+        <RefreshCw className="size-3.5" aria-hidden /> Refresh
+      </Button>
+    </>
+  );
+}
+
+/** What the card grid needs to draw every list state. */
+type OciCardsProps = { list: ListState; columns: FoundColumns; saved: SavedLike[]; onOpenSaved?: (id: number) => void; onChoose: (db: OciDatabaseSummary) => void; onSignIn: () => void };
+
+// OciCards draws the list's states: loading, signed out, error, empty and the cards.
+function OciCards({ list, columns, saved, onOpenSaved, onChoose, onSignIn }: OciCardsProps) {
+  if (list.status === "loading") return <FoundSkeleton columns={columns} label="Listing your Oracle Cloud databases…" />;
+  if (list.status === "expired") {
+    return <FoundNotice action={<Button size="sm" variant="outline" className="gap-1.5" onClick={onSignIn}><LogIn className="size-3.5" aria-hidden /> Sign in to Oracle Cloud</Button>}>Your Oracle Cloud sign-in has expired.</FoundNotice>;
+  }
+  if (list.status === "error") return <FoundNotice tone="error">{list.message}</FoundNotice>;
+  if (list.databases.length === 0) return <FoundNotice>No MySQL, PostgreSQL or Autonomous database in this tenancy and region.</FoundNotice>;
+  return (
+    <div className={foundGridClass(columns)}>
+      {list.databases.map((db) => {
+        const match = savedForOciDatabase(saved, db.id);
+        const open = match && onOpenSaved ? () => onOpenSaved(match.id) : () => onChoose(db);
+        return <FoundDatabaseCard key={db.id} found={{ kind: "cloud", database: db }} saved={Boolean(match && onOpenSaved)} onActivate={open} />;
+      })}
     </div>
   );
 }
 
-/** What the list needs to render every state and offer the right next step. */
-type DatabaseListProps = { list: ListState; cliAvailable: boolean; onSignIn: () => void; onCheckAgain: () => void; onConnect: (db: OciDatabaseSummary) => void };
+// DiscoverOciPanel lists the tenancy's databases as connection cards, using the Oracle Cloud sign-in kept in ~/.oci.
+export function DiscoverOciPanel({ onSaved, saved = [], onOpenSaved, columns = 2 }: DiscoverOciPanelProps) {
+  const { state, reload } = useOciStatus();
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [chosen, setChosen] = useState<OciDatabaseSummary | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const oci = state.status === "ready" ? state.oci : null;
+  const profile = oci ? (oci.profiles.find((p) => p.name === profileName) ?? oci.profiles[0] ?? null) : null;
+  const { list, reload: reloadList } = useOciDatabases(profile);
+  useEffect(() => {
+    if (list.status === "expired") setDialogOpen(true);
+  }, [list.status]);
 
-// DatabaseList renders the list's states: loading, signing in, expired, error, empty and ready.
-function DatabaseList({ list, cliAvailable, onSignIn, onCheckAgain, onConnect }: DatabaseListProps) {
-  if (list.status === "idle" || list.status === "loading") return <Skeleton className="h-24 w-full rounded-lg" />;
-  if (list.status === "signing-in") return <p className="text-sm text-muted-foreground">Finish signing in to Oracle Cloud in the browser window that just opened…</p>;
-  if (list.status === "error") {
-    return (
-      <div className="space-y-3 text-sm">
-        <p className={list.expired ? "text-muted-foreground" : "text-destructive"}>{list.message}</p>
-        {list.expired && (
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={cliAvailable ? onSignIn : onCheckAgain}>
-            {cliAvailable ? <LogIn className="size-3.5" aria-hidden /> : <RefreshCw className="size-3.5" aria-hidden />}
-            {cliAvailable ? "Sign in to Oracle Cloud" : "I signed in, check again"}
-          </Button>
-        )}
-      </div>
-    );
-  }
-  if (list.databases.length === 0) return <p className="rounded-lg border border-dashed border-studio-border/60 px-3 py-6 text-center text-sm text-muted-foreground">No MySQL, PostgreSQL or Autonomous database in this tenancy and region.</p>;
-  return <ul className="max-h-72 space-y-2 overflow-y-auto">{list.databases.map((db) => <DatabaseRow key={db.id} db={db} onConnect={() => onConnect(db)} />)}</ul>;
+  if (state.status === "loading") return <FoundGroup icon={Cloud} title="Oracle Cloud"><FoundSkeleton columns={columns} label="Reading your Oracle Cloud sign-in…" /></FoundGroup>;
+  if (state.status === "error") return <FoundGroup icon={Cloud} title="Oracle Cloud"><FoundNotice tone="error">Could not read the Oracle Cloud sign-in: {state.message}</FoundNotice></FoundGroup>;
+  if (!oci?.configured || !profile) return <FoundGroup icon={Cloud} title="Oracle Cloud"><NoSignIn onCheckAgain={reload} /></FoundGroup>;
+  const controls = chosen ? null : <ProfileControls oci={oci} profile={profile} onProfile={setProfileName} onRefresh={reloadList} />;
+  return (
+    <FoundGroup icon={Cloud} title="Oracle Cloud" controls={controls}>
+      <OciSessionDialog open={dialogOpen} profile={profile} cliAvailable={oci.cliAvailable} onOpenChange={setDialogOpen} onRefreshed={reload} />
+      {chosen ? (
+        <OciConnectForm profile={profile.name} database={chosen} onBack={() => setChosen(null)} onSaved={onSaved} />
+      ) : (
+        <OciCards list={list} columns={columns} saved={saved} onOpenSaved={onOpenSaved} onChoose={setChosen} onSignIn={() => setDialogOpen(true)} />
+      )}
+    </FoundGroup>
+  );
+}
+
+// NoSignIn says where the studio looks for an Oracle Cloud sign-in and how to create one.
+function NoSignIn({ onCheckAgain }: { onCheckAgain: () => void }) {
+  return (
+    <FoundNotice action={<Button size="sm" variant="outline" className="gap-1.5" onClick={onCheckAgain}><RefreshCw className="size-3.5" aria-hidden /> Check again</Button>}>
+      No Oracle Cloud sign-in on this computer yet. Run <code className="font-mono text-xs">oci session authenticate</code> once, then check again.
+    </FoundNotice>
+  );
 }

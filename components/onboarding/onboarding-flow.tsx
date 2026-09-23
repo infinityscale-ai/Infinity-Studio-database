@@ -1,6 +1,8 @@
 "use client";
 
-import { DiscoverLocalPanel } from "@/components/connections/discover-local-panel";
+import { DatabasesStep } from "@/components/onboarding/databases-step";
+import { PRIMARY_BTN } from "@/components/onboarding/primary-button";
+import { TipPanel } from "@/components/onboarding/tip-panel";
 import { localToolsEnabled } from "@/lib/api/discover-client";
 import { useEffect, useState, type FormEvent } from "react";
 import {
@@ -24,25 +26,11 @@ const LOCAL_STEPS: Step[] = [...BASE_STEPS, "databases"];
 const DARK_THEME = BUILTIN_APP_THEMES.find((t) => t.id === "infinity-studio-dark");
 const DARK_THEME_ID = DARK_THEME?.id ?? "dark";
 
-const TIPS: string[] = [
-  "Infinity Studio connects to Postgres, MySQL, Supabase, SQLite and more — all from one unified workspace.",
-  "Turn on Schema Explorer in Settings to browse tables, functions, triggers and indexes without leaving the sidebar.",
-  "You can pin favorite tables and queries for quick access from the sidebar.",
-  "Export query results as CSV or JSON with a single click from the results grid.",
-];
-
 const APPEARANCE_OPTIONS: { id: string; label: string }[] = [
   { id: "system", label: "System" },
   { id: "light", label: "Light" },
   { id: DARK_THEME_ID, label: "Dark" },
 ];
-
-// Themed via CSS variable tokens (same ones the rest of the app uses) so the
-// onboarding chrome matches whatever appearance is currently active — light,
-// dark, or a custom app theme — including live as the user picks one on the
-// theme step.
-const PRIMARY_BTN =
-  "flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50";
 
 // Radio-style pill used by the appearance picker.
 function OptionPill({
@@ -76,29 +64,6 @@ function OptionPill({
       </span>
       {label}
     </button>
-  );
-}
-
-// Left-hand image panel with the tip that rotates per step.
-function TipPanel({ stepIndex }: { stepIndex: number }) {
-  return (
-    <div className="relative m-3 hidden w-[42%] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sidebar via-studio-bg to-muted md:flex">
-      {/* eslint-disable-next-line @next/next/no-img-element -- static onboarding art from /public */}
-      <img
-        src="/onboarding.png"
-        alt="Infinity Studio onboarding"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-      <div className="absolute inset-0 bg-black/40" />
-      <div className="absolute top-14 left-0 right-0 z-10 max-w-xs mx-auto px-8 text-center">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-white/70">
-          Tip
-        </p>
-        <p className="text-lg leading-relaxed text-white/90">
-          {TIPS[stepIndex % TIPS.length]}
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -200,24 +165,6 @@ function NameStep({ onComplete }: { onComplete: (name: string) => void }) {
           {loading ? "Saving..." : "Continue"}
         </button>
       </form>
-    </>
-  );
-}
-
-// Step 4: show the databases already running on this machine; using one finishes onboarding with it, skipping finishes without.
-function DatabasesStep({ onUse, onSkip }: { onUse: (connectionString: string) => void; onSkip: () => void }) {
-  return (
-    <>
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Databases found here</h1>
-        <p className="text-muted-foreground">
-          These are already running on this machine. Pick one to open it right away, or skip and add a connection later.
-        </p>
-      </div>
-      <DiscoverLocalPanel onPick={onUse} />
-      <button type="button" onClick={onSkip} className={PRIMARY_BTN}>
-        Skip for now
-      </button>
     </>
   );
 }

@@ -1,44 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Database, RefreshCw } from "lucide-react";
+import { Laptop, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { FoundDatabaseCard } from "@/components/connections/found-database-card";
+import { FoundGroup, FoundNotice, FoundSkeleton, foundGridClass, type FoundColumns } from "@/components/connections/found-group";
 import { discoverLocal } from "@/lib/api/discover-client";
-import { candidateConnectionString, type DatabaseCandidate, type DiscoverResult, type SourceReport } from "@/lib/discovery/database-candidate";
+import { candidateConnectionString, type DiscoverResult, type SourceReport } from "@/lib/discovery/database-candidate";
+import { savedForEndpoint, type SavedLike } from "@/lib/discovery/saved-match";
 
 /** The panel's four states. */
 type ScanState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; result: DiscoverResult };
 
-/** How each source is named in the footer. */
-const SOURCE_LABELS: Record<SourceReport["source"], string> = { ports: "Open ports", docker: "Docker", files: "Config files" };
+/** What the local group needs: where a picked database goes, and the saved list to recognise it. */
+export type DiscoverLocalPanelProps = { onPick: (connectionString: string) => void; saved?: SavedLike[]; onOpenSaved?: (id: number) => void; columns?: FoundColumns };
 
-// sourceLine summarizes what the scan could and could not look at.
+/** How each source is named in the header. */
+const SOURCE_LABELS: Record<SourceReport["source"], string> = { ports: "ports", docker: "Docker", files: "config files" };
+
+// sourceLine says in a few words what the scan could look at and what it could not.
 function sourceLine(sources: SourceReport[]): string {
-  return sources.map((s) => `${SOURCE_LABELS[s.source]}: ${s.status === "ok" ? "scanned" : s.detail || s.status}`).join(" · ");
+  const missed = sources.filter((s) => s.status !== "ok");
+  if (missed.length === 0) return "Scanned ports, Docker and config files";
+  return missed.map((s) => s.detail || `${SOURCE_LABELS[s.source]} not scanned`).join(" · ");
 }
 
-// CandidateRow shows one found database and the button that takes it to the connection form.
-function CandidateRow({ candidate, onPick }: { candidate: DatabaseCandidate; onPick: (cs: string) => void }) {
-  const login = candidate.username ? `${candidate.username}${candidate.password ? " · password known" : ""}` : "no credentials found";
-  return (
-    <li className="flex items-center gap-3 rounded-lg border border-studio-border/60 bg-studio-bg/60 px-3 py-2">
-      <Database className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{candidate.label}</div>
-        <div className="truncate text-xs text-muted-foreground">
-          {candidate.engine} · {candidate.host}:{candidate.port} · {login}
-        </div>
-      </div>
-      <Button size="sm" variant="outline" onClick={() => onPick(candidateConnectionString(candidate))}>
-        Use
-      </Button>
-    </li>
-  );
-}
-
-// DiscoverLocalPanel scans this machine once when shown and lists what it found, with a rescan.
-export function DiscoverLocalPanel({ onPick }: { onPick: (connectionString: string) => void }) {
+// useLocalScan scans this machine once when shown and on request.
+function useLocalScan(): { state: ScanState; scan: () => void } {
   const [state, setState] = useState<ScanState>({ status: "loading" });
   const scan = useCallback(async () => {
     setState({ status: "loading" });
@@ -49,41 +37,40 @@ export function DiscoverLocalPanel({ onPick }: { onPick: (connectionString: stri
     }
   }, []);
   useEffect(() => void scan(), [scan]);
+  return { state, scan: () => void scan() };
+}
 
-  if (state.status === "loading") {
-    return (
-      <div role="status" aria-busy className="space-y-2">
-        <span className="sr-only">Scanning this machine…</span>
-        <Skeleton className="h-12 w-full rounded-lg" />
-        <Skeleton className="h-12 w-full rounded-lg" />
-        <Skeleton className="h-12 w-full rounded-lg" />
-      </div>
-    );
-  }
-  if (state.status === "error") {
-    return (
-      <div className="space-y-3 text-sm">
-        <p className="text-destructive">Could not scan this machine: {state.message}</p>
-        <Button size="sm" variant="outline" onClick={() => void scan()}>Try again</Button>
-      </div>
-    );
-  }
-  const { candidates, sources } = state.result;
+// DiscoverLocalPanel lists the databases running on this machine as connection cards.
+export function DiscoverLocalPanel({ onPick, saved = [], onOpenSaved, columns = 2 }: DiscoverLocalPanelProps) {
+  const { state, scan } = useLocalScan();
+  const controls = (
+    <>
+      {state.status === "ready" ? <span>{sourceLine(state.result.sources)}</span> : null}
+      <Button size="sm" variant="ghost" className="h-7 gap-1.5 px-2" onClick={scan} disabled={state.status === "loading"}>
+        <RefreshCw className="size-3.5" aria-hidden /> Rescan
+      </Button>
+    </>
+  );
   return (
-    <div className="space-y-3">
-      {candidates.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-studio-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-          No database is listening on the usual ports here, and no Docker container publishes one.
-        </p>
-      ) : (
-        <ul className="max-h-72 space-y-2 overflow-y-auto">{candidates.map((c) => <CandidateRow key={`${c.host}:${c.port}`} candidate={c} onPick={onPick} />)}</ul>
-      )}
-      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span className="truncate">{sourceLine(sources)}</span>
-        <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => void scan()}>
-          <RefreshCw className="size-3.5" aria-hidden /> Rescan
-        </Button>
-      </div>
-    </div>
+    <FoundGroup icon={Laptop} title="On this machine" controls={controls}>
+      {state.status === "loading" ? <FoundSkeleton columns={columns} label="Scanning this machine…" /> : null}
+      {state.status === "error" ? (
+        <FoundNotice tone="error" action={<Button size="sm" variant="outline" onClick={scan}>Try again</Button>}>
+          Could not scan this machine: {state.message}
+        </FoundNotice>
+      ) : null}
+      {state.status === "ready" && state.result.candidates.length === 0 ? (
+        <FoundNotice>No database is running on the usual ports here, and no Docker container exposes one.</FoundNotice>
+      ) : null}
+      {state.status === "ready" && state.result.candidates.length > 0 ? (
+        <div className={foundGridClass(columns)}>
+          {state.result.candidates.map((c) => {
+            const match = savedForEndpoint(saved, c.host, c.port);
+            const open = match && onOpenSaved ? () => onOpenSaved(match.id) : () => onPick(candidateConnectionString(c));
+            return <FoundDatabaseCard key={`${c.host}:${c.port}`} found={{ kind: "local", candidate: c }} saved={Boolean(match && onOpenSaved)} onActivate={open} />;
+          })}
+        </div>
+      ) : null}
+    </FoundGroup>
   );
 }

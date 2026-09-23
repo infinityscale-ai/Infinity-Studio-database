@@ -41,26 +41,33 @@ INFSTUDIO_STATIC_DIR=out bun run server/index.ts     # http://127.0.0.1:3867
 
 ## Finding databases
 
-The **Add Connection** screen starts with what is already running, and the first-run steps end
-with the same list:
+The **Add Connection** screen starts with what is already running, shown as the same cards as
+your saved connections (logo, name, provider, where it was found). The first-run steps end with
+the same cards. A found database you already saved is marked **Saved** and opens that connection
+instead of making a second one.
 
-- **Found on this machine** — the usual database ports, running Docker containers that publish
-  a database port (with the credentials from their environment) or share a network with the
-  studio, and `~/.pgpass` / `~/.my.cnf`. Pick one and the connection form opens filled in.
-- **Oracle Cloud databases** — uses the sign-in the OCI CLI keeps in `~/.oci` (a session from
+- **On this machine** — the usual database ports, running Docker containers that publish a
+  database port (with the credentials from their environment) or share a network with the
+  studio, and `~/.pgpass` / `~/.my.cnf`. Click a card and the connection form opens filled in.
+- **Oracle Cloud** — uses the sign-in the OCI CLI keeps in `~/.oci` (a session from
   `oci session authenticate`, or an API-key profile) and calls Oracle Cloud's API itself to list
   the MySQL HeatWave, OCI PostgreSQL and Autonomous databases of the tenancy. **Every one of
   those calls is a read: the studio has no code path that creates, changes or deletes anything
   in Oracle Cloud**, and a guard refuses any request that is not a read. When a session has
-  expired the studio says so in a dialog and refreshes it in one click.
+  expired the studio says so in a dialog and refreshes it in one click. Click a card, type a
+  database user and password (any user works, not only the admin), and it is saved like any
+  other connection, with an **Oracle Cloud** badge.
 
   Those databases answer only on private addresses. To reach one, the studio uses a Kubernetes
   cluster of yours that sits in the same network: opening the connection starts one small relay
-  pod, forwards its port to your machine, and removes the pod when you close the connection. It
-  needs `kubectl` where the studio runs, which the Docker image carries. Nothing is added to
-  Oracle Cloud and none of your manifests change. Autonomous databases still go through the
-  JDBC connection with their wallet (see the two *Oracle Autonomous* templates; the wallet one
-  needs `oraclepki.jar` beside `ojdbc11.jar`, which the Docker image already carries).
+  pod (image pinned by digest, no service-account token, read-only filesystem, all capabilities
+  dropped, stopped by the cluster after an hour at most), forwards its port to your machine, and
+  removes the pod when you close the connection or the studio. The link is encrypted all the
+  way: PostgreSQL is verified in full against the CA Oracle publishes for the DB system, MySQL
+  is encrypted. It needs `kubectl` where the studio runs, which the Docker image carries. Nothing
+  is added to Oracle Cloud and none of your manifests change. Autonomous databases still go
+  through the JDBC connection with their wallet (see the two *Oracle Autonomous* templates; the
+  wallet one needs `oraclepki.jar` beside `ojdbc11.jar`, which the Docker image already carries).
 
 In Docker, the compose file mounts the Docker socket read-only and maps
 `host.docker.internal` to your machine, so the studio in the container sees your other

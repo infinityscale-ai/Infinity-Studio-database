@@ -45,6 +45,8 @@ import { Connection } from "@/lib/db/schema";
 
 import { detectConnectionDbType } from "@/lib/db/connection-type";
 import { DiscoverSection } from "@/components/connections/discover-section";
+import { CardBadge, CONNECTION_CARD_CLASS, ConnectionCardHeader } from "@/components/connections/connection-card";
+import { isOciRouted } from "@/lib/discovery/saved-match";
 import { InfinityScaleBrand } from "@/components/shared/infinityscale-brand";
 import {
   buildConnectionStringFromFields,
@@ -3412,7 +3414,8 @@ export function ConnectionManager({
                                     dragReorderActiveRef.current = false;
                                   }}
                                   className={cn(
-                                    "group relative rounded-lg border border-studio-border/60 bg-card hover:bg-studio-row-hover hover:border-studio-border p-4 cursor-pointer",
+                                    CONNECTION_CARD_CLASS,
+                                    "cursor-pointer",
                                     openingConnectionId === conn.id &&
                                       "opacity-50 pointer-events-none",
                                     draggingConnectionId === conn.id &&
@@ -3421,9 +3424,9 @@ export function ConnectionManager({
                                       "ring-1 ring-primary/40",
                                   )}
                                 >
-                                  <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-3">
-                                      <div className="relative">
+                                  <ConnectionCardHeader
+                                    logo={
+                                      <>
                                         {provider === "spacetimedb" ? (
                                           <SpacetimeDbLogo className="h-[27px] w-[27px] text-foreground" />
                                         ) : (
@@ -3446,28 +3449,27 @@ export function ConnectionManager({
                                             <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
                                           </div>
                                         )}
-                                      </div>
-
-                                      <div>
-                                        <div className="flex items-center gap-2">
-                                          <h3 className="text-sm font-medium text-foreground truncate max-w-[120px]">
-                                            {conn.name}
-                                          </h3>
-                                          {env &&
-                                            (env === "production" ||
-                                              env === "staging") && (
-                                              <span
-                                                className={`text-xs font-boldpx-1 rounded border ${env === "production" ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"}`}
-                                              >
-                                                {env}
-                                              </span>
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-muted-foregroundtracking-tight">
-                                          {providerCard?.label}
-                                        </p>
-                                      </div>
-                                    </div>
+                                      </>
+                                    }
+                                    title={conn.name}
+                                    subtitle={providerCard?.label}
+                                    badges={
+                                      <>
+                                        {env &&
+                                          (env === "production" ||
+                                            env === "staging") && (
+                                            <span
+                                              className={`text-xs font-bold px-1 rounded border ${env === "production" ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"}`}
+                                            >
+                                              {env}
+                                            </span>
+                                          )}
+                                        {isOciRouted(conn.connectionString) && (
+                                          <CardBadge>Oracle Cloud</CardBadge>
+                                        )}
+                                      </>
+                                    }
+                                    actions={
                                     <div
                                       onClick={(event) =>
                                         event.stopPropagation()
@@ -3591,7 +3593,8 @@ export function ConnectionManager({
                                         </DropdownMenuContent>
                                       </DropdownMenu>
                                     </div>
-                                  </div>
+                                    }
+                                  />
 
                                   <button
                                     type="button"
@@ -3950,7 +3953,15 @@ export function ConnectionManager({
                     ref={connectionStringInputRef}
                   />
 
-                  <DiscoverSection onPick={applyPastedConnectionString} onSaved={() => void loadConnections()} />
+                  <DiscoverSection
+                    onPick={applyPastedConnectionString}
+                    onSaved={() => void loadConnections()}
+                    saved={connections}
+                    onOpenSaved={(id) => {
+                      const conn = connections.find((c) => c.id === id);
+                      if (conn) void openConnection(conn);
+                    }}
+                  />
 
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">

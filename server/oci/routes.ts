@@ -1,11 +1,12 @@
 import type { Express, Request, Response } from "express";
 import { buildKubeConnectionString } from "../../lib/db/kube-tunnel";
-import type { OciConnectRequest, OciDatabaseKind, OciDatabaseSummary, OciDatabaseTarget, OciProfile, OciRouteAnswer, OciStatus, OciTunnelResult } from "../../lib/oci/oci-database";
+import type { OciConnectRequest, OciDatabaseKind, OciDatabaseSummary, OciProfile, OciRouteAnswer, OciStatus, OciTunnelResult } from "../../lib/oci/oci-database";
 import { findKubectl } from "../k8s/kubectl";
 import { clientFor, OciApiError, type OciClient } from "./api";
 import { findOciBinary } from "./cli";
 import { findClusterForDatabase, type OkeCluster } from "./clusters";
-import { describeDatabase, listDatabases } from "./inventory";
+import { databaseUrl, type DatabaseLogin } from "./database-url";
+import { describeDatabase, listDatabases, readPostgresTls } from "./inventory";
 import { publicProfile, readCredentialProfiles, type OciCredentialProfile } from "./profiles";
 import { authenticateInBrowser, sessionValidity, signInCommand } from "./session-login";
 
@@ -17,9 +18,6 @@ export type OciRouteDeps = {
   kubectlBinary: () => string | null;
   login: (profile: OciProfile, binary: string | null) => Promise<void>;
 };
-
-/** The database login the user typed. */
-type DatabaseLogin = { username: string; password: string; database: string };
 
 /** A request the routes refuse, with the status to say so. */
 class RouteError extends Error {
@@ -41,8 +39,8 @@ const DEFAULT_DEPS: OciRouteDeps = {
 };
 
 const KINDS: ReadonlySet<string> = new Set<OciDatabaseKind>(["mysql", "postgres", "autonomous"]);
-/** Where the throwaway relay pod runs unless the caller names another namespace. */
-const DEFAULT_NAMESPACE = "default";
+/** Where the throwaway relay pod runs; the user never has to pick one. */
+const RELAY_NAMESPACE = "default";
 
 // statusOf reports the sign-in found on this machine, what it can still do, and each session's validity.
 function statusOf(deps: OciRouteDeps): OciStatus {
@@ -86,15 +84,6 @@ async function resolveRoute(deps: OciRouteDeps, body: Record<string, unknown>): 
   return { target, cluster: cluster ? { id: cluster.id, name: cluster.name, publicEndpoint: cluster.publicEndpoint } : null };
 }
 
-// directConnectionString is the plain connection string for the database's own private address.
-function directConnectionString(target: OciDatabaseTarget, login: DatabaseLogin): string {
-  const scheme = target.engine === "mysql" ? "mysql" : "postgresql";
-  const auth = `${encodeURIComponent(login.username)}:${encodeURIComponent(login.password)}@`;
-  const db = login.database ? `/${encodeURIComponent(login.database)}` : "";
-  const query = target.engine === "postgres" ? "?sslmode=require" : "";
-  return `${scheme}://${auth}${target.privateIp}:${target.port}${db}${query}`;
-}
-
 // buildConnection settles the route and returns the connection string that carries it through the user's own cluster.
 async function buildConnection(deps: OciRouteDeps, body: Record<string, unknown>): Promise<OciTunnelResult> {
   const request: OciConnectRequest = { profile: String(body.profile ?? ""), database: summaryFrom(body.database), login: loginFrom(body.login) };
@@ -103,9 +92,10 @@ async function buildConnection(deps: OciRouteDeps, body: Record<string, unknown>
   if (answer.target.engine === "oracle") throw new RouteError(409, "Autonomous Database is not supported on this route yet; use its wallet with the JDBC connection.", "oci_engine_unsupported");
   if (!answer.cluster) throw new RouteError(409, "None of your Kubernetes clusters sits in this database's network, so the studio has no way in that adds nothing to Oracle Cloud.", "oci_no_cluster");
   if (!deps.kubectlBinary()) throw new RouteError(409, "kubectl is not installed where the studio runs, so it cannot open a tunnel into your cluster.", "oci_kubectl_missing");
-  const namespace = typeof body.namespace === "string" && body.namespace.trim() ? body.namespace.trim() : DEFAULT_NAMESPACE;
-  const connectionString = buildKubeConnectionString(directConnectionString(answer.target, request.login), { profile: profile.name, cluster: answer.cluster.id, namespace });
-  return { connectionString, target: answer.target, cluster: answer.cluster, namespace };
+  const pgTls = answer.target.engine === "postgres" ? await readPostgresTls(deps.client(profile), answer.target.id) : null;
+  const direct = databaseUrl(answer.target, request.login, pgTls);
+  const connectionString = buildKubeConnectionString(direct, { profile: profile.name, cluster: answer.cluster.id, namespace: RELAY_NAMESPACE });
+  return { connectionString, target: answer.target, cluster: answer.cluster, namespace: RELAY_NAMESPACE };
 }
 
 // statusFor maps a failure to the HTTP status and code the panel keys its next step on.

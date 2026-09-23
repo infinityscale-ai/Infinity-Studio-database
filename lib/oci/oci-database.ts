@@ -1,4 +1,7 @@
-/** The OCI database services the studio can reach through a bastion. */
+/** Marks a saved connection with the Oracle Cloud database it came from, so the list can tell it is already saved. */
+export const OCI_DATABASE_PARAM = "infstudio_oci_db";
+
+/** The OCI database services the studio can reach through the user's own cluster. */
 export type OciDatabaseKind = "mysql" | "postgres" | "autonomous";
 
 /** One database found in the tenancy by Resource Search. */
@@ -31,8 +34,8 @@ export type OciProfileStatus = OciProfile & { sessionValid: boolean | null; vali
 /** What the OCI panel learns before listing anything: sign-in files found, whether the browser sign-in and kubectl can run here, and the profiles. */
 export type OciStatus = { configured: boolean; cliAvailable: boolean; kubectlAvailable: boolean; profiles: OciProfileStatus[] };
 
-/** What the panel sends to open a connection through a bastion. */
-export type OciConnectRequest = { profile: string; database: OciDatabaseSummary; login: { username: string; password: string; database: string }; namespace?: string };
+/** What the panel sends to save a connection that goes through the user's own cluster. */
+export type OciConnectRequest = { profile: string; database: OciDatabaseSummary; login: { username: string; password: string; database: string } };
 
 /** What the panel gets back when it asks how a database would be reached. */
 export type OciRouteAnswer = { target: OciDatabaseTarget; cluster: OciCarrierCluster | null };

@@ -38,6 +38,7 @@ export type OciClient = {
   search: (query: string) => Promise<ApiRecord[]>;
   getMysqlDbSystem: (id: string) => Promise<ApiRecord>;
   getPostgresDbSystem: (id: string) => Promise<ApiRecord>;
+  getPostgresConnectionDetails: (id: string) => Promise<ApiRecord>;
   getAutonomousDatabase: (id: string) => Promise<ApiRecord>;
   getSubnet: (id: string) => Promise<ApiRecord>;
   listClusters: (compartmentId: string) => Promise<ApiRecord[]>;
@@ -121,6 +122,7 @@ export function createOciClient(region: string, send: OciTransport): OciClient {
     search: async (query) => list(rec(send("query", "POST", "/resources", { type: "Structured", query })).then((r) => r.items)),
     getMysqlDbSystem: (id) => rec(send("mysql", "GET", `/dbSystems/${encodeURIComponent(id)}`)),
     getPostgresDbSystem: (id) => rec(send("postgresql", "GET", `/dbSystems/${encodeURIComponent(id)}`)),
+    getPostgresConnectionDetails: (id) => rec(send("postgresql", "GET", `/dbSystems/${encodeURIComponent(id)}/connectionDetails`)),
     getAutonomousDatabase: (id) => rec(send("database", "GET", `/autonomousDatabases/${encodeURIComponent(id)}`)),
     getSubnet: (id) => rec(send("iaas", "GET", `/subnets/${encodeURIComponent(id)}`)),
     listClusters: (compartmentId) => list(rec(send("containerengine", "GET", `/clusters?compartmentId=${encodeURIComponent(compartmentId)}&limit=100`)).then((r) => r.items ?? r)),

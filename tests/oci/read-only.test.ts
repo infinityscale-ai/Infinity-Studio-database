@@ -4,6 +4,7 @@ import { assertReadOnly, createOciClient, serviceUrl, type OciTransport } from "
 describe("assertReadOnly", () => {
   test("every GET is allowed", () => {
     expect(() => assertReadOnly("iaas", "GET", "/subnets/x")).not.toThrow();
+    expect(() => assertReadOnly("postgresql", "GET", "/dbSystems/ocid1.postgresqldbsystem.x/connectionDetails")).not.toThrow();
   });
   test("the two reads expressed as POST are allowed", () => {
     expect(() => assertReadOnly("query", "POST", "/resources")).not.toThrow();
@@ -26,10 +27,11 @@ describe("the client surface", () => {
       return path === "/resources" ? { items: [] } : path.endsWith("/kubeconfig/content") ? "apiVersion: v1" : { id: "x" };
     };
     const c = createOciClient("af-casablanca-1", send);
-    expect(Object.keys(c).sort()).toEqual(["getAutonomousDatabase", "getClusterKubeconfig", "getMysqlDbSystem", "getPostgresDbSystem", "getSubnet", "listClusters", "region", "search"].sort());
+    expect(Object.keys(c).sort()).toEqual(["getAutonomousDatabase", "getClusterKubeconfig", "getMysqlDbSystem", "getPostgresConnectionDetails", "getPostgresDbSystem", "getSubnet", "listClusters", "region", "search"].sort());
+    await c.getPostgresConnectionDetails("ocid1.postgresqldbsystem.x");
     await c.listClusters("ocid1.tenancy.x");
     await c.getClusterKubeconfig("ocid1.cluster.x");
-    expect(seen).toEqual(["containerengine GET /clusters?compartmentId=ocid1.tenancy.x&limit=100", "containerengine POST /clusters/ocid1.cluster.x/kubeconfig/content"]);
+    expect(seen).toEqual(["postgresql GET /dbSystems/ocid1.postgresqldbsystem.x/connectionDetails", "containerengine GET /clusters?compartmentId=ocid1.tenancy.x&limit=100", "containerengine POST /clusters/ocid1.cluster.x/kubeconfig/content"]);
   });
   test("the container engine endpoint follows the SDK template", () => {
     expect(serviceUrl("containerengine", "af-casablanca-1", "/clusters").toString()).toBe("https://containerengine.af-casablanca-1.oci.oraclecloud.com/20180222/clusters");

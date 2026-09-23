@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ApiRecord, OciClient } from "../../server/oci/api";
-import { describeDatabase, listDatabases, summarizeSearchItem } from "../../server/oci/inventory";
+import { describeDatabase, listDatabases, readPostgresTls, summarizeSearchItem } from "../../server/oci/inventory";
 
 const MYSQL_RAW = { displayName: "Preprod_DB", lifecycleState: "ACTIVE", mysqlVersion: "8.4.11", subnetId: "ocid1.subnet.oc1..s1", endpoints: [{ ipAddress: "10.0.10.111", port: 3306, portX: 33060 }] };
 const PG_RAW = { displayName: "postgres-db", lifecycleState: "ACTIVE", dbVersion: "16.13", adminUsername: "admin", networkDetails: { subnetId: "ocid1.subnet.oc1..s2", primaryDbEndpointPrivateIp: "10.0.10.110" } };
@@ -22,6 +22,7 @@ function fakeClient(over: Partial<OciClient> = {}): OciClient & { calls: string[
     },
     getMysqlDbSystem: rec("mysql", MYSQL_RAW),
     getPostgresDbSystem: rec("postgres", PG_RAW),
+    getPostgresConnectionDetails: rec("pg-details", { caCertificate: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n", primaryDbEndpoint: { fqdn: "primary.postgres-db.oraclevcn.com", port: 5432 } }),
     getAutonomousDatabase: rec("adb", { dbName: "adb1", dbVersion: "23ai" }),
     getSubnet: rec("subnet", SUBNET_RAW),
     listClusters: async () => [],
@@ -61,5 +62,15 @@ describe("describeDatabase", () => {
   test("an Autonomous Database without a private endpoint has no address to tunnel to", async () => {
     const t = await describeDatabase(fakeClient(), { id: "a1", kind: "autonomous", name: "adb1", state: "AVAILABLE", compartmentId: "c" });
     expect(t).toMatchObject({ engine: "oracle", privateIp: "", port: 1522, adminUser: "ADMIN", dbName: "adb1", vcnId: "" });
+  });
+});
+
+describe("readPostgresTls", () => {
+  test("reads the CA and the endpoint name Oracle publishes, with one GET", async () => {
+    const client = fakeClient();
+    const tls = await readPostgresTls(client, "p1");
+    expect(tls.caCertificate).toContain("BEGIN CERTIFICATE");
+    expect(tls.fqdn).toBe("primary.postgres-db.oraclevcn.com");
+    expect(client.calls).toEqual(["pg-details p1"]);
   });
 });

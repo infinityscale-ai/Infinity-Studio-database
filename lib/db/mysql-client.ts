@@ -1,4 +1,5 @@
 import type { FieldPacket, OkPacket, RowDataPacket } from "mysql2/promise";
+import { readTlsParams } from "./tls-params";
 import { inferFieldsFromRows } from "./field-utils";
 import { startTunnelIfNeeded } from "./db-tunnel";
 import type { TunnelHandle } from "./ssh-tunnel";
@@ -105,9 +106,20 @@ function getMysqlPassword(connectionString: string): string {
   return parseMysqlConfig(connectionString).password;
 }
 
+// getMysqlSslConfig turns sslmode into mysql2's ssl option; verification stays on unless the string carries infstudio_tls_verify=0.
 function getMysqlSslConfig(connectionString: string) {
   const sslMode = parseMysqlConfig(connectionString).sslMode;
-  return sslMode === "disable" ? undefined : { rejectUnauthorized: true };
+  if (sslMode === "disable") return undefined;
+  return { rejectUnauthorized: mysqlTlsVerify(connectionString) };
+}
+
+// mysqlTlsVerify reads whether the connection string wants the server certificate verified; true unless it says otherwise.
+function mysqlTlsVerify(connectionString: string): boolean {
+  try {
+    return readTlsParams(new URL(normalizeMysqlConnectionString(connectionString)).searchParams).verify;
+  } catch {
+    return true;
+  }
 }
 
 function quoteIdentifier(value: string) {

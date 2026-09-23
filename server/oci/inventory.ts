@@ -91,3 +91,12 @@ export async function describeDatabase(client: OciClient, summary: OciDatabaseSu
   if (summary.kind === "postgres") return postgresTarget(summary, raw, subnet);
   return autonomousTarget(summary, raw, subnet);
 }
+
+/** What a client needs to verify an OCI PostgreSQL server: its CA and the name its certificate carries. */
+export type PostgresTls = { caCertificate: string; fqdn: string };
+
+// readPostgresTls reads the CA and endpoint name Oracle publishes for a PostgreSQL system; a read, nothing more.
+export async function readPostgresTls(client: OciClient, dbSystemId: string): Promise<PostgresTls> {
+  const details = await client.getPostgresConnectionDetails(dbSystemId);
+  return { caCertificate: str(details, "caCertificate"), fqdn: str(rec(details, "primaryDbEndpoint"), "fqdn") };
+}
