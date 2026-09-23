@@ -31,6 +31,7 @@ export function OciConnectForm({ profile, database, onBack, onSaved }: FormProps
   const [password, setPassword] = useState("");
   const [dbName, setDbName] = useState("");
   const [namespace, setNamespace] = useState("default");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const resolve = useCallback(async () => {
@@ -83,16 +84,20 @@ export function OciConnectForm({ profile, database, onBack, onSaved }: FormProps
               <Input id="oci-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="oci-db">Database name <span className="text-muted-foreground">(optional)</span></Label>
-              <Input id="oci-db" value={dbName} onChange={(e) => setDbName(e.target.value)} autoComplete="off" />
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="oci-db">Database name <span className="text-muted-foreground">(optional)</span></Label>
+            <Input id="oci-db" value={dbName} onChange={(e) => setDbName(e.target.value)} autoComplete="off" />
+          </div>
+          {showAdvanced ? (
             <div className="space-y-1">
               <Label htmlFor="oci-ns">Cluster namespace</Label>
               <Input id="oci-ns" value={namespace} onChange={(e) => setNamespace(e.target.value)} autoComplete="off" placeholder="default" />
             </div>
-          </div>
+          ) : (
+            <button type="button" onClick={() => setShowAdvanced(true)} className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+              Change the cluster namespace
+            </button>
+          )}
           {saveError && <p className="text-sm text-destructive">{saveError}</p>}
           <Button type="submit" size="sm" className="gap-1.5" disabled={step.status === "connecting"}>
             <ShieldCheck className="size-3.5" aria-hidden /> {step.status === "connecting" ? "Saving…" : "Connect"}
