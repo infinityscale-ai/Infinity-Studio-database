@@ -115,12 +115,15 @@ function StepNote({ step, onCreate, onRetry }: { step: Step; onCreate: () => voi
     );
   }
   if (step.status === "needs-bastion") {
+    const t = step.answer.target;
     return (
       <div className="mt-1 space-y-2">
         <p className="text-xs text-muted-foreground">
-          No bastion targets this network yet. Creating one (free, key-gated, deletable) lets the studio reach {step.answer.target.privateIp}:{step.answer.target.port} without a public endpoint.
+          {t.name} answers only on the private address {t.privateIp}:{t.port}, so the studio needs a way into the network it already lives in.
+          A bastion is a free Oracle service placed inside that same network: it forwards this one port to the studio for up to three hours and creates nothing else.
+          One bastion serves every database in the network, and one connection opens every schema in this system.
         </p>
-        <Button size="sm" variant="outline" onClick={onCreate}>Create a bastion in this VCN</Button>
+        <Button size="sm" variant="outline" onClick={onCreate}>Add a bastion to this network</Button>
       </div>
     );
   }
