@@ -19,9 +19,9 @@ import {
   getPgDatabase,
   getPgHost,
   getPgPort,
-  getPgSslConfig,
   isPostgresConnection,
 } from "./pg-connection";
+import { getPgSslConfig } from "./pg-ssl";
 import {
   SUPABASE_DUMP_EXCLUDED_SCHEMA_PATTERNS,
   isLikelySupabaseConnection,
@@ -338,7 +338,7 @@ export async function applyPostgresSchemaToTarget(
       user: getPgUsername(effectiveTargetConnectionString),
       password: getPgPassword(effectiveTargetConnectionString),
       connectionTimeoutMillis: 15000,
-      ssl: getPgSslConfig(effectiveTargetConnectionString),
+      ssl: await getPgSslConfig(effectiveTargetConnectionString),
     });
 
     await client.connect();

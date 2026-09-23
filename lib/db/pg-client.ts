@@ -14,6 +14,7 @@ try {
 import type { QueryExecutionContext } from "@/lib/studio/table-permissions";
 import { startSshTunnelIfNeeded, type TunnelHandle } from "./ssh-tunnel";
 import { normalizePgConnectionString, validateSslMode, recoverPgCredentials } from "./pg-connection";
+import { getPgSslConfig } from "./pg-ssl";
 import { quotePgIdentifier } from "./quote-identifier";
 type ExecuteQueryOptions = {
   queryId?: string;
@@ -137,10 +138,6 @@ function getPgPort(connectionString: string): number {
   return parsePgConfig(connectionString).port;
 }
 
-function getPgSslConfig(connectionString: string) {
-  const sslMode = parsePgConfig(connectionString).sslMode;
-  return sslMode === "disable" ? false : { rejectUnauthorized: false };
-}
 
 
 
@@ -166,7 +163,7 @@ async function getPgPoolEntry(connectionString: string) {
       connectionTimeoutMillis: 15000,
       idleTimeoutMillis: 30000,
       max: 6,
-      ssl: getPgSslConfig(effectiveConnectionString),
+      ssl: await getPgSslConfig(effectiveConnectionString),
     });
 
     pool.on("error", (error: Error) => {
@@ -329,7 +326,7 @@ export async function cancelQueryById(queryId: string): Promise<boolean> {
     user: getPgUsername(running.effectiveConnectionString),
     password: getPgPassword(running.effectiveConnectionString),
     connectionTimeoutMillis: 8000,
-    ssl: getPgSslConfig(running.effectiveConnectionString),
+    ssl: await getPgSslConfig(running.effectiveConnectionString),
   });
 
   try {
@@ -523,7 +520,7 @@ export async function updateRows(
     database: getPgDatabase(effectiveConnectionString),
     user: getPgUsername(effectiveConnectionString),
     password: getPgPassword(effectiveConnectionString),
-    ssl: getPgSslConfig(effectiveConnectionString),
+    ssl: await getPgSslConfig(effectiveConnectionString),
   });
 
   try {

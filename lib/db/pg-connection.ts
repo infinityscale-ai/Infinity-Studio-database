@@ -61,23 +61,6 @@ export function getPgPort(connectionString: string): number {
   }
 }
 
-export function getPgSslConfig(connectionString: string) {
-  try {
-    const parsed = new URL(normalizePgConnectionString(connectionString));
-    const rawSslMode = String(parsed.searchParams.get("sslmode") || "prefer").toLowerCase();
-    const sslMode = ["disable", "allow", "prefer", "require", "verify-ca", "verify-full"].includes(rawSslMode)
-      ? rawSslMode
-      : "prefer";
-    if (sslMode === "disable") return false;
-    if (sslMode === "verify-full" || sslMode === "verify-ca") {
-      return { rejectUnauthorized: true };
-    }
-    return { rejectUnauthorized: false };
-  } catch {
-    return false;
-  }
-}
-
 export function recoverPgCredentials(params: {
   password: string;
   database: string;

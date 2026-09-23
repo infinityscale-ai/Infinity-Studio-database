@@ -1,6 +1,7 @@
 import {
-  normalizePgConnectionString, isPostgresConnection, getPgPassword, getPgHost, getPgPort, getPgDatabase, getPgUsername, getPgSslConfig,
+  normalizePgConnectionString, isPostgresConnection, getPgPassword, getPgHost, getPgPort, getPgDatabase, getPgUsername,
 } from "./pg-connection";
+import { getPgSslConfig } from "./pg-ssl";
 import { resolvePgDumpBinary } from "./pg-dump";
 import { isLikelySupabaseConnection, isSupabaseExcludedSchema } from "./supabase-helpers";
 
@@ -258,7 +259,7 @@ export async function resetAndApplySql(connectionString: string, fullSql: string
     user: getPgUsername(connectionString),
     password: getPgPassword(connectionString),
     connectionTimeoutMillis: 15000,
-    ssl: getPgSslConfig(connectionString),
+    ssl: await getPgSslConfig(connectionString),
   });
 
   await client.connect();

@@ -10,7 +10,6 @@ import {
   getPgDatabase,
   getPgUsername,
   getPgPassword,
-  getPgSslConfig,
 } from "./pg-connection";
 import {
   isLikelySupabaseConnection,
