@@ -29,6 +29,7 @@ function cfg(embedMode: boolean): ServerConfig {
     port: 3867, bind: "127.0.0.1", strictPort: true, staticDir: null, dataDir: "/tmp", apiKey: "",
     allowUnauthenticated: false, corsOrigins: [], embedMode, embedAllowedOrigins: [], consoleOrigin: null,
     embedTheme: null, admin: null, mcpDisabled: true,
+    localTools: false,
   };
 }
 
