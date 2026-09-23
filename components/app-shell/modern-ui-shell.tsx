@@ -411,6 +411,7 @@ export function ModernUIShell({
 					canForward={canForward}
 					connection={studio?.connection ?? null}
 					onSelectConnection={onHeaderSelectConnection}
+					onHome={onHome}
 				/>
 				{/* Row of the rail + sidebar/content area. Grows to fill the window
 				    so the footer can sit at the very bottom. When the status bar is

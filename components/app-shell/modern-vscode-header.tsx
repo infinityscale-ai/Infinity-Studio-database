@@ -1,6 +1,6 @@
 "use client";
 
-import { InfinityScaleBrand } from "@/components/shared/infinityscale-brand";
+import { StudioReturn } from "@/components/app-shell/studio-return";
 import { Button } from "@/components/ui/button";
 import { NavUser } from "@/components/navigation/nav-user";
 import {
@@ -71,6 +71,7 @@ export function ModernVscodeHeader({
   user,
   onOpenSettings,
   settingsActive,
+  onHome,
 }: {
   /** Height of the strip between the window top and the content container. */
   height?: number;
@@ -112,6 +113,8 @@ export function ModernVscodeHeader({
   /** Optional settings button action for the title bar. */
   onOpenSettings?: () => void;
   settingsActive?: boolean;
+  /** Returns to the connections page; without it the title bar navigates to the app root itself. */
+  onHome?: () => void;
 }) {
   // Compact title-bar controls so the cluster sits cleanly inside the ~36px
   // strip above the content cards (mt-9 / pt-9).
@@ -147,7 +150,7 @@ export function ModernVscodeHeader({
       }}
     >
       <div className="relative z-10 flex items-center">
-        <InfinityScaleBrand compact />
+        <StudioReturn onHome={onHome} />
       </div>
       {/* True horizontal center of the title bar (not biased by the right chrome). */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
