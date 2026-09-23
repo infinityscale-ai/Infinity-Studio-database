@@ -94,9 +94,11 @@ export function OciConnectForm({ profile, database, onBack, onSaved }: FormProps
               <Input id="oci-ns" value={namespace} onChange={(e) => setNamespace(e.target.value)} autoComplete="off" placeholder="default" />
             </div>
           ) : (
-            <button type="button" onClick={() => setShowAdvanced(true)} className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
-              Change the cluster namespace
-            </button>
+            <div>
+              <button type="button" onClick={() => setShowAdvanced(true)} className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                Change the cluster namespace
+              </button>
+            </div>
           )}
           {saveError && <p className="text-sm text-destructive">{saveError}</p>}
           <Button type="submit" size="sm" className="gap-1.5" disabled={step.status === "connecting"}>
