@@ -1,7 +1,10 @@
 # Standalone Infinity Studio (full image) + an optional demo Postgres.
 #
-#   INFSTUDIO_API_KEY=... INFSTUDIO_ADMIN_KEY=... docker compose up -d
-#   docker compose --profile demo up -d      # also starts demo Postgres
+#   docker compose up -d                       # local use: http://localhost:3867, no access key
+#   docker compose --profile demo up -d        # also starts a demo Postgres
+#
+# The UI is published on 127.0.0.1 only. To reach it from other machines, set
+# INFSTUDIO_API_KEY (the login key) and change the port mapping to "3867:3867".
 #
 # Inside the compose network the demo database is reachable at
 #   postgres://postgres:demo@postgres:5432/demo
@@ -13,16 +16,18 @@ services:
       target: full
     image: infinity-studio:full
     ports:
-      - "3867:3867"            # web UI + API
-      - "127.0.0.1:3868:3868"  # admin API (embed sessions) — loopback only
+      - "${INFSTUDIO_LISTEN:-127.0.0.1}:3867:3867"   # web UI + API
     volumes:
       - studio-data:/data
     environment:
-      INFSTUDIO_API_KEY: ${INFSTUDIO_API_KEY:?set INFSTUDIO_API_KEY (login key for the web UI)}
-      INFSTUDIO_ADMIN_KEY: ${INFSTUDIO_ADMIN_KEY:?set INFSTUDIO_ADMIN_KEY (at least 32 chars)}
-      INFSTUDIO_ADMIN_PORT: "3868"
-      INFSTUDIO_ADMIN_BIND: "0.0.0.0"
-      INFSTUDIO_EMBED_ALLOWED_ORIGINS: ${INFSTUDIO_EMBED_ALLOWED_ORIGINS:-}
+      INFSTUDIO_API_KEY: ${INFSTUDIO_API_KEY:-}
+      # Only consulted when INFSTUDIO_API_KEY is empty: the port above is loopback-only by default.
+      INFSTUDIO_ALLOW_UNAUTHENTICATED: "1"
+      # Embedding in a hosting console needs the admin listener; see deploy docs in README.
+      # INFSTUDIO_ADMIN_PORT: "3868"
+      # INFSTUDIO_ADMIN_BIND: "0.0.0.0"
+      # INFSTUDIO_ADMIN_KEY: ${INFSTUDIO_ADMIN_KEY:-}
+      # INFSTUDIO_EMBED_ALLOWED_ORIGINS: ${INFSTUDIO_EMBED_ALLOWED_ORIGINS:-}
     restart: unless-stopped
 
   postgres:
