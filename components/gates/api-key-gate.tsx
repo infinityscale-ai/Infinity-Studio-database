@@ -51,6 +51,20 @@ export function ApiKeyGate({ children }: { children: ReactNode }) {
     void probe();
   }, [probe]);
 
+  // A locked or unreachable gate asks again whenever the window comes back, so a server that stopped requiring a key is noticed without a reload.
+  useEffect(() => {
+    if (!applies || status === "ready" || status === "checking") return;
+    const again = () => {
+      if (document.visibilityState === "visible") void probe();
+    };
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", again);
+    return () => {
+      window.removeEventListener("focus", again);
+      document.removeEventListener("visibilitychange", again);
+    };
+  }, [applies, status, probe]);
+
   useEffect(() => {
     if (!applies) return;
     const onUnauthorized = (event: Event) => {
