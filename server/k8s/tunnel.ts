@@ -2,6 +2,7 @@ import net from "node:net";
 import type { ChildProcess } from "node:child_process";
 import { clientFor } from "../oci/api";
 import { readCredentialProfiles, type OciCredentialProfile } from "../oci/profiles";
+import { requireLiveSession } from "../oci/session-login";
 import { findKubectl, KubectlMissingError, runKubectl, spawnPortForward } from "./kubectl";
 import { readServerAndCa, writeKubeconfig, type KubeconfigFile } from "./kubeconfig";
 import { mintOkeToken } from "./oke-token";
@@ -36,7 +37,7 @@ export function freePort(): Promise<number> {
 // profileNamed finds the signing profile a tunnel request names.
 function profileNamed(name: string): OciCredentialProfile {
   const profile = readCredentialProfiles().find((p) => p.name === name);
-  if (!profile) throw new Error(`No Oracle Cloud profile named ${name} in this machine's configuration.`);
+  if (!profile) throw new Error(`No Oracle Cloud profile named ${name} on this computer. Run: oci session authenticate --profile-name ${name}`);
   return profile;
 }
 
@@ -83,6 +84,7 @@ async function startKubeTunnel(request: KubeTunnelRequest): Promise<KubeTunnel> 
   const binary = findKubectl();
   if (!binary) throw new KubectlMissingError();
   const profile = profileNamed(request.profileName);
+  requireLiveSession(profile);
   const config = await prepareKubeconfig(profile, request.clusterId);
   const podName = relayPodName();
   let child: ChildProcess | null = null;

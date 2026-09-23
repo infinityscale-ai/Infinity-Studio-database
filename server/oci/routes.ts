@@ -7,8 +7,8 @@ import { findOciBinary } from "./cli";
 import { findClusterForDatabase, type OkeCluster } from "./clusters";
 import { databaseUrl, type DatabaseLogin } from "./database-url";
 import { describeDatabase, listDatabases, readPostgresTls } from "./inventory";
-import { publicProfile, readCredentialProfiles, type OciCredentialProfile } from "./profiles";
-import { authenticateInBrowser, sessionValidity, signInCommand } from "./session-login";
+import { publicProfile, readCredentialProfiles, signInCommand, type OciCredentialProfile } from "./profiles";
+import { authenticateInBrowser, sessionValidity } from "./session-login";
 
 /** How the routes reach the machine and the cloud; injected so tests never touch either. */
 export type OciRouteDeps = {
@@ -126,7 +126,7 @@ export function mountOciRoutes(app: Express, deps: OciRouteDeps = DEFAULT_DEPS):
   app.post("/api/oci/login", handle(async (req) => {
     const profile = profileNamed(deps, (req.body ?? {}).profile);
     const binary = deps.cliBinary();
-    if (!binary) throw new RouteError(409, `Sign in on this computer with: ${signInCommand(profile)}`, "oci_cli_missing");
+    if (!binary) throw new RouteError(409, `Sign in on this computer. Run: ${signInCommand(profile)}`, "oci_cli_missing");
     await deps.login(publicProfile(profile), binary);
     return { ok: true };
   }));

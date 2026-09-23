@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import type { OciCredentialProfile } from "./profiles";
+import { signInCommand, type OciCredentialProfile } from "./profiles";
 import { readSessionToken } from "./session-token";
 import { apiKeyId, loadPrivateKey, sessionKeyId, signRequest, type SigningIdentity } from "./signer";
 
@@ -101,7 +101,7 @@ export function signedTransport(profile: OciCredentialProfile, domain: string = 
     const headers = signRequest({ method, url, body: payload }, identity);
     const res = await fetch(url, { method, headers, body: payload ?? undefined, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     const text = await res.text();
-    if (res.status === 401) throw new OciApiError("session-expired", "Oracle Cloud rejected the sign-in; the session has probably expired.", 401);
+    if (res.status === 401) throw new OciApiError("session-expired", `Oracle Cloud rejected the sign-in; the session has probably expired. Run: ${signInCommand(profile)}`, 401);
     if (res.status === 404 && /NotAuthorizedOrNotFound/.test(text)) throw new OciApiError("failed", "Oracle Cloud refused this request: the session may have expired, the sign-in lacks permission, or the resource is gone.", 404);
     if (!res.ok) throw new OciApiError("failed", errorMessage(res.status, text), res.status);
     if (!text) return null;

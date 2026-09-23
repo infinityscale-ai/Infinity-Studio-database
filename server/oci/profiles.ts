@@ -89,3 +89,8 @@ export function readCredentialProfiles(dir: string = ociConfigDir()): OciCredent
 export function readOciProfiles(dir: string = ociConfigDir()): OciProfile[] {
   return readCredentialProfiles(dir).map(publicProfile);
 }
+
+// signInCommand is what the user runs on their own computer to (re)create a session for a profile.
+export function signInCommand(profile: Pick<OciProfile, "name" | "region">): string {
+  return `oci session authenticate --profile-name ${profile.name} --region ${profile.region}`;
+}

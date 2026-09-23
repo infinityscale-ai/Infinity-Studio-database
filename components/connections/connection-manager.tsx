@@ -47,6 +47,8 @@ import { detectConnectionDbType } from "@/lib/db/connection-type";
 import { DiscoverSection } from "@/components/connections/discover-section";
 import { CardBadge, CONNECTION_CARD_CLASS, ConnectionCardHeader } from "@/components/connections/connection-card";
 import { isOciRouted } from "@/lib/discovery/saved-match";
+import { adviseOnFailure } from "@/lib/db/connection-failure";
+import { ConnectionFailureDetails } from "@/components/connections/connection-failure-details";
 import { InfinityScaleBrand } from "@/components/shared/infinityscale-brand";
 import {
   buildConnectionStringFromFields,
@@ -385,6 +387,8 @@ export function ConnectionManager({
     connectionName: string;
     message: string;
     error: string;
+    connectionString?: string;
+    connectionId?: number;
   };
 
   useEffect(() => {
@@ -1872,6 +1876,8 @@ export function ConnectionManager({
       connectionName: string;
       message?: string;
       error: string;
+      connectionString?: string;
+      connectionId?: number;
     }) => {
       setConnectionFailureDialog({
         open: true,
@@ -1880,6 +1886,8 @@ export function ConnectionManager({
         message:
           params.message ?? `Unable to connect to "${params.connectionName}".`,
         error: params.error,
+        connectionString: params.connectionString,
+        connectionId: params.connectionId,
       });
     },
     [],
@@ -1932,6 +1940,8 @@ export function ConnectionManager({
             connectionName: conn.name,
             error: res.error ?? "Connection failed.",
             message: `Unable to connect to "${conn.name}".`,
+            connectionString: conn.connectionString,
+            connectionId: conn.id,
           });
           setOpeningConnectionId(null);
           return;
@@ -1941,6 +1951,8 @@ export function ConnectionManager({
           connectionName: conn.name,
           error: err instanceof Error ? err.message : String(err),
           message: `Unable to connect to "${conn.name}".`,
+          connectionString: conn.connectionString,
+          connectionId: conn.id,
         });
         setOpeningConnectionId(null);
         return;
@@ -2184,9 +2196,13 @@ export function ConnectionManager({
           name.trim() ||
           buildConnectionNameFromDetails(candidate, selectedProvider),
         error: res.error ?? "Connection failed.",
+        connectionString: candidate,
       });
     }
   };
+
+  const failureAdvice = adviseOnFailure(connectionFailureDialog.error, connectionFailureDialog.connectionString ?? "");
+  const failedConnection = connections.find((c) => c.id === connectionFailureDialog.connectionId) ?? null;
 
   const filteredConnections = (() => {
     const filtered = connections.filter((conn) => {
@@ -2945,46 +2961,30 @@ export function ConnectionManager({
           >
             <DialogHeader>
               <div className="min-w-0 space-y-1">
-                <DialogTitle>{connectionFailureDialog.title}</DialogTitle>
+                <DialogTitle>{failureAdvice.kind === "unknown" ? connectionFailureDialog.title : failureAdvice.title}</DialogTitle>
                 <DialogDescription className="break-words">
                   {connectionFailureDialog.message}
                 </DialogDescription>
               </div>
             </DialogHeader>
 
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Check the connection details and make sure:
-                </p>
-                <ul className="space-y-1 text-sm text-foreground/85">
-                  <li className="ml-4 list-disc">
-                    The database server is running and reachable.
-                  </li>
-                  <li className="ml-4 list-disc">
-                    The host, port, database, username, and password are
-                    correct.
-                  </li>
-                  <li className="ml-4 list-disc">
-                    Your network, VPN, SSH tunnel, or firewall is not blocking
-                    the connection.
-                  </li>
-                </ul>
-              </div>
+            <ConnectionFailureDetails advice={failureAdvice} error={connectionFailureDialog.error} />
 
-              <div className="rounded-lg border border-destructive/25 bg-destructive/8 px-4 py-3">
-                <p className="mb-1 text-xs font-mediumtracking-[0.14em] text-destructive/80">
-                  Error details
-                </p>
-                <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-destructive">
-                  {connectionFailureDialog.error}
-                </pre>
-              </div>
-            </div>
-
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:flex-row">
+              {failureAdvice.kind === "login-rejected" && failedConnection ? (
+                <Button
+                  variant="outline"
+                  className="w-full sm:flex-1"
+                  onClick={() => {
+                    setConnectionFailureDialog((prev) => ({ ...prev, open: false }));
+                    handleEdit(failedConnection);
+                  }}
+                >
+                  Edit connection
+                </Button>
+              ) : null}
               <Button
-                className="w-full"
+                className="w-full sm:flex-1"
                 onClick={() =>
                   setConnectionFailureDialog((prev) => ({
                     ...prev,

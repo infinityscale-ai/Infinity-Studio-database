@@ -2,18 +2,13 @@ import { spawn } from "node:child_process";
 import type { OciProfile } from "../../lib/oci/oci-database";
 import { OciApiError } from "./api";
 import { findOciBinary, summarizeStderr } from "./cli";
-import type { OciCredentialProfile } from "./profiles";
+import { signInCommand, type OciCredentialProfile } from "./profiles";
 import { isTokenLive, readSessionToken } from "./session-token";
 
 /** Whether a profile's session token is usable right now, and until when. */
 export type SessionValidity = { valid: boolean; until: string | null };
 
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
-
-// signInCommand is what the user runs on their own computer to (re)create a session for a profile.
-export function signInCommand(profile: OciProfile): string {
-  return `oci session authenticate --profile-name ${profile.name} --region ${profile.region}`;
-}
 
 // sessionValidity reads the profile's token file; API-key profiles are always usable.
 export function sessionValidity(profile: OciCredentialProfile): SessionValidity {
@@ -23,9 +18,18 @@ export function sessionValidity(profile: OciCredentialProfile): SessionValidity 
   return { valid: isTokenLive(token), until };
 }
 
+// requireLiveSession refuses to go on with an expired or missing sign-in, naming the command that fixes it.
+export function requireLiveSession(profile: OciCredentialProfile): void {
+  if (!profile.sessionAuth) return;
+  const token = readSessionToken(profile.tokenFile);
+  if (isTokenLive(token)) return;
+  const state = token ? `has expired` : `is missing on this computer`;
+  throw new OciApiError("not-signed-in", `Your Oracle Cloud sign-in for ${profile.name} ${state}. Run: ${signInCommand(profile)}`);
+}
+
 // authenticateInBrowser runs `oci session authenticate`, which opens the system browser for the user to sign in.
 export function authenticateInBrowser(profile: OciProfile, binary: string | null = findOciBinary()): Promise<void> {
-  if (!binary) return Promise.reject(new OciApiError("not-signed-in", `Sign in on this computer with: ${signInCommand(profile)}`));
+  if (!binary) return Promise.reject(new OciApiError("not-signed-in", `Sign in on this computer. Run: ${signInCommand(profile)}`));
   const args = ["session", "authenticate", "--profile-name", profile.name, "--region", profile.region];
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, { stdio: ["pipe", "pipe", "pipe"] });
