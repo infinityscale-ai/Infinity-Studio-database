@@ -10,6 +10,8 @@ export type ConnectionFieldValues = {
   sslMode: string;
   authToken: string;
   protocol: string;
+  /** MongoDB only: the database a user authenticates against, kept as-is through the form. */
+  authSource?: string;
 };
 
 export type PlanetScaleProtocol = "mysql" | "postgresql";
@@ -202,10 +204,14 @@ export function buildConnectionStringFromFields(
       sslMode && !["disable", "false", "off", "0"].includes(sslMode);
     const isSrvHost = /\.mongodb\.net$/i.test(host) || host.includes(".mongodb.net");
     if (sslEnabled && isSrvHost) {
-      return `mongodb+srv://${auth}${host}${pathname}`;
+      const srvQuery = fields.authSource ? `?authSource=${encodeURIComponent(fields.authSource)}` : "";
+      return `mongodb+srv://${auth}${host}${pathname}${srvQuery}`;
     }
-    const query = sslEnabled ? "?tls=true" : "";
-    return `mongodb://${auth}${host}:${port}${pathname}${query}`;
+    const params = new URLSearchParams();
+    if (sslEnabled) params.set("tls", "true");
+    if (fields.authSource) params.set("authSource", fields.authSource);
+    const query = params.toString();
+    return `mongodb://${auth}${host}:${port}${pathname}${query ? `?${query}` : ""}`;
   }
 
   if (provider === "redis") {
@@ -309,6 +315,7 @@ function parseGenericConnectionString(
         parsed.searchParams.get("token") ||
         "",
       protocol,
+      authSource: provider === "mongodb" ? parsed.searchParams.get("authSource") || "" : "",
     };
   } catch {
     return defaultsValue;

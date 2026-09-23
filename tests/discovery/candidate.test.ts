@@ -28,3 +28,15 @@ describe("mergeCandidates", () => {
     expect(merged[0].source).toBe("docker");
   });
 });
+
+describe("MongoDB candidates", () => {
+  test("a user from the image's root credentials authenticates against admin, not the app database", () => {
+    const cs = candidateConnectionString({ engine: "mongodb", host: "127.0.0.1", port: 27017, source: "docker", label: "global-mongo", username: "scanlink", password: "pw", database: "scanlink" });
+    const url = new URL(cs);
+    expect(url.pathname).toBe("/scanlink");
+    expect(url.searchParams.get("authSource")).toBe("admin");
+  });
+  test("a MongoDB without credentials needs no authSource", () => {
+    expect(candidateConnectionString({ engine: "mongodb", host: "127.0.0.1", port: 27018, source: "docker", label: "brand-mongo" })).toBe("mongodb://127.0.0.1:27018");
+  });
+});

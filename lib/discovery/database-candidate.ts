@@ -49,7 +49,9 @@ export function candidateConnectionString(c: DatabaseCandidate): string {
     return `jdbc://?jdbcUrl=${encodeURIComponent(jdbcUrl)}&driverClass=oracle.jdbc.OracleDriver`;
   }
   const db = c.database ? `/${encodeURIComponent(c.database)}` : "";
-  return `${SCHEMES[c.engine]}://${authPart(c)}${c.host}:${c.port}${db}`;
+  // The official Mongo image creates its user in admin, whatever database it names.
+  const query = c.engine === "mongodb" && c.username ? "?authSource=admin" : "";
+  return `${SCHEMES[c.engine]}://${authPart(c)}${c.host}:${c.port}${db}${query}`;
 }
 
 // candidateKey names one endpoint so sources can be merged.

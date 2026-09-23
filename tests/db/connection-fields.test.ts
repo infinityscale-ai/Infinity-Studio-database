@@ -213,3 +213,22 @@ test("field-based provider helpers", () => {
   assert.equal(isFieldBasedProvider("postgresql"), false);
   assert.ok(sslModeOptionsForProvider("supabase").length >= 3);
 });
+test("mongodb: a pasted or found string keeps authSource when the form rebuilds it", () => {
+  const fields = parseFieldsFromConnectionString("mongodb", "mongodb://scanlink:pw@127.0.0.1:27017/scanlink?authSource=admin");
+  assert.equal(fields.authSource, "admin");
+  const rebuilt = new URL(buildConnectionStringFromFields("mongodb", fields));
+  assert.equal(rebuilt.pathname, "/scanlink");
+  assert.equal(rebuilt.searchParams.get("authSource"), "admin");
+});
+
+test("mongodb: TLS and authSource travel together", () => {
+  const fields = parseFieldsFromConnectionString("mongodb", "mongodb://u:p@db.example.com:27017/app?tls=true&authSource=admin");
+  const rebuilt = new URL(buildConnectionStringFromFields("mongodb", fields));
+  assert.equal(rebuilt.searchParams.get("tls"), "true");
+  assert.equal(rebuilt.searchParams.get("authSource"), "admin");
+});
+
+test("mongodb: no authSource in, none out", () => {
+  const fields = parseFieldsFromConnectionString("mongodb", "mongodb://127.0.0.1:27018");
+  assert.ok(!buildConnectionStringFromFields("mongodb", fields).includes("authSource"));
+});
