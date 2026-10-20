@@ -45,6 +45,11 @@ import { Connection } from "@/lib/db/schema";
 
 import { detectConnectionDbType } from "@/lib/db/connection-type";
 import { DiscoverSection } from "@/components/connections/discover-section";
+import { LocalConnectButtons } from "@/components/connections/local-connect-buttons";
+import { LocalhostConnectScreen } from "@/components/connections/localhost-connect-screen";
+import { ConnectionLoginPrompt } from "@/components/connections/connection-login-prompt";
+import { useAutoAddLocal } from "@/components/connections/use-auto-add-local";
+import { OracleCloudConnectScreen } from "@/components/connections/oracle-cloud-connect-screen";
 import { CardBadge, CONNECTION_CARD_CLASS, ConnectionCardHeader } from "@/components/connections/connection-card";
 import { isOciRouted } from "@/lib/discovery/saved-match";
 import { adviseOnFailure } from "@/lib/db/connection-failure";
@@ -168,7 +173,9 @@ type ConnectionScreen =
   | "compare"
   | "settings"
   | "jdbc-picker"
-  | "supabase";
+  | "supabase"
+  | "oracle-cloud"
+  | "localhost";
 
 /** Pill update CTA — same height as provider/settings icon buttons (h-7), rounded-full. */
 function ConnectionsUpdatePill({
@@ -1447,6 +1454,9 @@ export function ConnectionManager({
   useEffect(() => {
     connectionsRef.current = connections;
   }, [connections]);
+
+  // Local mode saves the databases running on this machine by itself; no password is asked unless one is refused.
+  useAutoAddLocal(connections, connectionsLoading, loadConnections);
 
   useEffect(() => {
     if (
@@ -2970,6 +2980,19 @@ export function ConnectionManager({
 
             <ConnectionFailureDetails advice={failureAdvice} error={connectionFailureDialog.error} />
 
+            {failureAdvice.kind === "login-rejected" && failedConnection ? (
+              <ConnectionLoginPrompt
+                key={failedConnection.id}
+                connectionString={failedConnection.connectionString}
+                onSubmit={async (withNewLogin) => {
+                  await updateConnection(failedConnection.id, { connectionString: withNewLogin });
+                  setConnectionFailureDialog((prev) => ({ ...prev, open: false }));
+                  await loadConnections();
+                  void openConnection({ ...failedConnection, connectionString: withNewLogin });
+                }}
+              />
+            ) : null}
+
             <DialogFooter className="gap-2 sm:flex-row">
               {failureAdvice.kind === "login-rejected" && failedConnection ? (
                 <Button
@@ -3955,7 +3978,6 @@ export function ConnectionManager({
 
                   <DiscoverSection
                     onPick={applyPastedConnectionString}
-                    onSaved={() => void loadConnections()}
                     saved={connections}
                     onOpenSaved={(id) => {
                       const conn = connections.find((c) => c.id === id);
@@ -4007,6 +4029,10 @@ export function ConnectionManager({
                         </div>
                       </div>
                     </button>
+                    <LocalConnectButtons
+                      onLocalhost={() => setConnectionScreen("localhost")}
+                      onOracleCloud={() => setConnectionScreen("oracle-cloud")}
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -4069,6 +4095,22 @@ export function ConnectionManager({
                 </div>
               </div>
             </div>
+          ) : connectionScreen === "localhost" ? (
+            <LocalhostConnectScreen
+              onBack={() => setConnectionScreen("new-select")}
+              onSaved={() => {
+                void loadConnections();
+                setConnectionScreen("list");
+              }}
+            />
+          ) : connectionScreen === "oracle-cloud" ? (
+            <OracleCloudConnectScreen
+              onBack={() => setConnectionScreen("new-select")}
+              onSaved={() => {
+                void loadConnections();
+                setConnectionScreen("list");
+              }}
+            />
           ) : connectionScreen === "jdbc-picker" ? (
             <JdbcDatabasePickerScreen
               onBack={() => {

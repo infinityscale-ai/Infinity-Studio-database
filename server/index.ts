@@ -16,6 +16,7 @@ import { ensureEnrichedPath } from "../lib/system/shell-path";
 import { isLoopback, readServerConfig, validateServerConfig } from "./web/config";
 import { isStaticPageRequest, mountStatic } from "./web/static";
 import { mountDiscoveryRoutes } from "./discovery/routes";
+import { detectRuntime } from "./discovery/runtime";
 import { mountOciRoutes } from "./oci/routes";
 import { lookupAction } from "./api-actions";
 import { assertEmbedRequest, cacheOptionsFor, mountEmbedClaim, mountEmbedSession, respondEmbedFailure, startEmbedAdmin } from "./embed/mount";
@@ -182,7 +183,8 @@ app.get("/api/auth/probe", (_req, res) => {
 
 // The machine scan and the local Oracle Cloud sign-in are served only where nobody else can reach the studio; the UI asks first.
 app.get("/api/local-tools", (_req, res) => {
-  res.json({ success: true, data: { enabled: cfg.localTools } });
+  // hostAlias is how the studio addresses this computer: 127.0.0.1 natively, host.docker.internal from its container.
+  res.json({ success: true, data: { enabled: cfg.localTools, hostAlias: cfg.localTools ? detectRuntime().hostAlias : null } });
 });
 if (cfg.localTools) {
   mountDiscoveryRoutes(app);

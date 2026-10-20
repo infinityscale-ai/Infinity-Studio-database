@@ -27,6 +27,17 @@ describe("mergeCandidates", () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].source).toBe("docker");
   });
+  test("a container with an empty root password still beats the bare port, so its name and user are kept", () => {
+    const port: DatabaseCandidate = { engine: "mysql", host: "host.docker.internal", port: 3306, source: "port", label: "MySQL / MariaDB on host.docker.internal:3306" };
+    const docker: DatabaseCandidate = { ...port, source: "docker", label: "lims-mysql (mariadb:11)", container: "lims-mysql", username: "root", database: "lims" };
+    expect(mergeCandidates([[port], [docker]])[0].container).toBe("lims-mysql");
+    expect(mergeCandidates([[docker], [port]])[0].container).toBe("lims-mysql");
+  });
+  test("a password-less container (Redis) still beats the bare port", () => {
+    const port: DatabaseCandidate = { engine: "redis", host: "h", port: 6379, source: "port", label: "Redis on h:6379" };
+    const docker: DatabaseCandidate = { ...port, source: "docker", label: "global-redis (redis:7)", container: "global-redis" };
+    expect(mergeCandidates([[port], [docker]])[0].container).toBe("global-redis");
+  });
 });
 
 describe("MongoDB candidates", () => {

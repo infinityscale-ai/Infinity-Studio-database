@@ -3,8 +3,8 @@
 import { DataTableToolbar } from "./data-table-toolbar";
 import { DataGridAg as DataGrid } from "./data-grid-ag";
 import { PendingChangesBanner } from "./pending-changes-banner";
-import { cn } from "@/lib/utils";
-import type { ComponentProps } from "react";
+import { GridLoadingSkeleton } from "./grid-glide/grid-loading-skeleton";
+import { useState, type ComponentProps } from "react";
 
 type TableEditorViewProps = {
   toolbarProps: ComponentProps<typeof DataTableToolbar>;
@@ -13,15 +13,14 @@ type TableEditorViewProps = {
   onOpenReviewPanel?: () => void;
 };
 
-function Skeleton({ className }: { className?: string }) {
-  return (
-    <div className={cn("animate-pulse bg-muted rounded", className)} />
-  );
-}
-
 export function TableEditorView({ toolbarProps, gridProps, showPendingChangesBanner = true, onOpenReviewPanel }: TableEditorViewProps) {
   const isLoading = toolbarProps.loading || toolbarProps.fetchingStructure;
-  const useSkeleton = gridProps.skeletonLoaders && isLoading;
+  // The table whose rows the grid last finished showing; opening a different one draws the skeleton, refreshing the same one keeps the rows.
+  const currentTable = gridProps.selectedTable ?? null;
+  const [loadedTable, setLoadedTable] = useState<string | null>(null);
+  if (!isLoading && loadedTable !== currentTable) setLoadedTable(currentTable);
+  const switchingTable = isLoading && currentTable !== loadedTable;
+  const useSkeleton = isLoading && (switchingTable || gridProps.skeletonLoaders);
 
   const pendingChanges = (gridProps as any).pendingChanges;
   const pendingActions = (gridProps as any).pendingActions;
@@ -41,8 +40,8 @@ export function TableEditorView({ toolbarProps, gridProps, showPendingChangesBan
         />
       )}
       <div className="w-full bg-transparent overflow-hidden shrink-0 relative">
-        {isLoading && !gridProps.skeletonLoaders ? (
-          <div className="h-[1px] w-full relative">
+        {isLoading && !useSkeleton ? (
+          <div className="h-[2px] w-full relative">
             <div className="absolute inset-0 overflow-hidden">
               <div
                 className="h-full w-full bg-gradient-to-r from-transparent via-blue-500/40 via-blue-400 via-blue-500/40 to-transparent animate-progress-beam"
@@ -56,24 +55,7 @@ export function TableEditorView({ toolbarProps, gridProps, showPendingChangesBan
       </div>
       
       {useSkeleton ? (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="h-10 border-b border-border bg-table-header-bg flex items-center px-4 gap-4">
-            <Skeleton className="h-4 w-4 rounded" />
-            <Skeleton className="h-4 w-24 rounded" />
-            <Skeleton className="h-4 w-32 rounded" />
-            <Skeleton className="h-4 w-20 rounded" />
-          </div>
-          <div className="flex-1 p-4 space-y-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <Skeleton className="h-4 w-4 rounded" />
-                <Skeleton className="h-4 flex-1 rounded" />
-                <Skeleton className="h-4 w-32 rounded" />
-                <Skeleton className="h-4 w-24 rounded" />
-              </div>
-            ))}
-          </div>
-        </div>
+        <GridLoadingSkeleton tableName={gridProps.selectedTable} />
       ) : (
         <DataGrid {...gridProps} />
       )}

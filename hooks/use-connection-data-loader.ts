@@ -16,6 +16,7 @@ import { detectConnectionDbType } from "@/lib/db/connection-type";
 import { usesDatabaseNamespaces } from "@/lib/db/namespace-display";
 import { fetchNamespaceList } from "@/lib/db/namespace-list";
 import { getDatabaseFromConnectionString } from "@/lib/studio/db-helpers";
+import { defaultSchemaFor } from "@/lib/studio/default-schema";
 
 interface UseConnectionDataLoaderProps {
   setFetchingSchemas: (loading: boolean) => void;
@@ -73,18 +74,7 @@ export function useConnectionDataLoader({
           return;
         }
         setSchemas(normalizedSchemas);
-        let defaultSchema = isPgLike
-          ? (normalizedSchemas.includes("public") ? "public" : normalizedSchemas[0])
-          : normalizedSchemas[0];
-        if (isMssql && normalizedSchemas.includes("dbo")) {
-          defaultSchema = "dbo";
-        }
-        if (usesDatabaseNamespaces(connType)) {
-          const dbName = getDatabaseFromConnectionString(connString);
-          if (dbName && normalizedSchemas.includes(dbName)) {
-            defaultSchema = dbName;
-          }
-        }
+        const defaultSchema = defaultSchemaFor(connString, normalizedSchemas) ?? normalizedSchemas[0];
         setSelectedSchema(defaultSchema);
 
         // Load other data

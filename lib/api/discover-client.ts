@@ -1,6 +1,6 @@
 import { API_BASE, apiFetch } from "@/lib/api-base";
 import type { DiscoverResult } from "@/lib/discovery/database-candidate";
-import type { OciConnectRequest, OciDatabaseSummary, OciRouteAnswer, OciStatus, OciTunnelResult } from "@/lib/oci/oci-database";
+import type { OciAddressRequest, OciAddressResult } from "@/lib/oci/oci-database";
 
 /** A failed studio API call, with the code the panels branch on. */
 export class DiscoverApiError extends Error {
@@ -25,13 +25,24 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return body.data as T;
 }
 
-// localToolsEnabled asks whether this studio serves the machine scan and the Oracle Cloud sign-in at all.
-export async function localToolsEnabled(): Promise<boolean> {
+/** Whether this studio serves the local tools, and how it addresses this computer. */
+export type LocalTools = { enabled: boolean; hostAlias: string };
+
+const NO_LOCAL_TOOLS: LocalTools = { enabled: false, hostAlias: "127.0.0.1" };
+
+// localTools asks whether this studio serves the machine scan and Oracle Cloud at all, and the host name of this computer.
+export async function localTools(): Promise<LocalTools> {
   try {
-    return (await call<{ enabled: boolean }>("/api/local-tools")).enabled === true;
+    const answer = await call<{ enabled: boolean; hostAlias?: string | null }>("/api/local-tools");
+    return { enabled: answer.enabled === true, hostAlias: answer.hostAlias || NO_LOCAL_TOOLS.hostAlias };
   } catch {
-    return false;
+    return NO_LOCAL_TOOLS;
   }
+}
+
+// localToolsEnabled asks only whether this studio serves the local tools.
+export async function localToolsEnabled(): Promise<boolean> {
+  return (await localTools()).enabled;
 }
 
 // discoverLocal scans this machine for databases.
@@ -39,29 +50,9 @@ export function discoverLocal(): Promise<DiscoverResult> {
   return call<DiscoverResult>("/api/discover/local", { method: "POST", body: "{}" });
 }
 
-// ociStatus reports whether the OCI CLI is installed and which profiles it has.
-export function ociStatus(): Promise<OciStatus> {
-  return call<OciStatus>("/api/oci/status");
-}
-
-// ociLogin refreshes or opens the browser sign-in for a profile; it resolves once the session is usable.
-export function ociLogin(profile: string): Promise<{ ok: boolean }> {
-  return call<{ ok: boolean }>("/api/oci/login", { method: "POST", body: JSON.stringify({ profile }) });
-}
-
-// ociDatabases lists the databases a profile can see across the tenancy.
-export function ociDatabases(profile: string): Promise<OciDatabaseSummary[]> {
-  return call<OciDatabaseSummary[]>(`/api/oci/databases?profile=${encodeURIComponent(profile)}`);
-}
-
-// ociRoute reports a database's private address and which of the user's clusters can carry the connection. It changes nothing.
-export function ociRoute(profile: string, database: OciDatabaseSummary): Promise<OciRouteAnswer> {
-  return call<OciRouteAnswer>("/api/oci/route", { method: "POST", body: JSON.stringify({ profile, database }) });
-}
-
-// ociConnect returns the connection string that reaches the database through the user's own cluster.
-export function ociConnect(request: OciConnectRequest): Promise<OciTunnelResult> {
-  return call<OciTunnelResult>("/api/oci/connect", { method: "POST", body: JSON.stringify(request) });
+// ociAddress returns the connection string that reaches a typed Oracle Cloud database through the user's own cluster.
+export function ociAddress(request: OciAddressRequest): Promise<OciAddressResult> {
+  return call<OciAddressResult>("/api/oci/address", { method: "POST", body: JSON.stringify(request) });
 }
 
 /** What a saved connection needs. */
@@ -70,4 +61,18 @@ export type SaveConnectionInput = { name: string; connectionString: string; conn
 // saveConnection stores a finished connection in the studio, the same way the connection form does.
 export async function saveConnection(input: SaveConnectionInput): Promise<void> {
   await call<unknown>("/api/connections", { method: "POST", body: JSON.stringify(input) });
+}
+
+/** What the studio answers when it tries a connection string. */
+export type ConnectionCheck = { success: boolean; error?: string };
+
+// checkConnection asks the studio to open a connection string once and report whether it worked.
+export async function checkConnection(connectionString: string, connectionType: string): Promise<ConnectionCheck> {
+  const res = await apiFetch(new URL("/api/connections/test", API_BASE).toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ connectionString, connectionType }),
+  });
+  const body = (await res.json().catch(() => ({ success: false }))) as ConnectionCheck;
+  return res.ok ? body : { success: false, error: body.error || `Request failed (HTTP ${res.status}).` };
 }

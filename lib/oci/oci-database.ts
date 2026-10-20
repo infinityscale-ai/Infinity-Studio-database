@@ -19,23 +19,17 @@ export type OciDatabaseTarget = OciDatabaseSummary & {
   version: string;
 };
 
-/** The Kubernetes cluster that will carry the connection into the database's private network. */
-export type OciCarrierCluster = { id: string; name: string; publicEndpoint: string };
-
 /** A profile from the user's ~/.oci/config. */
 export type OciProfile = { name: string; region: string; tenancy: string; sessionAuth: boolean };
-
-/** What the connection form receives once the route into the database is settled. */
-export type OciTunnelResult = { connectionString: string; target: OciDatabaseTarget; cluster: OciCarrierCluster; namespace: string };
 
 /** A profile plus whether its session token is currently usable (null for API-key profiles). */
 export type OciProfileStatus = OciProfile & { sessionValid: boolean | null; validUntil: string | null };
 
-/** What the OCI panel learns before listing anything: sign-in files found, whether the browser sign-in and kubectl can run here, and the profiles. */
+/** What the studio knows about the Oracle Cloud sign-in on this computer: the profiles, whether each session is live, and whether kubectl can run here. */
 export type OciStatus = { configured: boolean; cliAvailable: boolean; kubectlAvailable: boolean; profiles: OciProfileStatus[] };
 
-/** What the panel sends to save a connection that goes through the user's own cluster. */
-export type OciConnectRequest = { profile: string; database: OciDatabaseSummary; login: { username: string; password: string; database: string } };
+/** An Oracle Cloud database typed in like an app's .env: engine, private address, port and the login to use. */
+export type OciAddressRequest = { engine: "mysql" | "postgres"; host: string; port: number; database: string; username: string; password: string };
 
-/** What the panel gets back when it asks how a database would be reached. */
-export type OciRouteAnswer = { target: OciDatabaseTarget; cluster: OciCarrierCluster | null };
+/** The connection string that reaches a typed database through the user's own cluster, and what carries it. */
+export type OciAddressResult = { connectionString: string; cluster: string; managedName: string | null };

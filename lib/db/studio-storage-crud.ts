@@ -1,4 +1,5 @@
 import { getCachedSchemasSnapshot, getCachedTablesSnapshot } from "./schema-cache-actions";
+import { defaultSchemaFor } from "../studio/default-schema";
 import { runCoreTransaction, withSqliteBusyRetry, formatDbError } from "./sqlite-helpers";
 import { computeBasicStats, computeQueriesByDay, computeTopQueries } from "./analytics-utils";
 
@@ -330,7 +331,7 @@ export async function getStudioBootstrap(
     const cachedSchemas = await getCachedSchemasSnapshot(connection.connectionString, ensureCoreTables);
     const activeTabId = settings?.activeTabId ? String(settings.activeTabId) : null;
     const activeTab = activeTabId ? tabs.find((tab: any) => String(tab.id) === activeTabId) : null;
-    const fallbackSchema = cachedSchemas.includes("public") ? "public" : (cachedSchemas[0] || null);
+    const fallbackSchema = defaultSchemaFor(connection.connectionString, cachedSchemas);
     const selectedSchema = requestedSchema && cachedSchemas.includes(requestedSchema)
       ? requestedSchema
       : (activeTab?.schema && cachedSchemas.includes(activeTab.schema) ? activeTab.schema : fallbackSchema);

@@ -34,11 +34,6 @@ export function savedForEndpoint<T extends SavedLike>(saved: T[], host: string, 
   return saved.find((c) => !ociDatabaseOf(c.connectionString) && endpointOf(c.connectionString) === wanted) ?? null;
 }
 
-// savedForOciDatabase finds the saved connection made from an Oracle Cloud database.
-export function savedForOciDatabase<T extends SavedLike>(saved: T[], databaseId: string): T | null {
-  return saved.find((c) => ociDatabaseOf(c.connectionString) === databaseId) ?? null;
-}
-
 // isOciRouted reports whether a saved connection reaches an Oracle Cloud database through the user's cluster.
 export function isOciRouted(connectionString: string): boolean {
   if (ociDatabaseOf(connectionString)) return true;

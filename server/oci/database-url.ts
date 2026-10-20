@@ -29,6 +29,6 @@ export function databaseUrl(target: OciDatabaseTarget, login: DatabaseLogin, pgT
   const auth = `${encodeURIComponent(login.username)}:${encodeURIComponent(login.password)}@`;
   const db = login.database ? `/${encodeURIComponent(login.database)}` : "";
   const params = tlsParams(target, pgTls);
-  params.set(OCI_DATABASE_PARAM, target.id);
+  if (target.id) params.set(OCI_DATABASE_PARAM, target.id);
   return `${scheme}://${auth}${target.privateIp}:${target.port}${db}?${params.toString()}`;
 }

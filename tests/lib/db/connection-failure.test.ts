@@ -35,7 +35,7 @@ describe("adviseOnFailure", () => {
   test("no user at all says a login is needed rather than naming an empty user", () => {
     const advice = adviseOnFailure("Access denied for user ''@'172.17.0.1' (using password: NO)", "mysql://127.0.0.1:3306");
     expect(advice.kind).toBe("login-rejected");
-    expect(advice.summary).toBe("The database answered and needs a user and password.");
+    expect(advice.summary).toBe("The database answered and needs a login.");
   });
 
   test("an expired Oracle sign-in names the exact command to run", () => {
@@ -54,5 +54,15 @@ describe("adviseOnFailure", () => {
     const advice = adviseOnFailure("connect ETIMEDOUT 10.1.2.3:5432", LOCAL);
     expect(advice.kind).toBe("unknown");
     expect(advice.steps).toHaveLength(3);
+  });
+});
+
+describe("a database that wants a login it was not given", () => {
+  test("Redis, MongoDB and PostgreSQL wording all ask for a login", () => {
+    for (const error of ["NOAUTH Authentication required.", "MongoServerError: Authentication failed.", "no PostgreSQL user name specified in startup packet"]) {
+      const advice = adviseOnFailure(error, LOCAL);
+      expect(advice.kind).toBe("login-rejected");
+      expect(advice.title).toBe("A login is needed");
+    }
   });
 });

@@ -46,14 +46,45 @@ describe("the tunnel registry", () => {
     await closeAllTunnels();
   });
 
-  test("closing one relay lets the next call open a fresh one", async () => {
+  test("once the last caller lets go and the relay sits unused, it closes and the next call opens a fresh one", async () => {
     await closeAllTunnels();
     const state = { opened: 0, closed: [] as string[] };
     const open = () => Promise.resolve(fakeTunnel(`relay-${state.opened + 1}`, state));
-    const tunnel = await getOrOpenTunnel(PREPROD, open);
+    const tunnel = await getOrOpenTunnel(PREPROD, open, 0);
     await tunnel.close();
-    await getOrOpenTunnel(PREPROD, open);
+    await new Promise((r) => setTimeout(r, 5));
+    expect(state.closed).toEqual(["relay-1"]);
+    await getOrOpenTunnel(PREPROD, open, 0);
     expect(state.opened).toBe(2);
+    await closeAllTunnels();
+  });
+
+  test("one query finishing never cuts off another still using the same relay", async () => {
+    await closeAllTunnels();
+    const state = { opened: 0, closed: [] as string[] };
+    const open = () => Promise.resolve(fakeTunnel("relay-shared", state));
+    const tables = await getOrOpenTunnel(PREPROD, open, 0);
+    const views = await getOrOpenTunnel(PREPROD, open, 0);
+    await tables.close();
+    await tables.close();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(state.closed).toEqual([]);
+    await views.close();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(state.closed).toEqual(["relay-shared"]);
+    expect(state.opened).toBe(1);
+  });
+
+  test("a relay asked for again during its idle grace is reused, not restarted", async () => {
+    await closeAllTunnels();
+    const state = { opened: 0, closed: [] as string[] };
+    const open = () => Promise.resolve(fakeTunnel(`relay-${state.opened + 1}`, state));
+    await (await getOrOpenTunnel(PREPROD, open, 50)).close();
+    const again = await getOrOpenTunnel(PREPROD, open, 50);
+    await new Promise((r) => setTimeout(r, 80));
+    expect(state.opened).toBe(1);
+    expect(state.closed).toEqual([]);
+    await again.close();
     await closeAllTunnels();
   });
 

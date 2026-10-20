@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { endpointOf, isOciRouted, savedForEndpoint, savedForOciDatabase } from "../../lib/discovery/saved-match";
+import { endpointOf, isOciRouted, savedForEndpoint } from "../../lib/discovery/saved-match";
 
 const SAVED = [
   { id: 1, connectionString: "mysql://root:x@localhost:3306/shop" },
@@ -28,10 +28,6 @@ describe("savedForEndpoint", () => {
 });
 
 describe("Oracle Cloud connections", () => {
-  test("a saved connection is found by the Oracle database it came from", () => {
-    expect(savedForOciDatabase(SAVED, "ocid1.mysqldbsystem.pre")?.id).toBe(3);
-    expect(savedForOciDatabase(SAVED, "ocid1.mysqldbsystem.other")).toBeNull();
-  });
   test("both new and older cluster-routed connections carry the Oracle Cloud badge", () => {
     expect(isOciRouted(SAVED[2].connectionString)).toBe(true);
     expect(isOciRouted(SAVED[3].connectionString)).toBe(true);

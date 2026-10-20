@@ -13,6 +13,9 @@ const GENERIC_STEPS = [
   "Your network, VPN, SSH tunnel, or firewall is not blocking the connection.",
 ];
 
+/** Errors that mean the database wants a login it was not given: PostgreSQL, MongoDB and Redis wording. */
+const LOGIN_NEEDED = /no PostgreSQL user name specified|client password must be a string|no password supplied|Authentication failed|NOAUTH|WRONGPASS|requires authentication/i;
+
 // commandIn pulls the command the server asked the user to run out of an error, if it named one.
 export function commandIn(error: string): string | null {
   return /Run:\s*(oci session authenticate[^\n]*)/.exec(error)?.[1]?.trim() ?? null;
@@ -27,7 +30,7 @@ export function rejectedUser(error: string): string | null {
 
 // loginAdvice explains a refused login, saying plainly that the route itself worked.
 function loginAdvice(user: string, routed: boolean): FailureAdvice {
-  if (!user) return { kind: "login-rejected", title: "A login is needed", summary: "The database answered and needs a user and password.", steps: ["Edit the connection and enter a user and password."], command: null };
+  if (!user) return { kind: "login-rejected", title: "A login is needed", summary: "The database answered and needs a login.", steps: ["Enter its user and password below; it is saved with the connection."], command: null };
   const summary = routed
     ? `The studio reached the database through your cluster and it answered: user "${user}" or its password is wrong. Oracle Cloud and the tunnel are working.`
     : `The database answered: user "${user}" or its password is wrong.`;
@@ -41,6 +44,7 @@ function loginAdvice(user: string, routed: boolean): FailureAdvice {
 export function adviseOnFailure(error: string, connectionString = ""): FailureAdvice {
   const user = rejectedUser(error);
   if (user !== null) return loginAdvice(user, isOciRouted(connectionString));
+  if (LOGIN_NEEDED.test(error)) return loginAdvice("", isOciRouted(connectionString));
   const command = commandIn(error);
   if (command || /Oracle Cloud sign-in|No Oracle Cloud profile|session has probably expired/i.test(error)) {
     return { kind: "sign-in", title: "Sign in to Oracle Cloud", summary: "This connection goes through your Oracle Cloud account, and its sign-in on this computer is missing or has expired.", steps: ["Run the command below in a terminal on this computer; it opens your browser to sign in.", "Then open the connection again."], command };
